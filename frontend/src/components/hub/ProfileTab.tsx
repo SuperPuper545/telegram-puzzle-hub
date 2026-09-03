@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useGameBridge } from '../../context/GameContext';
 import { Trophy, Gamepad2, Share2, Play, Flame, Coins, Gift, ShoppingBag } from 'lucide-react';
-import { haptics, getTelegramWebApp, getStoredThemeMode, setStoredThemeMode, type ThemeMode } from '../../telegram/telegram';
+import { haptics, getTelegramWebApp } from '../../telegram/telegram';
 import { sound } from '../../utils/sound';
 
 export const ProfileTab: React.FC = () => {
@@ -16,14 +16,6 @@ export const ProfileTab: React.FC = () => {
     setActiveTab, 
     openGame 
   } = useGameBridge();
-  const [currentTheme, setCurrentTheme] = useState<ThemeMode>(() => getStoredThemeMode());
-
-  const handleSelectTheme = (mode: ThemeMode) => {
-    sound.playUiTap();
-    haptics.selection();
-    setCurrentTheme(mode);
-    setStoredThemeMode(mode);
-  };
 
   const totalScore = Object.values(bestScores).reduce((acc, s) => acc + s, 0);
   const initials = (user.first_name || 'U').slice(0, 2).toUpperCase();
@@ -121,57 +113,6 @@ export const ProfileTab: React.FC = () => {
         <div className="mt-3.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border bg-indigo-500/15 border-indigo-400/30 text-indigo-400">
           <span>🎮</span>
           <span>Игрок TapTap Hub</span>
-        </div>
-      </div>
-
-      {/* Theme Switcher: Auto / Light / Dark (Sand) / AMOLED */}
-      <div className="rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-3.5 space-y-2.5 shadow-sm">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-tg-text">Тема оформления</span>
-          <span className="text-[10px] text-tg-hint font-semibold">
-            {currentTheme === 'auto'
-              ? 'Авто (Telegram)'
-              : currentTheme === 'light'
-              ? '☀️ Светлая'
-              : currentTheme === 'dark'
-              ? '🌘 Тёмная (Песок)'
-              : '🌑 Dark (AMOLED)'}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-4 gap-1 p-1 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)]">
-          <button
-            onClick={() => handleSelectTheme('auto')}
-            className={`py-1.5 px-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
-              currentTheme === 'auto' ? 'tg-btn-primary shadow-sm' : 'text-tg-hint hover:text-tg-text'
-            }`}
-          >
-            Авто
-          </button>
-          <button
-            onClick={() => handleSelectTheme('light')}
-            className={`py-1.5 px-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
-              currentTheme === 'light' ? 'tg-btn-primary shadow-sm' : 'text-tg-hint hover:text-tg-text'
-            }`}
-          >
-            ☀️ Светлая
-          </button>
-          <button
-            onClick={() => handleSelectTheme('dark')}
-            className={`py-1.5 px-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
-              currentTheme === 'dark' ? 'tg-btn-primary shadow-sm' : 'text-tg-hint hover:text-tg-text'
-            }`}
-          >
-            🌘 Тёмная
-          </button>
-          <button
-            onClick={() => handleSelectTheme('amoled')}
-            className={`py-1.5 px-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
-              currentTheme === 'amoled' ? 'tg-btn-primary shadow-sm' : 'text-tg-hint hover:text-tg-text'
-            }`}
-          >
-            🌑 Dark
-          </button>
         </div>
       </div>
 

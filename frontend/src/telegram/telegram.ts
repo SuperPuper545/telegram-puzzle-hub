@@ -55,22 +55,6 @@ export function getTelegramWebApp() {
   return null;
 }
 
-export type ThemeMode = 'auto' | 'light' | 'dark' | 'amoled';
-
-const THEME_STORAGE_KEY = 'tma_hub_theme_mode';
-
-export function getStoredThemeMode(): ThemeMode {
-  if (typeof window === 'undefined') return 'auto';
-  const saved = localStorage.getItem(THEME_STORAGE_KEY) as ThemeMode | null;
-  return saved === 'light' || saved === 'dark' || saved === 'amoled' ? saved : 'auto';
-}
-
-export function setStoredThemeMode(mode: ThemeMode) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(THEME_STORAGE_KEY, mode);
-  applyTelegramTheme(mode);
-}
-
 // Calculate relative luminance from hex color string
 function getLuminance(hex: string): number {
   const cleanHex = hex.replace('#', '');
@@ -81,91 +65,100 @@ function getLuminance(hex: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-export function applyTelegramTheme(modeOverride?: ThemeMode) {
+export function applyTelegramTheme() {
   const tg = getTelegramWebApp();
   const root = document.documentElement;
-  const tp = tg?.themeParams || {};
-  const mode = modeOverride || getStoredThemeMode();
 
-  const bgHex = (tp.bg_color || '').toLowerCase().trim();
-  const lum = bgHex ? getLuminance(bgHex) : 0.05;
-
-  let resolvedTheme: 'light' | 'dark' | 'amoled' = 'dark';
-
-  if (mode === 'light') {
-    resolvedTheme = 'light';
-  } else if (mode === 'dark') {
-    resolvedTheme = 'dark';
-  } else if (mode === 'amoled') {
-    resolvedTheme = 'amoled';
-  } else {
-    // Auto detection from Telegram WebApp
-    if (lum > 0.55 || tg?.colorScheme === 'light') {
-      resolvedTheme = 'light';
-    } else if (
-      bgHex === '#000000' ||
-      bgHex === '#0a0a0a' ||
-      bgHex === '#111111' ||
-      bgHex === '#121212' ||
-      bgHex === '#141414' ||
-      bgHex === '#161616' ||
-      lum <= 0.025
-    ) {
-      resolvedTheme = 'amoled';
-    } else {
-      // Classic Telegram Night / Dark-Sand / Tinted
-      resolvedTheme = 'dark';
-    }
-  }
-
-  // Clean previous classes
-  root.classList.remove('tg-light', 'tg-dark', 'tg-amoled');
-  root.classList.add(`tg-${resolvedTheme}`);
-
-  if (resolvedTheme === 'light') {
-    root.style.setProperty('--tg-theme-bg-color', tp.bg_color || '#f3f4f6');
-    root.style.setProperty('--tg-theme-secondary-bg-color', tp.secondary_bg_color || '#ffffff');
-    root.style.setProperty('--tg-theme-text-color', tp.text_color || '#111827');
-    root.style.setProperty('--tg-theme-hint-color', tp.hint_color || '#6b7280');
-    root.style.setProperty('--tg-theme-section-separator-color', tp.section_separator_color || 'rgba(0, 0, 0, 0.08)');
-    root.style.setProperty('--tg-theme-button-color', tp.button_color || '#2563eb');
-    root.style.setProperty('--tg-theme-button-text-color', tp.button_text_color || '#ffffff');
-    root.style.setProperty('--tg-theme-header-bg-color', tp.header_bg_color || '#f3f4f6');
-  } else if (resolvedTheme === 'amoled') {
-    root.style.setProperty('--tg-theme-bg-color', '#000000');
-    root.style.setProperty('--tg-theme-secondary-bg-color', '#121212');
-    root.style.setProperty('--tg-theme-text-color', '#ffffff');
-    root.style.setProperty('--tg-theme-hint-color', '#8e8e93');
-    root.style.setProperty('--tg-theme-section-separator-color', 'rgba(255, 255, 255, 0.12)');
-    root.style.setProperty('--tg-theme-button-color', tp.button_color || '#2481cc');
-    root.style.setProperty('--tg-theme-button-text-color', '#ffffff');
-    root.style.setProperty('--tg-theme-header-bg-color', '#000000');
-  } else {
-    // 'dark' -> Telegram's dark sand / tinted dark
-    root.style.setProperty('--tg-theme-bg-color', tp.bg_color || '#1e1d1a');
-    root.style.setProperty('--tg-theme-secondary-bg-color', tp.secondary_bg_color || '#282622');
-    root.style.setProperty('--tg-theme-text-color', tp.text_color || '#f5f5f4');
-    root.style.setProperty('--tg-theme-hint-color', tp.hint_color || '#a8a29e');
-    root.style.setProperty('--tg-theme-section-separator-color', tp.section_separator_color || 'rgba(255, 255, 255, 0.09)');
-    root.style.setProperty('--tg-theme-button-color', tp.button_color || '#5288c1');
-    root.style.setProperty('--tg-theme-button-text-color', '#ffffff');
-    root.style.setProperty('--tg-theme-header-bg-color', tp.header_bg_color || '#1e1d1a');
-  }
-
-  // Update Telegram top & bottom container colors if supported
+  // Clear any legacy manual theme override
   try {
-    const activeBg = root.style.getPropertyValue('--tg-theme-bg-color');
-    if (typeof tg?.setHeaderColor === 'function' && activeBg) {
-      tg.setHeaderColor(activeBg);
+    localStorage.removeItem('tma_hub_theme_mode');
+  } catch {}
+
+  // 1. Read themeParams from Telegram WebApp object or URL hash
+  let tp: Record<string, string> = {};
+  if (tg?.themeParams && Object.keys(tg.themeParams).length > 0) {
+    tp = tg.themeParams;
+  } else if (typeof window !== 'undefined') {
+    const hash = window.location.hash || '';
+    const match = hash.match(/tgWebAppThemeParams=([^&]+)/);
+    if (match && match[1]) {
+      try {
+        tp = JSON.parse(decodeURIComponent(match[1]));
+      } catch {}
     }
-    if (typeof tg?.setBackgroundColor === 'function' && activeBg) {
-      tg.setBackgroundColor(activeBg);
-    }
-  } catch {
-    // Ignore unsupported Telegram client calls
   }
 
-  return resolvedTheme;
+  // 2. Map all native Telegram colors directly into CSS variables
+  if (tp.bg_color) {
+    root.style.setProperty('--tg-theme-bg-color', tp.bg_color);
+    if (typeof document !== 'undefined' && document.body) {
+      document.body.style.backgroundColor = tp.bg_color;
+    }
+  }
+  if (tp.text_color) {
+    root.style.setProperty('--tg-theme-text-color', tp.text_color);
+  }
+  if (tp.hint_color) {
+    root.style.setProperty('--tg-theme-hint-color', tp.hint_color);
+  }
+  if (tp.link_color) {
+    root.style.setProperty('--tg-theme-link-color', tp.link_color);
+  }
+  if (tp.button_color) {
+    root.style.setProperty('--tg-theme-button-color', tp.button_color);
+  }
+  if (tp.button_text_color) {
+    root.style.setProperty('--tg-theme-button-text-color', tp.button_text_color);
+  }
+  if (tp.header_bg_color) {
+    root.style.setProperty('--tg-theme-header-bg-color', tp.header_bg_color);
+  }
+  if (tp.section_bg_color) {
+    root.style.setProperty('--tg-theme-section-bg-color', tp.section_bg_color);
+  }
+
+  // 3. Determine if current theme is light or dark based on luminance of actual bg_color or colorScheme
+  const currentBg = tp.bg_color || root.style.getPropertyValue('--tg-theme-bg-color') || '#0e1621';
+  const isLight = tg?.colorScheme === 'light' || getLuminance(currentBg) > 0.55;
+
+  root.classList.toggle('dark', !isLight);
+  root.classList.toggle('light', isLight);
+
+  // 4. Set secondary background (cards, sections, bottom nav)
+  if (tp.secondary_bg_color && tp.secondary_bg_color.toLowerCase() !== currentBg.toLowerCase()) {
+    root.style.setProperty('--tg-theme-secondary-bg-color', tp.secondary_bg_color);
+  } else {
+    // If Telegram did not provide a distinct secondary_bg_color, derive it dynamically:
+    if (isLight) {
+      root.style.setProperty('--tg-theme-secondary-bg-color', '#ffffff');
+    } else {
+      root.style.setProperty(
+        '--tg-theme-secondary-bg-color',
+        'color-mix(in srgb, var(--tg-theme-text-color, #ffffff) 7%, var(--tg-theme-bg-color, #121212))'
+      );
+    }
+  }
+
+  // 5. Ensure section separator is visible on all background shades
+  if (tp.section_separator_color) {
+    root.style.setProperty('--tg-theme-section-separator-color', tp.section_separator_color);
+  } else {
+    root.style.setProperty(
+      '--tg-theme-section-separator-color',
+      isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)'
+    );
+  }
+
+  // 6. Synchronize Telegram system header and background colors
+  try {
+    const activeHeader = tp.header_bg_color || tp.bg_color;
+    if (activeHeader && typeof tg?.setHeaderColor === 'function') {
+      tg.setHeaderColor(activeHeader);
+    }
+    if (tp.bg_color && typeof tg?.setBackgroundColor === 'function') {
+      tg.setBackgroundColor(tp.bg_color);
+    }
+  } catch {}
 }
 
 export function initTelegramApp() {
