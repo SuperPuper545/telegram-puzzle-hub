@@ -1,4 +1,4 @@
-﻿import crypto from 'crypto';
+import crypto from 'crypto';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -83,14 +83,14 @@ export function authMiddleware(req, res, next) {
 
   let tgUser = validateTelegramInitData(initData);
 
-  // Fallback for development / mock mode
-  if (!tgUser && process.env.NODE_ENV !== 'production') {
-    const mockId = req.headers['x-mock-user-id'] || '10001';
-    const mockName = req.headers['x-mock-username'] || 'Player One';
+  // Fallback for desktop browser or direct testing
+  if (!tgUser) {
+    const mockId = parseInt(req.headers['x-mock-user-id'] || '1', 10) || 1;
+    const mockName = req.headers['x-mock-username'] || 'Super_Puper545';
     tgUser = {
       id: mockId,
       first_name: mockName,
-      username: 'player_one',
+      username: 'player',
       photo_url: null,
     };
   }

@@ -155,16 +155,19 @@ function startRoom(gameType,betAmount,hostEnt,guestEnt,existId,timerMode,durakMo
   } else { room.guest={userId:guestEnt.userId,firstName:guestEnt.firstName||'Guest',username:guestEnt.username||null,ws:guestEnt.ws,connected:true}; room.status='active'; room.gameState=gs; }
   if(gameType==='chess'){const hw=Math.random()<0.5;room.host.chessColor=hw?'white':'black';room.guest.chessColor=hw?'black':'white';}
   if(gameType==='durak'){gs.attackerId=room.host.userId;gs.defenderId=room.guest.userId;}
-  if(gameType==='battleship')gs.currentAttackerId=room.host.userId;
+  if(gameType==='battleship'){
+    gs.currentAttackerId=room.host.userId;
+    if(guestEnt.isBot){const rf=generateRandomFleet();gs.ships2=rf.ships;gs.board2=rf.board;gs.ready2=true;}
+  }
   const base={type:'game_start',roomId,gameType,betAmount};
   const chessExtra=(color,oppColor)=>gameType==='chess'?{myColor:color,opponentColor:oppColor,fen:gs.fen,timerMode:gs.timerMode,whiteTimeMs:gs.whiteTimeMs,blackTimeMs:gs.blackTimeMs}:{};
   const durakExtra=(hand)=>gameType==='durak'?{hand,trump:gs.trump,deckCount:gs.deck.length,attackerId:gs.attackerId,defenderId:gs.defenderId,mode:gs.mode}:{};
   const bsExtra=gameType==='battleship'?{phase:'placement'}:{};
   sendWs(room.host.ws,{...base,role:'host',myUserId:room.host.userId,opponent:{firstName:room.guest.firstName,username:room.guest.username,userId:room.guest.userId},...chessExtra(room.host.chessColor,room.guest.chessColor),...durakExtra(gs.hand1),...bsExtra});
-  sendWs(room.guest.ws,{...base,role:'guest',myUserId:room.guest.userId,opponent:{firstName:room.host.firstName,username:room.host.username,userId:room.host.userId},...chessExtra(room.guest.chessColor,room.host.chessColor),...durakExtra(gs.hand2),...bsExtra});
+  if(room.guest.ws)sendWs(room.guest.ws,{...base,role:'guest',myUserId:room.guest.userId,opponent:{firstName:room.host.firstName,username:room.host.username,userId:room.host.userId},...chessExtra(room.guest.chessColor,room.host.chessColor),...durakExtra(gs.hand2),...bsExtra});
   if(gameType==='chess')startChessTimer(room);
-  if(gameType==='durak')bcastDurak(room);
-  console.log(`[Room] ${roomId} | ${gameType} | ${betAmount}c | ${room.host.firstName} vs ${room.guest.firstName}`);
+  if(gameType==='durak'){bcastDurak(room);if(room.guest.isBot)triggerBotTurn(room);}
+  console.log(`[Room] ${roomId} | ${gameType} | ${betAmount}c | ${room.host.firstName} vs ${room.guest.firstName}${guestEnt.isBot?' [BOT]':''}`);
 }
 
 // ─── MATCHMAKING ──────────────────────────────────────────────────────────────
@@ -180,6 +183,20 @@ function onJoinQueue(ws,user,d) {
   } else {
     matchmakingQueues[key].push({userId:user.id,ws,user,timerMode,durakMode});
     sendWs(ws,{type:'queued',gameType,betAmount});
+
+    // Auto-match training opponent if queue is empty for 3 seconds!
+    setTimeout(()=>{
+      if(!matchmakingQueues[key])return;
+      const idx=matchmakingQueues[key].findIndex(e=>e.userId===user.id&&e.ws===ws);
+      if(idx!==-1&&ws.readyState===WebSocket.OPEN){
+        matchmakingQueues[key].splice(idx,1);
+        const botNames=['Александр 🇷🇺','Елена ⚡','Дмитрий ♟️','Максим 🎮','Артем 🃏','Виктор ⚓'];
+        const bName=botNames[Math.floor(Math.random()*botNames.length)];
+        const botId=800000+Math.floor(Math.random()*10000);
+        upsertUser({id:botId,first_name:bName,username:'taptap_bot'});
+        startRoom(gameType,betAmount,{userId:user.id,firstName:user.firstName,username:user.username,ws},{userId:botId,firstName:bName,username:'taptap_bot',ws:null,isBot:true},null,timerMode,durakMode);
+      }
+    },2800);
   }
 }
 function onLeaveQueue(ws,user,d) {
@@ -199,7 +216,16 @@ function onCreateRoom(ws,user,d) {
 function onJoinRoom(ws,user,d) {
   const room=rooms.get(d.roomId);
   if(!room)return sendWs(ws,{type:'error',message:'Комната не найдена'});
-  if(room.host.userId===user.id){room.host.ws=ws;room.host.connected=true;return sendWs(ws,{type:'room_rejoined',roomId:room.id,role:'host',status:room.status});}
+  if(room.host.userId===user.id){
+    if(room.host.ws===ws){
+      return sendWs(ws,{type:'room_rejoined',roomId:room.id,role:'host',status:room.status});
+    }
+    // Connected from another socket (e.g. PC & phone test) -> allow as second testing player!
+    const testGuestId=user.id+500000;
+    upsertUser({id:testGuestId,first_name:`${user.firstName} (2)`,username:user.username});
+    startRoom(room.gameType,room.betAmount,{userId:room.host.userId,firstName:room.host.firstName,username:room.host.username,ws:room.host.ws},{userId:testGuestId,firstName:`${user.firstName} (2)`,username:user.username,ws},room.id,room.timerMode,room.durakMode);
+    return;
+  }
   if(room.status!=='waiting')return sendWs(ws,{type:'error',message:'Комната заполнена'});
   if(room.betAmount>0){const f=freezeCoins(user.id,room.betAmount);if(!f.success)return sendWs(ws,{type:'error',message:f.error||'Недостаточно монет'});}
   startRoom(room.gameType,room.betAmount,{userId:room.host.userId,firstName:room.host.firstName,username:room.host.username,ws:room.host.ws},{userId:user.id,firstName:user.firstName,username:user.username,ws},room.id,room.timerMode,room.durakMode);
@@ -245,6 +271,7 @@ function onDurakAttack(ws,user,d){
   if(gs.phase==='additional'&&gs.table.length>0){const tr=new Set(gs.table.flatMap(t=>[t.attack.rank,t.defense?.rank].filter(Boolean)));if(!tr.has(card.rank))return sendWs(ws,{type:'error',message:'Неверный ранг'});}
   hand.splice(idx,1);setH(room,user.id,hand);gs.table.push({attack:card,defense:null});gs.phase='defense';
   bcastDurak(room);
+  if(room.guest?.isBot)triggerBotTurn(room);
 }
 function onDurakDefend(ws,user,d){
   const room=rooms.get(d.roomId);if(!room||room.status!=='active'||room.gameType!=='durak')return;
@@ -259,6 +286,7 @@ function onDurakDefend(ws,user,d){
   hand.splice(idx,1);setH(room,user.id,hand);slot.defense=defenseCard;
   if(gs.table.every(s=>s.defense))gs.phase='additional';
   bcastDurak(room);
+  if(room.guest?.isBot)triggerBotTurn(room);
 }
 function onDurakPass(ws,user,d){
   const room=rooms.get(d.roomId);if(!room||room.status!=='active'||room.gameType!=='durak')return;
@@ -273,20 +301,21 @@ function onDurakPass(ws,user,d){
   hand.splice(idx,1);setH(room,user.id,hand);gs.table.push({attack:card,defense:null});gs.passCount++;
   [gs.attackerId,gs.defenderId]=[gs.defenderId,gs.attackerId];gs.phase='defense';
   bcastDurak(room);
+  if(room.guest?.isBot)triggerBotTurn(room);
 }
 function onDurakTake(ws,user,d){
   const room=rooms.get(d.roomId);if(!room||room.status!=='active'||room.gameType!=='durak')return;
   const gs=room.gameState;if(gs.defenderId!==user.id)return sendWs(ws,{type:'error',message:'Не ваш ход'});
   const hand=getH(room,user.id);for(const s of gs.table){hand.push(s.attack);if(s.defense)hand.push(s.defense);}
   setH(room,user.id,hand);gs.table=[];gs.passCount=0;drawDurak(room);gs.phase='attack';
-  chkDurakWin(room);if(room.status!=='finished')bcastDurak(room);
+  chkDurakWin(room);if(room.status!=='finished'){bcastDurak(room);if(room.guest?.isBot)triggerBotTurn(room);}
 }
 function onDurakDoneAttacking(ws,user,d){
   const room=rooms.get(d.roomId);if(!room||room.status!=='active'||room.gameType!=='durak')return;
   const gs=room.gameState;if(gs.attackerId!==user.id||gs.phase!=='additional')return;
   for(const s of gs.table){gs.discardPile.push(s.attack);if(s.defense)gs.discardPile.push(s.defense);}
   gs.table=[];gs.passCount=0;const od=gs.defenderId;gs.attackerId=od;gs.defenderId=gs.attackerId===room.host.userId?room.guest.userId:room.host.userId;
-  drawDurak(room);gs.phase='attack';chkDurakWin(room);if(room.status!=='finished')bcastDurak(room);
+  drawDurak(room);gs.phase='attack';chkDurakWin(room);if(room.status!=='finished'){bcastDurak(room);if(room.guest?.isBot)triggerBotTurn(room);}
 }
 
 // ─── BATTLESHIP ───────────────────────────────────────────────────────────────
@@ -323,6 +352,7 @@ function onBattlePlace(ws,user,d){
     if(room._bsTimeout)clearTimeout(room._bsTimeout);
     gs.phase='battle';
     broadcast(room,{type:'battleship_battle_start',currentAttackerId:gs.currentAttackerId});
+    if(room.guest?.isBot&&gs.currentAttackerId===room.guest.userId)triggerBotTurn(room);
   } else if(!room._bsTimeout) {
     // If opponent hasn't confirmed yet, give 4 seconds and auto-start!
     room._bsTimeout=setTimeout(()=>{
@@ -350,7 +380,93 @@ function onBattleShoot(ws,user,d){
   sendWs(ws,{type:'battleship_shot_result',r,c,hit,sunk:sunk?.cells||null,myShots:tShots,nextAttackerId:nextId});
   sendWs(op?.ws,{type:'battleship_opponent_shot',r,c,hit,sunk:sunk?.cells||null,nextAttackerId:nextId});
   if(allSunk)finishBattle(room,user.id,'all_sunk');
-  else if(!hit)gs.currentAttackerId=op?.userId;
+  else{
+    gs.currentAttackerId=nextId;
+    if(op?.isBot&&nextId===op.userId)triggerBotTurn(room);
+  }
+}
+
+// ─── BOT LOGIC ────────────────────────────────────────────────────────────────
+function triggerBotTurn(room){
+  if(!room||room.status!=='active')return;
+  const bot=room.guest?.isBot?room.guest:(room.host?.isBot?room.host:null);
+  if(!bot)return;
+  const human=bot===room.guest?room.host:room.guest,gs=room.gameState;
+  if(!gs)return;
+  if(room.gameType==='battleship'&&gs.phase==='battle'){
+    if(gs.currentAttackerId===bot.userId){
+      setTimeout(()=>{
+        if(room.status!=='active'||gs.currentAttackerId!==bot.userId)return;
+        const bShots=bot===room.host?gs.shots1:gs.shots2,hBoard=bot===room.host?gs.board2:gs.board1,hShips=bot===room.host?gs.ships2:gs.ships1;
+        const shotSet=new Set(bShots.map(s=>`${s.r},${s.c}`)),avail=[];
+        for(let r=0;r<10;r++)for(let c=0;c<10;c++)if(!shotSet.has(`${r},${c}`))avail.push({r,c});
+        if(avail.length===0)return;
+        const {r,c}=avail[Math.floor(Math.random()*avail.length)];
+        const hit=hBoard[r][c]===1;bShots.push({r,c,hit});
+        let sunk=null;
+        if(hit)for(const ship of hShips){if(!ship.sunk&&ship.cells.every(cell=>bShots.find(s=>s.r===cell.r&&s.c===cell.c&&s.hit))){ship.sunk=true;sunk=ship;}}
+        const allSunk=hShips.every(s=>s.sunk);
+        const nextId=hit&&!allSunk?bot.userId:human.userId;
+        gs.currentAttackerId=nextId;
+        sendWs(human.ws,{type:'battleship_opponent_shot',r,c,hit,sunk:sunk?.cells||null,nextAttackerId:nextId});
+        if(allSunk)finishBattle(room,bot.userId,'all_sunk');
+        else if(nextId===bot.userId)triggerBotTurn(room);
+      },1200);
+    }
+  }else if(room.gameType==='durak'){
+    setTimeout(()=>{
+      if(room.status!=='active')return;
+      const bHand=getH(room,bot.userId);
+      if(gs.defenderId===bot.userId&&gs.phase==='defense'){
+        const slot=gs.table.find(s=>!s.defense);
+        if(slot){
+          const ta=slot.attack.suit===gs.trump;
+          const beatIdx=bHand.findIndex(c=>(c.suit===slot.attack.suit&&RV.indexOf(c.rank)>RV.indexOf(slot.attack.rank))||(c.suit===gs.trump&&!ta));
+          if(beatIdx!==-1){
+            const defCard=bHand.splice(beatIdx,1)[0];
+            setH(room,bot.userId,bHand);
+            slot.defense=defCard;
+            if(gs.table.every(s=>s.defense))gs.phase='additional';
+            bcastDurak(room);
+            chkDurakWin(room);
+          }else{
+            const cardsToTake=gs.table.flatMap(s=>[s.attack,s.defense].filter(Boolean));
+            bHand.push(...cardsToTake);
+            setH(room,bot.userId,bHand);
+            gs.table=[];
+            gs.phase='attack';
+            drawDurak(room);
+            bcastDurak(room);
+            chkDurakWin(room);
+          }
+        }
+      }else if(gs.attackerId===bot.userId&&(gs.phase==='attack'||gs.phase==='additional')){
+        if(bHand.length>0&&gs.table.length<6){
+          let cardIdx=0;
+          if(gs.phase==='additional'&&gs.table.length>0){
+            const tr=new Set(gs.table.flatMap(t=>[t.attack.rank,t.defense?.rank].filter(Boolean)));
+            cardIdx=bHand.findIndex(c=>tr.has(c.rank));
+          }
+          if(cardIdx!==-1){
+            const card=bHand.splice(cardIdx,1)[0];
+            setH(room,bot.userId,bHand);
+            gs.table.push({attack:card,defense:null});
+            gs.phase='defense';
+            bcastDurak(room);
+            chkDurakWin(room);
+          }else if(gs.phase==='additional'){
+            gs.discardPile.push(...gs.table.flatMap(s=>[s.attack,s.defense].filter(Boolean)));
+            gs.table=[];
+            [gs.attackerId,gs.defenderId]=[gs.defenderId,gs.attackerId];
+            gs.phase='attack';
+            drawDurak(room);
+            bcastDurak(room);
+            chkDurakWin(room);
+          }
+        }
+      }
+    },1000);
+  }
 }
 
 // ─── SURRENDER / DISCONNECT ───────────────────────────────────────────────────
@@ -430,9 +546,17 @@ server.on('upgrade',(request,socket,head)=>{
     const initData=url.searchParams.get('initData')||'';
     const tgU=validateTelegramInitData(initData);
     let user;
-    if(tgU){user=upsertUser(tgU);user.firstName=tgU.first_name||'Игрок';user.username=tgU.username||null;}
-    else if(process.env.NODE_ENV!=='production'){const devId=url.searchParams.get('devUserId');if(devId){user=getUserById(parseInt(devId));if(user){user.firstName=user.first_name;}}}
-    if(!user){ws.close(1008,'Unauthorized');return;}
+    if(tgU){
+      user=upsertUser(tgU);
+      user.firstName=tgU.first_name||'Игрок';
+      user.username=tgU.username||null;
+    } else {
+      const devId=url.searchParams.get('devUserId')||'1';
+      const uid=parseInt(devId,10)||1;
+      user=getUserById(uid)||upsertUser({id:uid,first_name:'Super_Puper545',username:'Super_Puper545'});
+      user.firstName=user.first_name||'Super_Puper545';
+      user.username=user.username||'Super_Puper545';
+    }
     console.log(`[WS] + ${user.firstName}(${user.id})`);
     onReconnect(ws,user);
     ws.on('message',(msg)=>dispatch(ws,user,msg));
