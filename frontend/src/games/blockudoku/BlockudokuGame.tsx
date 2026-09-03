@@ -1,10 +1,15 @@
-﻿import React, { useState, useRef, useEffect, useCallback } from 'react';
+﻿import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useGameBridge } from '../../context/GameContext';
-import { useBlockudoku, canPlacePiece, GRID_SIZE } from './useBlockudoku';
+import {
+  useBlockudoku,
+  canPlacePiece,
+  getPredictedClears,
+  GRID_SIZE,
+} from './useBlockudoku';
 import type { Shape, DragState } from './types';
 import { haptics } from '../../telegram/telegram';
 import confetti from 'canvas-confetti';
-import { ArrowLeft, RotateCcw, Trophy, Sparkles, Flame } from 'lucide-react';
+import { ArrowLeft, RotateCcw, Trophy, Sparkles, Flame, Ban } from 'lucide-react';
 
 const FINGER_OFFSET_TOUCH = 65; // Lift piece above touch point on mobile screens only
 
@@ -15,12 +20,15 @@ export const BlockudokuGame: React.FC = () => {
   const {
     grid,
     trayPieces,
+    trayPlaceable,
     score,
     bestScore,
     streak,
+    isStuck,
     isGameOver,
     clearingCells,
     lastScorePopup,
+    comboBanner,
     placePiece,
     restartGame,
   } = useBlockudoku(currentBest);
@@ -59,17 +67,17 @@ export const BlockudokuGame: React.FC = () => {
         }
       } else if (e.key === 'r' || e.key === 'R') {
         handleRestart();
-      } else if (e.key === '1' && trayPieces[0]) {
-        setSelectedTrayIndex(prev => prev === 0 ? null : 0);
-      } else if (e.key === '2' && trayPieces[1]) {
-        setSelectedTrayIndex(prev => prev === 1 ? null : 1);
-      } else if (e.key === '3' && trayPieces[2]) {
-        setSelectedTrayIndex(prev => prev === 2 ? null : 2);
+      } else if (e.key === '1' && trayPieces[0] && trayPlaceable[0]) {
+        setSelectedTrayIndex((prev) => (prev === 0 ? null : 0));
+      } else if (e.key === '2' && trayPieces[1] && trayPlaceable[1]) {
+        setSelectedTrayIndex((prev) => (prev === 1 ? null : 1));
+      } else if (e.key === '3' && trayPieces[2] && trayPlaceable[2]) {
+        setSelectedTrayIndex((prev) => (prev === 2 ? null : 2));
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedTrayIndex, trayPieces, closeGame]);
+  }, [selectedTrayIndex, trayPieces, trayPlaceable, closeGame]);
 
   // Handle pointer down on a tray piece (Drag or Click-to-select)
   const handlePiecePointerDown = (
@@ -77,6 +85,8 @@ export const BlockudokuGame: React.FC = () => {
     piece: Shape,
     pieceIndex: number
   ) => {
+    if (!trayPlaceable[pieceIndex]) return; // Block unplaceable piece
+
     e.preventDefault();
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
     haptics.selection();
@@ -88,7 +98,6 @@ export const BlockudokuGame: React.FC = () => {
     const clientX = e.clientX;
     const clientY = e.clientY - offsetY;
 
-    // Also toggle click selection
     setSelectedTrayIndex(pieceIndex);
 
     setDragState({
@@ -114,8 +123,11 @@ export const BlockudokuGame: React.FC = () => {
       const boardRect = boardRef.current.getBoundingClientRect();
       const cellSize = boardRect.width / GRID_SIZE;
 
-      // Check hover for selected piece or dragged piece
-      const activePiece = dragState?.piece || (selectedTrayIndex !== null ? trayPieces[selectedTrayIndex] : null);
+      const activePiece =
+        dragState?.piece ||
+        (selectedTrayIndex !== null && trayPlaceable[selectedTrayIndex]
+          ? trayPieces[selectedTrayIndex]
+          : null);
 
       if (activePiece) {
         const pieceMatrix = activePiece.matrix;
@@ -148,7 +160,7 @@ export const BlockudokuGame: React.FC = () => {
         }
       }
     },
-    [dragState, selectedTrayIndex, trayPieces, grid]
+    [dragState, selectedTrayIndex, trayPieces, trayPlaceable, grid]
   );
 
   // Handle pointer up to drop piece
@@ -167,7 +179,7 @@ export const BlockudokuGame: React.FC = () => {
         if (res.clearedLines > 1) {
           haptics.success();
           confetti({
-            particleCount: 45,
+            particleCount: 50,
             spread: 60,
             origin: { y: 0.5 },
           });
@@ -186,7 +198,7 @@ export const BlockudokuGame: React.FC = () => {
   const handleBoardClick = (targetRow: number, targetCol: number) => {
     if (selectedTrayIndex === null) return;
     const piece = trayPieces[selectedTrayIndex];
-    if (!piece) return;
+    if (!piece || !trayPlaceable[selectedTrayIndex]) return;
 
     if (canPlacePiece(grid, piece.matrix, targetRow, targetCol)) {
       const res = placePiece(selectedTrayIndex, targetRow, targetCol);
@@ -195,7 +207,7 @@ export const BlockudokuGame: React.FC = () => {
         setHoverBoardCell(null);
         if (res.clearedLines > 1) {
           haptics.success();
-          confetti({ particleCount: 45, spread: 60, origin: { y: 0.5 } });
+          confetti({ particleCount: 50, spread: 60, origin: { y: 0.5 } });
         } else if (res.clearedLines === 1) {
           haptics.medium();
         } else {
@@ -214,9 +226,27 @@ export const BlockudokuGame: React.FC = () => {
     restartGame();
   };
 
+  // Compute predicted clearing cells (Clear Prediction)
+  const predictedClears = useMemo(() => {
+    if (dragState && dragState.canDrop && dragState.targetRow !== null && dragState.targetCol !== null) {
+      return getPredictedClears(grid, dragState.piece.matrix, dragState.targetRow, dragState.targetCol);
+    }
+    if (selectedTrayIndex !== null && hoverBoardCell) {
+      const piece = trayPieces[selectedTrayIndex];
+      if (piece && canPlacePiece(grid, piece.matrix, hoverBoardCell.row, hoverBoardCell.col)) {
+        return getPredictedClears(grid, piece.matrix, hoverBoardCell.row, hoverBoardCell.col);
+      }
+    }
+    return [];
+  }, [dragState, selectedTrayIndex, hoverBoardCell, grid, trayPieces]);
+
+  // Determine if a cell will be cleared by current hover/drag
+  const isPredictedClearCell = (r: number, c: number) => {
+    return predictedClears.some((cell) => cell.row === r && cell.col === c);
+  };
+
   // Determine if a cell is part of the ghost preview
   const isGhostCell = (r: number, c: number) => {
-    // 1. From DragState
     if (dragState && dragState.targetRow !== null && dragState.targetCol !== null) {
       const piece = dragState.piece;
       const relR = r - dragState.targetRow;
@@ -229,7 +259,6 @@ export const BlockudokuGame: React.FC = () => {
         piece.matrix[relR][relC] === 1
       );
     }
-    // 2. From Click-to-place hover
     if (selectedTrayIndex !== null && hoverBoardCell) {
       const piece = trayPieces[selectedTrayIndex];
       if (piece) {
@@ -247,7 +276,7 @@ export const BlockudokuGame: React.FC = () => {
     return false;
   };
 
-  // Determine if cell is being cleared
+  // Determine if cell is actively being cleared
   const isClearing = (r: number, c: number) => {
     return clearingCells.some((cell) => cell.row === r && cell.col === c);
   };
@@ -259,7 +288,7 @@ export const BlockudokuGame: React.FC = () => {
       onPointerUp={handlePointerUp}
       onPointerCancel={() => setDragState(null)}
     >
-      {/* 1. Fixed Header & Score HUD (Fixed Height: 56px / h-14) */}
+      {/* 1. Fixed Header & Score HUD (h-14) */}
       <header className="h-14 shrink-0 px-4 flex items-center justify-between border-b border-slate-800/60 bg-tg-secondaryBg/80 backdrop-blur-md z-10">
         <button
           onClick={closeGame}
@@ -278,7 +307,7 @@ export const BlockudokuGame: React.FC = () => {
             <span className="text-2xl font-black text-indigo-400 tracking-tight leading-none">
               {score}
             </span>
-            {/* Floating Score Popup (absolute, never shifts layout) */}
+            {/* Floating Score Popup */}
             {lastScorePopup && (
               <span
                 key={lastScorePopup.id}
@@ -311,21 +340,31 @@ export const BlockudokuGame: React.FC = () => {
         </button>
       </header>
 
-      {/* 2. Streak Banner (Fixed Height: 28px / h-7, never shifts layout) */}
-      <div className="h-7 shrink-0 flex items-center justify-center">
-        {streak > 1 ? (
+      {/* 2. Fixed Status & Combo Banner (h-7, no layout shift) */}
+      <div className="h-7 shrink-0 flex items-center justify-center px-4">
+        {isStuck ? (
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-rose-500/20 border border-rose-400/40 text-[11px] font-bold text-rose-300 animate-pulse">
+            <Ban className="w-3.5 h-3.5 text-rose-400" />
+            Нет места для оставшихся фигур!
+          </div>
+        ) : comboBanner ? (
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-[11px] font-bold text-indigo-300 animate-fade-in">
+            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+            {comboBanner.text}
+          </div>
+        ) : streak > 1 ? (
           <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/30 text-[11px] font-extrabold text-amber-300 animate-pulse">
             <Flame className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
             Серия ходов: x{streak}!
           </div>
         ) : selectedTrayIndex !== null ? (
           <span className="text-[11px] text-indigo-300 font-medium animate-pulse">
-            Кликните по доске для установки фигуры
+            Кликните по доске для установки
           </span>
         ) : null}
       </div>
 
-      {/* 3. Responsive 9x9 Board (Scales dynamically within viewport limits) */}
+      {/* 3. Responsive 9x9 Board */}
       <div className="flex-1 flex items-center justify-center p-2 min-h-0">
         <div
           ref={boardRef}
@@ -339,8 +378,8 @@ export const BlockudokuGame: React.FC = () => {
             row.map((cell, c) => {
               const isGhost = isGhostCell(r, c);
               const isClear = isClearing(r, c);
+              const isPredicted = isPredictedClearCell(r, c);
 
-              // 3x3 checkerboard pattern
               const boxRow = Math.floor(r / 3);
               const boxCol = Math.floor(c / 3);
               const isSubgridEven = (boxRow + boxCol) % 2 === 0;
@@ -352,17 +391,22 @@ export const BlockudokuGame: React.FC = () => {
                   className={`relative rounded-md transition-all duration-100 flex items-center justify-center aspect-square cursor-pointer ${
                     isClear
                       ? 'bg-amber-300 scale-105 shadow-lg shadow-amber-400/60 z-10'
+                      : isPredicted
+                      ? 'bg-amber-400/80 ring-2 ring-amber-300 shadow-md shadow-amber-400/50 scale-95 animate-pulse z-10'
                       : cell > 0
                       ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 border border-indigo-400/50 shadow-sm shadow-indigo-500/20'
                       : isGhost
-                      ? 'bg-indigo-400/40 border-2 border-indigo-300 scale-95 animate-pulse'
+                      ? 'bg-indigo-400/50 border-2 border-indigo-300 scale-95 animate-pulse'
                       : isSubgridEven
                       ? 'bg-slate-800/80 border border-slate-700/40'
                       : 'bg-slate-850/60 border border-slate-800/60'
                   }`}
                 >
-                  {cell > 0 && !isClear && (
+                  {cell > 0 && !isClear && !isPredicted && (
                     <div className="w-full h-full rounded-[4px] bg-white/10 border-t border-l border-white/20" />
+                  )}
+                  {isPredicted && (
+                    <div className="w-2 h-2 rounded-full bg-white animate-ping" />
                   )}
                 </div>
               );
@@ -371,31 +415,38 @@ export const BlockudokuGame: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. Tray of 3 Pieces (Fixed Height: 112px / h-28) */}
+      {/* 4. Tray of 3 Pieces (h-28) */}
       <div className="h-28 shrink-0 pb-3 px-3 bg-tg-secondaryBg/40 border-t border-slate-800/60">
         <div className="max-w-md mx-auto grid grid-cols-3 gap-2.5 h-full">
           {trayPieces.map((piece, index) => {
             const isBeingDragged = dragState?.pieceIndex === index;
             const isSelected = selectedTrayIndex === index;
+            const canPlace = trayPlaceable[index];
 
             return (
               <div
                 key={index}
                 onClick={() => {
-                  if (piece) setSelectedTrayIndex(prev => prev === index ? null : index);
+                  if (piece && canPlace) {
+                    setSelectedTrayIndex((prev) => (prev === index ? null : index));
+                  }
                 }}
-                className={`relative rounded-2xl bg-slate-900/80 border transition-all duration-150 flex items-center justify-center overflow-hidden touch-none cursor-grab active:cursor-grabbing ${
-                  isSelected
-                    ? 'border-indigo-400 ring-2 ring-indigo-500/40 bg-indigo-950/30'
-                    : 'border-slate-800/80 hover:border-slate-700'
+                className={`relative rounded-2xl border transition-all duration-200 flex items-center justify-center overflow-hidden touch-none ${
+                  !piece
+                    ? 'bg-slate-900/30 border-slate-800/40'
+                    : !canPlace
+                    ? 'bg-slate-900/40 border-dashed border-slate-700/60 opacity-30 grayscale cursor-not-allowed'
+                    : isSelected
+                    ? 'border-indigo-400 ring-2 ring-indigo-500/40 bg-indigo-950/30 cursor-grab active:cursor-grabbing'
+                    : 'bg-slate-900/80 border-slate-800/80 hover:border-slate-700 cursor-grab active:cursor-grabbing'
                 }`}
               >
                 {piece && !isBeingDragged && (
                   <div
-                    onPointerDown={(e) => handlePiecePointerDown(e, piece, index)}
-                    className={`p-2 transition-transform hover:scale-105 active:scale-95 ${
-                      isSelected ? 'scale-105' : ''
-                    }`}
+                    onPointerDown={(e) => canPlace && handlePiecePointerDown(e, piece, index)}
+                    className={`p-2 transition-transform ${
+                      canPlace ? 'hover:scale-105 active:scale-95' : ''
+                    } ${isSelected ? 'scale-105' : ''}`}
                   >
                     <div
                       className="grid gap-1"
@@ -409,7 +460,9 @@ export const BlockudokuGame: React.FC = () => {
                             key={`${r}-${c}`}
                             className={`w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-sm transition-all ${
                               val === 1
-                                ? `${piece.colorClass} shadow-sm ${piece.glowClass}`
+                                ? canPlace
+                                  ? `${piece.colorClass} shadow-sm ${piece.glowClass}`
+                                  : 'bg-slate-600'
                                 : 'opacity-0'
                             }`}
                           />
@@ -418,13 +471,20 @@ export const BlockudokuGame: React.FC = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Subtitle if unplaceable */}
+                {piece && !canPlace && (
+                  <span className="absolute bottom-1 text-[9px] font-semibold text-slate-400/80 tracking-tight">
+                    нет места
+                  </span>
+                )}
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* Floating Dragged Piece following cursor/finger */}
+      {/* Floating Dragged Piece */}
       {dragState && (
         <div
           className="pointer-events-none fixed z-50 transition-opacity"
@@ -456,18 +516,19 @@ export const BlockudokuGame: React.FC = () => {
         </div>
       )}
 
-      {/* Game Over Modal in Telegram Style */}
+      {/* Game Over Modal (Appears smoothly after delay) */}
       {isGameOver && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in">
           <div className="w-full max-w-sm rounded-3xl bg-tg-secondaryBg border border-slate-700/80 p-6 text-center shadow-2xl animate-pop">
             <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 p-[2px] shadow-lg shadow-amber-500/20 flex items-center justify-center">
               <Trophy className="w-8 h-8 text-white fill-white/20" />
             </div>
 
             <h3 className="text-xl font-black text-tg-text">Игра окончена</h3>
-            <p className="text-xs text-tg-hint mt-1">Больше нет доступных ходов</p>
+            <p className="text-xs text-tg-hint mt-1">
+              Для оставшихся фигур не нашлось места на поле
+            </p>
 
-            {/* Score presentation */}
             <div className="my-5 p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
               <span className="text-xs text-tg-hint uppercase font-semibold">
                 Итоговый результат
@@ -481,7 +542,6 @@ export const BlockudokuGame: React.FC = () => {
               )}
             </div>
 
-            {/* Actions with Telegram Button Style */}
             <div className="space-y-2">
               <button
                 onClick={handleRestart}

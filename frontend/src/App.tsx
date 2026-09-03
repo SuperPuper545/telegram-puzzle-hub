@@ -40,8 +40,8 @@ const HubContent: React.FC = () => {
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-start">
       {/* Centered responsive container */}
       <div className="w-full max-w-md mx-auto min-h-screen flex flex-col relative bg-tg-bg md:shadow-2xl md:border-x md:border-slate-800/80">
-        {/* Hide header when viewing leaderboard */}
-        {activeTab !== 'leaderboard' && <HubHeader />}
+        {/* HubHeader shown in Catalog and Leaderboard, hidden in Profile */}
+        {activeTab !== 'profile' && <HubHeader />}
 
         <main className="flex-1 pb-24">
           {activeTab === 'catalog' && <GameCatalog />}
