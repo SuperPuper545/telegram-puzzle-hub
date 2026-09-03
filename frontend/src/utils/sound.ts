@@ -5,12 +5,10 @@ class SoundManager {
   private muted: boolean = false;
 
   constructor() {
-    // Restore mute preference
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('tma_sound_muted');
       this.muted = saved === 'true';
 
-      // Auto-unlock on first user interaction
       const unlock = () => {
         this.initContext();
         window.removeEventListener('pointerdown', unlock);
@@ -49,7 +47,7 @@ class SoundManager {
     return this.muted;
   }
 
-  // 1. Soft pluck / pickup when picking a piece from the tray
+  // Soft pluck when picking a piece in Blockudoku
   public playPickup() {
     if (this.muted) return;
     const ctx = this.initContext();
@@ -72,7 +70,7 @@ class SoundManager {
     osc.stop(ctx.currentTime + 0.09);
   }
 
-  // 2. Crisp wooden click when placing a block on the grid
+  // Crisp wooden click when placing a block
   public playPlace() {
     if (this.muted) return;
     const ctx = this.initContext();
@@ -95,18 +93,16 @@ class SoundManager {
     osc.stop(ctx.currentTime + 0.09);
   }
 
-  // 3. Harmonious chime / chord when clearing lines/boxes (ascends with combo level)
+  // Harmonious chime / chord when clearing lines/boxes
   public playClear(comboLevel: number = 1) {
     if (this.muted) return;
     const ctx = this.initContext();
     if (!ctx) return;
 
-    // Major scale progression based on combo
-    const baseFreqs = [523.25, 659.25, 783.99, 1046.5, 1318.5]; // C5, E5, G5, C6, E6
+    const baseFreqs = [523.25, 659.25, 783.99, 1046.5, 1318.5];
     const levelIdx = Math.min(Math.max(0, comboLevel - 1), baseFreqs.length - 1);
     const rootFreq = baseFreqs[levelIdx];
-
-    const freqs = [rootFreq, rootFreq * 1.25, rootFreq * 1.5]; // Major triad
+    const freqs = [rootFreq, rootFreq * 1.25, rootFreq * 1.5];
 
     freqs.forEach((freq, idx) => {
       const osc = ctx.createOscillator();
@@ -127,17 +123,92 @@ class SoundManager {
     });
   }
 
-  // 4. Celebratory fanfare upon achieving a new record
+  // Match-3: Crystal swap whoosh/tick
+  public playGemSwap() {
+    if (this.muted) return;
+    const ctx = this.initContext();
+    if (!ctx) return;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(600, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.06);
+
+    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.07);
+  }
+
+  // Match-3: Sparkling crystal chime upon match
+  public playGemMatch(combo: number = 1) {
+    if (this.muted) return;
+    const ctx = this.initContext();
+    if (!ctx) return;
+
+    const root = 650 + Math.min(combo * 90, 800);
+    const freqs = [root, root * 1.26, root * 1.5];
+
+    freqs.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.03);
+
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + idx * 0.03 + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.03 + 0.28);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(ctx.currentTime + idx * 0.03);
+      osc.stop(ctx.currentTime + idx * 0.03 + 0.3);
+    });
+  }
+
+  // Match-3: Bomb / hypercube explosion
+  public playBombExplosion() {
+    if (this.muted) return;
+    const ctx = this.initContext();
+    if (!ctx) return;
+
+    // Deep sub-bass drop
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(160, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(35, ctx.currentTime + 0.25);
+
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.28);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.3);
+  }
+
+  // Celebratory fanfare upon record
   public playRecord() {
     if (this.muted) return;
     const ctx = this.initContext();
     if (!ctx) return;
 
     const notes = [
-      { f: 523.25, t: 0.0 }, // C5
-      { f: 659.25, t: 0.1 }, // E5
-      { f: 783.99, t: 0.2 }, // G5
-      { f: 1046.5, t: 0.32 }, // C6
+      { f: 523.25, t: 0.0 },
+      { f: 659.25, t: 0.1 },
+      { f: 783.99, t: 0.2 },
+      { f: 1046.5, t: 0.32 },
     ];
 
     notes.forEach(({ f, t }) => {
@@ -158,17 +229,17 @@ class SoundManager {
     });
   }
 
-  // 5. Melancholic soft tone when stuck / game over
+  // Melancholic soft tone when stuck / game over
   public playGameOver() {
     if (this.muted) return;
     const ctx = this.initContext();
     if (!ctx) return;
 
     const notes = [
-      { f: 392.0, t: 0.0 }, // G4
-      { f: 349.23, t: 0.15 }, // F4
-      { f: 311.13, t: 0.3 }, // Eb4
-      { f: 261.63, t: 0.45 }, // C4
+      { f: 392.0, t: 0.0 },
+      { f: 349.23, t: 0.15 },
+      { f: 311.13, t: 0.3 },
+      { f: 261.63, t: 0.45 },
     ];
 
     notes.forEach(({ f, t }) => {
@@ -189,7 +260,7 @@ class SoundManager {
     });
   }
 
-  // 6. UI click / tab switch
+  // UI click / tab switch
   public playUiTap() {
     if (this.muted) return;
     const ctx = this.initContext();

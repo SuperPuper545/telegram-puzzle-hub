@@ -6,6 +6,7 @@ import { GameCatalog } from './components/hub/GameCatalog';
 import { LeaderboardTab } from './components/hub/LeaderboardTab';
 import { ProfileTab } from './components/hub/ProfileTab';
 import { BlockudokuGame } from './games/blockudoku/BlockudokuGame';
+import { Match3Game } from './games/match3/Match3Game';
 
 const HubContent: React.FC = () => {
   const { currentGame, closeGame, activeTab, setActiveTab } = useGameBridge();
@@ -31,6 +32,16 @@ const HubContent: React.FC = () => {
       <div className="w-full h-[100dvh] max-h-[100dvh] flex items-center justify-center bg-slate-950">
         <div className="w-full h-full max-w-md mx-auto flex flex-col overflow-hidden md:border-x md:border-slate-800/80 md:shadow-2xl">
           <BlockudokuGame />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentGame === 'match3') {
+    return (
+      <div className="w-full h-[100dvh] max-h-[100dvh] flex items-center justify-center bg-slate-950">
+        <div className="w-full h-full max-w-md mx-auto flex flex-col overflow-hidden md:border-x md:border-slate-800/80 md:shadow-2xl">
+          <Match3Game />
         </div>
       </div>
     );

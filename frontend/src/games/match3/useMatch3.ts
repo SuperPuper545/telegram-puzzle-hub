@@ -1,0 +1,207 @@
+﻿import { useState, useCallback, useEffect, useMemo } from 'react';
+import type { GemCell, Position } from './types';
+import {
+  createInitialBoard,
+  scanMatches,
+  applyGravityAndRefill,
+  hasValidMoves,
+} from './match3Logic';
+import { sound } from '../../utils/sound';
+import { haptics } from '../../telegram/telegram';
+
+const STORAGE_KEY = 'tma_match3_saved_state';
+const INITIAL_MOVES = 25;
+
+export function useMatch3(initialBestScore: number = 0) {
+  // Load saved state
+  const saved = useMemo(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.board && typeof parsed.score === 'number' && typeof parsed.movesLeft === 'number') {
+          return parsed;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }, []);
+
+  const [board, setBoard] = useState<GemCell[][]>(() => saved?.board || createInitialBoard());
+  const [score, setScore] = useState<number>(() => saved?.score || 0);
+  const [bestScore, setBestScore] = useState<number>(initialBestScore);
+  const [movesLeft, setMovesLeft] = useState<number>(() => saved?.movesLeft ?? INITIAL_MOVES);
+  const [isBusy, setIsBusy] = useState<boolean>(false);
+  const [isGameOver, setIsGameOver] = useState<boolean>(false);
+  const [selectedGem, setSelectedGem] = useState<Position | null>(null);
+  const [clearingKeys, setClearingKeys] = useState<Set<string>>(new Set());
+  const [lastScorePopup, setLastScorePopup] = useState<{ text: string; id: number } | null>(null);
+
+  // Sync best score
+  useEffect(() => {
+    if (initialBestScore > bestScore) {
+      setBestScore(initialBestScore);
+    }
+  }, [initialBestScore, bestScore]);
+
+  // Persist state
+  useEffect(() => {
+    if (!isGameOver && movesLeft > 0) {
+      try {
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({ board, score, movesLeft })
+        );
+      } catch (_) {}
+    }
+  }, [board, score, movesLeft, isGameOver]);
+
+  // Restart game
+  const restartGame = useCallback(() => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (_) {}
+    setBoard(createInitialBoard());
+    setScore(0);
+    setMovesLeft(INITIAL_MOVES);
+    setIsBusy(false);
+    setIsGameOver(false);
+    setSelectedGem(null);
+    setClearingKeys(new Set());
+    setLastScorePopup(null);
+  }, []);
+
+  // Cascade resolution loop
+  const processCascades = useCallback(
+    async (currentBoard: GemCell[][], currentScore: number, remainingMoves: number) => {
+      let activeBoard = currentBoard;
+      let totalGained = 0;
+      let combo = 1;
+      let currentMoves = remainingMoves;
+
+      while (true) {
+        const scan = scanMatches(activeBoard);
+        if (scan.matchedCount === 0) break;
+
+        // Visual clearing pulse
+        setClearingKeys(scan.matchedKeys);
+        if (combo > 1) {
+          sound.playGemMatch(combo);
+          haptics.medium();
+        } else {
+          sound.playGemMatch(1);
+          haptics.light();
+        }
+
+        // Calculate score
+        const points = scan.matchedCount * 30 * combo;
+        totalGained += points;
+
+        // Bonus moves for multi-matches
+        if (scan.matchedCount >= 4) {
+          currentMoves += 1;
+        }
+
+        // Show score popup
+        setLastScorePopup({
+          text: combo > 1 ? `Каскад x${combo}! +${points}` : `+${points}`,
+          id: Date.now(),
+        });
+
+        // Delay for clearing animation
+        await new Promise((res) => setTimeout(res, 260));
+
+        // Gravity fall & refill
+        activeBoard = applyGravityAndRefill(activeBoard, scan.matchedKeys, scan.specialsCreated);
+        setBoard(activeBoard);
+        setClearingKeys(new Set());
+
+        // Delay for drop animation
+        await new Promise((res) => setTimeout(res, 220));
+
+        combo++;
+      }
+
+      // Check if deadlock -> auto-shuffle
+      if (!hasValidMoves(activeBoard)) {
+        activeBoard = createInitialBoard();
+        setBoard(activeBoard);
+      }
+
+      const newScore = currentScore + totalGained;
+      setScore(newScore);
+      setMovesLeft(currentMoves);
+      if (newScore > bestScore) {
+        setBestScore(newScore);
+      }
+
+      // Game Over check
+      if (currentMoves <= 0) {
+        setIsGameOver(true);
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+        } catch (_) {}
+      }
+
+      setIsBusy(false);
+    },
+    [bestScore]
+  );
+
+  // Attempt to swap two adjacent gems
+  const trySwap = useCallback(
+    async (p1: Position, p2: Position) => {
+      if (isBusy || isGameOver) return;
+
+      const dist = Math.abs(p1.row - p2.row) + Math.abs(p1.col - p2.col);
+      if (dist !== 1) {
+        setSelectedGem(p2);
+        return;
+      }
+
+      setIsBusy(true);
+      setSelectedGem(null);
+      sound.playGemSwap();
+
+      // Perform swap
+      const swappedBoard = board.map((r) => [...r]);
+      const temp = swappedBoard[p1.row][p1.col];
+      swappedBoard[p1.row][p1.col] = swappedBoard[p2.row][p2.col];
+      swappedBoard[p2.row][p2.col] = temp;
+
+      setBoard(swappedBoard);
+
+      // Check for match
+      const initialMatches = scanMatches(swappedBoard);
+
+      if (initialMatches.matchedCount === 0) {
+        haptics.warning();
+        await new Promise((res) => setTimeout(res, 220));
+        setBoard(board);
+        setIsBusy(false);
+        return;
+      }
+
+      // Valid move! Decrement moves and start cascade
+      const nextMoves = movesLeft - 1;
+      setMovesLeft(nextMoves);
+      await processCascades(swappedBoard, score, nextMoves);
+    },
+    [board, isBusy, isGameOver, movesLeft, score, processCascades]
+  );
+
+  return {
+    board,
+    score,
+    bestScore,
+    movesLeft,
+    isBusy,
+    isGameOver,
+    selectedGem,
+    clearingKeys,
+    lastScorePopup,
+    setSelectedGem,
+    trySwap,
+    restartGame,
+  };
+}

@@ -2,6 +2,7 @@
 import { useGameBridge } from '../../context/GameContext';
 import { Play, Sparkles, Grid, Gem, Layers } from 'lucide-react';
 import { haptics } from '../../telegram/telegram';
+import { sound } from '../../utils/sound';
 
 export const GameCatalog: React.FC = () => {
   const { openGame, bestScores } = useGameBridge();
@@ -24,14 +25,14 @@ export const GameCatalog: React.FC = () => {
       id: 'match3' as const,
       title: 'Crystal Match-3',
       subtitle: 'Три в ряд',
-      description: 'Собирай разноцветные кристаллы 3+ в ряд, вызывай каскадные взрывы и собирай звезды!',
+      description: 'Собирай разноцветные кристаллы 3+ в ряд, вызывай каскадные взрывы и получай супер-бомбы!',
       icon: <Gem className="w-6 h-6 text-pink-400" />,
-      color: 'from-pink-600/10 to-transparent',
-      borderColor: 'border-slate-800/80',
-      badge: 'Скоро 💎',
-      available: false,
+      color: 'from-pink-600/20 via-rose-600/10 to-transparent',
+      borderColor: 'border-pink-500/30 hover:border-pink-400/50',
+      badge: 'Новинка 💎',
+      available: true,
       bestScore: bestScores['match3'] || 0,
-      tags: ['Три в ряд', 'Кристаллы'],
+      tags: ['Три в ряд', 'Каскады', '8x8'],
     },
     {
       id: '2048' as const,
@@ -120,6 +121,7 @@ export const GameCatalog: React.FC = () => {
                   <button
                     onClick={() => {
                       haptics.medium();
+                      sound.playUiTap();
                       openGame(game.id);
                     }}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl tg-btn-primary font-bold text-xs shadow-md shadow-indigo-600/25 cursor-pointer"
