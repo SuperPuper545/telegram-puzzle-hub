@@ -44,7 +44,7 @@ export const Match3Game: React.FC = () => {
 
   const [isMuted, setIsMuted] = useState(() => sound.isMuted());
   const [isNewRecord, setIsNewRecord] = useState(false);
-  const touchStartRef = useRef<{ row: number; col: number; x: number; y: number } | null>(null);
+  const pointerStartRef = useRef<{ row: number; col: number; startX: number; startY: number; moved: boolean } | null>(null);
   const hasSubmittedRef = useRef(false);
 
   const toggleSound = () => {
@@ -100,7 +100,7 @@ export const Match3Game: React.FC = () => {
     restartGame();
   };
 
-  // Click on gem
+  // Click / Tap on gem
   const handleCellClick = (r: number, c: number) => {
     if (isBusy || isGameOver) return;
 
@@ -117,34 +117,59 @@ export const Match3Game: React.FC = () => {
     }
   };
 
-  // Touch Swipe Handlers
-  const handleTouchStart = (r: number, c: number, e: React.TouchEvent) => {
+  // Pointer Swipe & Tap Handlers (immediate response during movement)
+  const handleGemPointerDown = (r: number, c: number, e: React.PointerEvent) => {
     if (isBusy || isGameOver) return;
-    const touch = e.touches[0];
-    touchStartRef.current = { row: r, col: c, x: touch.clientX, y: touch.clientY };
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+
+    pointerStartRef.current = {
+      row: r,
+      col: c,
+      startX: e.clientX,
+      startY: e.clientY,
+      moved: false,
+    };
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStartRef.current || isBusy || isGameOver) return;
-    const touch = e.changedTouches[0];
-    const dx = touch.clientX - touchStartRef.current.x;
-    const dy = touch.clientY - touchStartRef.current.y;
-    const { row, col } = touchStartRef.current;
-    touchStartRef.current = null;
+  const handleGemPointerMove = (e: React.PointerEvent) => {
+    if (!pointerStartRef.current || pointerStartRef.current.moved || isBusy || isGameOver) return;
+    const { row, col, startX, startY } = pointerStartRef.current;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    const SWIPE_THRESHOLD = 18; // Very responsive thumb threshold
 
-    const threshold = 25;
-    if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
+    if (Math.abs(dx) > SWIPE_THRESHOLD || Math.abs(dy) > SWIPE_THRESHOLD) {
+      pointerStartRef.current.moved = true;
+      haptics.selection();
+
+      let targetRow = row;
+      let targetCol = col;
+
       if (Math.abs(dx) > Math.abs(dy)) {
-        const targetCol = dx > 0 ? col + 1 : col - 1;
-        if (targetCol >= 0 && targetCol < MATCH3_SIZE) {
-          trySwap({ row, col }, { row, col: targetCol });
-        }
+        targetCol = dx > 0 ? col + 1 : col - 1;
       } else {
-        const targetRow = dy > 0 ? row + 1 : row - 1;
-        if (targetRow >= 0 && targetRow < MATCH3_SIZE) {
-          trySwap({ row, col }, { row: targetRow, col });
-        }
+        targetRow = dy > 0 ? row + 1 : row - 1;
       }
+
+      if (targetRow >= 0 && targetRow < MATCH3_SIZE && targetCol >= 0 && targetCol < MATCH3_SIZE) {
+        trySwap({ row, col }, { row: targetRow, col: targetCol });
+      }
+      setSelectedGem(null);
+    }
+  };
+
+  const handleGemPointerUp = (r: number, c: number, e: React.PointerEvent) => {
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+    } catch (_) {}
+
+    if (!pointerStartRef.current) return;
+    const wasMoved = pointerStartRef.current.moved;
+    pointerStartRef.current = null;
+
+    // If it was just a tap without swipe movement
+    if (!wasMoved) {
+      handleCellClick(r, c);
     }
   };
 
@@ -309,7 +334,7 @@ export const Match3Game: React.FC = () => {
             width: 'min(94vw, 55vh, 420px)',
             height: 'min(94vw, 55vh, 420px)',
           }}
-          className="aspect-square bg-tg-secondaryBg/90 backdrop-blur-sm rounded-2xl p-2 border-[1.5px] border-[var(--tg-theme-section-separator-color)] shadow-2xl grid grid-cols-7 gap-1.5 sm:gap-2 relative"
+          className="aspect-square bg-tg-secondaryBg/90 backdrop-blur-sm rounded-2xl p-2 border-[1.5px] border-[var(--tg-theme-section-separator-color)] shadow-2xl grid grid-cols-7 grid-rows-7 gap-1.5 sm:gap-2 relative overflow-hidden select-none touch-none"
         >
           {board.map((row, r) =>
             row.map((gem, c) => {
@@ -322,9 +347,10 @@ export const Match3Game: React.FC = () => {
               return (
                 <div
                   key={gem.id}
-                  onClick={() => handleCellClick(r, c)}
-                  onTouchStart={(e) => handleTouchStart(r, c, e)}
-                  onTouchEnd={handleTouchEnd}
+                  onPointerDown={(e) => handleGemPointerDown(r, c, e)}
+                  onPointerMove={handleGemPointerMove}
+                  onPointerUp={(e) => handleGemPointerUp(r, c, e)}
+                  onPointerCancel={() => { pointerStartRef.current = null; }}
                   className={`relative flex items-center justify-center cursor-pointer transition-all duration-150 aspect-square select-none touch-none ${
                     isKnopachki ? 'rounded-full' : 'rounded-2xl'
                   } ${

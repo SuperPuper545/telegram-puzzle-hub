@@ -5,6 +5,7 @@ import {
   scanMatches,
   applyGravityAndRefill,
   hasValidMoves,
+  MATCH3_SIZE,
 } from './match3Logic';
 import { sound } from '../../utils/sound';
 import { haptics } from '../../telegram/telegram';
@@ -18,8 +19,18 @@ export function useMatch3(initialBestScore: number = 0) {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed?.board && typeof parsed.score === 'number' && typeof parsed.movesLeft === 'number') {
+        if (
+          parsed?.board &&
+          Array.isArray(parsed.board) &&
+          parsed.board.length === MATCH3_SIZE &&
+          Array.isArray(parsed.board[0]) &&
+          parsed.board[0].length === MATCH3_SIZE &&
+          typeof parsed.score === 'number' &&
+          typeof parsed.movesLeft === 'number'
+        ) {
           return parsed;
+        } else {
+          localStorage.removeItem(STORAGE_KEY);
         }
       }
     } catch (_) {}
