@@ -278,7 +278,7 @@ export const DuelLobby: React.FC<Props> = ({
             gameState={durakState}
             onAttack={(cards) => send({ type: 'durak_attack', roomId, cards: Array.isArray(cards) ? cards : [cards] })}
             onDefend={(a, d) => send({ type: 'durak_defend', roomId, attackCard: a, defenseCard: d })}
-            onPass={(card) => send({ type: 'durak_pass', roomId, card })}
+            onPass={(cards) => send({ type: 'durak_pass', roomId, cards: Array.isArray(cards) ? cards : [cards] })}
             onTake={() => send({ type: 'durak_take', roomId })}
             onDoneAttacking={() => send({ type: 'durak_done_attacking', roomId })}
             onSurrender={() => send({ type: 'durak_surrender', roomId })}

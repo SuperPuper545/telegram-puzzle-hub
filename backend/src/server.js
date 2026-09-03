@@ -100,7 +100,7 @@ function initDurak(mode='perevodnoy') {
   for(const s of suits)for(const r of ranks)deck.push({rank:r,suit:s});
   for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}
   const trump=deck[0].suit,hand1=deck.splice(deck.length-6,6),hand2=deck.splice(deck.length-6,6);
-  return {deck,trump,hand1,hand2,table:[],discardPile:[],attackerId:null,defenderId:null,phase:'attack',mode,passCount:0};
+  return {deck,trump,hand1,hand2,table:[],discardPile:[],attackerId:null,defenderId:null,phase:'attack',mode,passCount:0,isFirstRound:true};
 }
 function initBattleship() {
   return {phase:'placement',board1:Array(10).fill(null).map(()=>Array(10).fill(0)),board2:Array(10).fill(null).map(()=>Array(10).fill(0)),ships1:[],ships2:[],ready1:false,ready2:false,currentAttackerId:null,shots1:[],shots2:[]};
@@ -154,7 +154,27 @@ function startRoom(gameType,betAmount,hostEnt,guestEnt,existId,timerMode,durakMo
     rooms.set(roomId,room);
   } else { room.guest={userId:guestEnt.userId,firstName:guestEnt.firstName||'Guest',username:guestEnt.username||null,ws:guestEnt.ws,connected:true}; room.status='active'; room.gameState=gs; }
   if(gameType==='chess'){const hw=Math.random()<0.5;room.host.chessColor=hw?'white':'black';room.guest.chessColor=hw?'black':'white';}
-  if(gameType==='durak'){gs.attackerId=room.host.userId;gs.defenderId=room.guest.userId;}
+  if(gameType==='durak'){
+    const trump=gs.trump;
+    const findLowest=(hand)=>{
+      const trs=hand.filter(c=>c.suit===trump);
+      if(trs.length>0)return {hasTrump:true,minRank:Math.min(...trs.map(c=>RV.indexOf(c.rank)))};
+      return {hasTrump:false,minRank:Math.min(...hand.map(c=>RV.indexOf(c.rank)))};
+    };
+    const l1=findLowest(gs.hand1),l2=findLowest(gs.hand2);
+    let p1Starts=true;
+    if(l1.hasTrump&&!l2.hasTrump)p1Starts=true;
+    else if(!l1.hasTrump&&l2.hasTrump)p1Starts=false;
+    else p1Starts=l1.minRank<=l2.minRank;
+
+    if(p1Starts){
+      gs.attackerId=room.host.userId;
+      gs.defenderId=room.guest.userId;
+    }else{
+      gs.attackerId=room.guest.userId;
+      gs.defenderId=room.host.userId;
+    }
+  }
   if(gameType==='battleship'){
     gs.currentAttackerId=room.host.userId;
     if(guestEnt.isBot){const rf=generateRandomFleet();gs.ships2=rf.ships;gs.board2=rf.board;gs.ready2=true;}
@@ -263,26 +283,51 @@ function onChessDrawRespond(ws,user,d){const room=rooms.get(d.roomId);if(!room||
 const RV=['6','7','8','9','10','J','Q','K','A'];
 function getH(room,uid){return room.host.userId===uid?room.gameState.hand1:room.gameState.hand2;}
 function setH(room,uid,h){if(room.host.userId===uid)room.gameState.hand1=h;else room.gameState.hand2=h;}
-function drawDurak(room){const gs=room.gameState,ord=[gs.attackerId,gs.defenderId];for(const uid of ord){const h=getH(room,uid);while(h.length<6&&gs.deck.length>0)h.push(gs.deck.pop());setH(room,uid,h);}}
-function bcastDurak(room){const gs=room.gameState;sendWs(room.host.ws,{type:'durak_state',hand:gs.hand1,opponentCardCount:gs.hand2.length,table:gs.table,phase:gs.phase,deckCount:gs.deck.length,trump:gs.trump,attackerId:gs.attackerId,defenderId:gs.defenderId,discardCount:gs.discardPile.length});sendWs(room.guest.ws,{type:'durak_state',hand:gs.hand2,opponentCardCount:gs.hand1.length,table:gs.table,phase:gs.phase,deckCount:gs.deck.length,trump:gs.trump,attackerId:gs.attackerId,defenderId:gs.defenderId,discardCount:gs.discardPile.length});}
-function chkDurakWin(room){const gs=room.gameState;if(gs.deck.length>0)return;const h1=gs.hand1.length===0,h2=gs.hand2.length===0;if(h1&&h2)finishDurak(room,null,'draw');else if(h1)finishDurak(room,room.host.userId,'hand_empty');else if(h2)finishDurak(room,room.guest.userId,'hand_empty');}
+function drawDurak(room,attackerId,defenderId){
+  const gs=room.gameState,ord=[attackerId,defenderId];
+  for(const uid of ord){
+    const h=getH(room,uid);
+    while(h.length<6&&gs.deck.length>0)h.push(gs.deck.pop());
+    setH(room,uid,h);
+  }
+}
+function bcastDurak(room){
+  const gs=room.gameState;
+  sendWs(room.host.ws,{type:'durak_state',hand:gs.hand1,opponentCardCount:gs.hand2.length,table:gs.table,phase:gs.phase,deckCount:gs.deck.length,trump:gs.trump,attackerId:gs.attackerId,defenderId:gs.defenderId,discardCount:gs.discardPile.length,isFirstRound:gs.isFirstRound});
+  sendWs(room.guest.ws,{type:'durak_state',hand:gs.hand2,opponentCardCount:gs.hand1.length,table:gs.table,phase:gs.phase,deckCount:gs.deck.length,trump:gs.trump,attackerId:gs.attackerId,defenderId:gs.defenderId,discardCount:gs.discardPile.length,isFirstRound:gs.isFirstRound});
+}
+function chkDurakWin(room){
+  const gs=room.gameState;if(gs.deck.length>0)return;
+  const h1=gs.hand1.length===0,h2=gs.hand2.length===0;
+  if(h1&&h2)finishDurak(room,null,'draw');
+  else if(h1)finishDurak(room,room.host.userId,'hand_empty');
+  else if(h2)finishDurak(room,room.guest.userId,'hand_empty');
+}
 
 function onDurakAttack(ws,user,d){
   const room=rooms.get(d.roomId);if(!room||room.status!=='active'||room.gameType!=='durak')return;
   const gs=room.gameState;if(gs.attackerId!==user.id)return sendWs(ws,{type:'error',message:'Не ваш ход'});
-  if(gs.phase!=='attack'&&gs.phase!=='additional')return;
+  if(gs.phase!=='attack'&&gs.phase!=='additional'&&gs.phase!=='taking')return;
   const cardsToPlay=Array.isArray(d.cards)?d.cards:(d.card?[d.card]:[]);
   if(cardsToPlay.length===0)return;
-  const defHand=getH(room,gs.defenderId),unbeatCount=gs.table.filter(s=>!s.defense).length;
-  if(unbeatCount+cardsToPlay.length>defHand.length)return sendWs(ws,{type:'error',message:'У защитника меньше карт'});
-  if(gs.table.length+cardsToPlay.length>6)return sendWs(ws,{type:'error',message:'Максимум 6 карт на столе'});
+
+  const maxTable=gs.isFirstRound?5:6;
+  if(gs.table.length+cardsToPlay.length>maxTable)return sendWs(ws,{type:'error',message:`Максимум ${maxTable} карт на столе ${gs.isFirstRound?'(первый отбой)':''}`});
+
+  const defHand=getH(room,gs.defenderId);
+  if(gs.phase!=='taking'){
+    const unbeatCount=gs.table.filter(s=>!s.defense).length;
+    if(unbeatCount+cardsToPlay.length>defHand.length)return sendWs(ws,{type:'error',message:'У защитника меньше карт'});
+  }
+
   if(gs.phase==='attack'){
     const firstRank=cardsToPlay[0].rank;
-    if(!cardsToPlay.every(c=>c.rank===firstRank))return sendWs(ws,{type:'error',message:'Карты должны быть одного ранга'});
-  }else if(gs.phase==='additional'&&gs.table.length>0){
+    if(!cardsToPlay.every(c=>c.rank===firstRank))return sendWs(ws,{type:'error',message:'Заходить можно только картами одного ранга'});
+  }else if((gs.phase==='additional'||gs.phase==='taking')&&gs.table.length>0){
     const tr=new Set(gs.table.flatMap(t=>[t.attack.rank,t.defense?.rank].filter(Boolean)));
-    if(!cardsToPlay.every(c=>tr.has(c.rank)))return sendWs(ws,{type:'error',message:'Неверный ранг'});
+    if(!cardsToPlay.every(c=>tr.has(c.rank)))return sendWs(ws,{type:'error',message:'Можно подкидывать только карты того ранга, что уже есть на столе'});
   }
+
   const hand=getH(room,user.id);
   for(const card of cardsToPlay){
     const idx=hand.findIndex(c=>c.rank===card.rank&&c.suit===card.suit);
@@ -290,53 +335,159 @@ function onDurakAttack(ws,user,d){
     hand.splice(idx,1);
     gs.table.push({attack:card,defense:null});
   }
-  setH(room,user.id,hand);gs.phase='defense';
+  setH(room,user.id,hand);
+
+  if(gs.phase!=='taking'){
+    gs.phase='defense';
+  }
   bcastDurak(room);
+  chkDurakWin(room);
   if(room.guest?.isBot)triggerBotTurn(room);
 }
+
 function onDurakDefend(ws,user,d){
   const room=rooms.get(d.roomId);if(!room||room.status!=='active'||room.gameType!=='durak')return;
   const gs=room.gameState;if(gs.defenderId!==user.id)return sendWs(ws,{type:'error',message:'Не ваш ход'});
   if(gs.phase!=='defense')return;
   const {attackCard,defenseCard}=d,hand=getH(room,user.id),idx=hand.findIndex(c=>c.rank===defenseCard.rank&&c.suit===defenseCard.suit);
-  if(idx===-1)return sendWs(ws,{type:'error',message:'Карты нет'});
+  if(idx===-1)return sendWs(ws,{type:'error',message:'Карты нет в руке'});
   const slot=gs.table.find(s=>s.attack.rank===attackCard.rank&&s.attack.suit===attackCard.suit&&!s.defense);
-  if(!slot)return sendWs(ws,{type:'error',message:'Неверная карта'});
+  if(!slot)return sendWs(ws,{type:'error',message:'Карта уже покрыта или не найдена'});
   const td=defenseCard.suit===gs.trump,ta=attackCard.suit===gs.trump;
-  if(!(defenseCard.suit===attackCard.suit&&RV.indexOf(defenseCard.rank)>RV.indexOf(attackCard.rank))&&!(td&&!ta))return sendWs(ws,{type:'error',message:'Нельзя покрыть'});
+  const beats=(defenseCard.suit===attackCard.suit&&RV.indexOf(defenseCard.rank)>RV.indexOf(attackCard.rank))||(td&&!ta);
+  if(!beats)return sendWs(ws,{type:'error',message:'Нельзя покрыть этой картой'});
+
   hand.splice(idx,1);setH(room,user.id,hand);slot.defense=defenseCard;
   if(gs.table.every(s=>s.defense))gs.phase='additional';
   bcastDurak(room);
+  chkDurakWin(room);
   if(room.guest?.isBot)triggerBotTurn(room);
 }
+
 function onDurakPass(ws,user,d){
   const room=rooms.get(d.roomId);if(!room||room.status!=='active'||room.gameType!=='durak')return;
   const gs=room.gameState;
-  if(gs.mode!=='perevodnoy')return sendWs(ws,{type:'error',message:'Только переводной'});
-  if(gs.defenderId!==user.id)return sendWs(ws,{type:'error',message:'Не ваш ход'});
-  if(gs.table.length!==1||gs.table[0].defense)return sendWs(ws,{type:'error',message:'Нельзя'});
-  if(gs.passCount>=1)return sendWs(ws,{type:'error',message:'Уже переводили'});
-  const {card}=d,hand=getH(room,user.id),idx=hand.findIndex(c=>c.rank===card.rank&&c.suit===card.suit);
-  if(idx===-1)return sendWs(ws,{type:'error',message:'Карты нет'});
-  if(card.rank!==gs.table[0].attack.rank)return sendWs(ws,{type:'error',message:'Ранг не тот'});
-  hand.splice(idx,1);setH(room,user.id,hand);gs.table.push({attack:card,defense:null});gs.passCount++;
-  [gs.attackerId,gs.defenderId]=[gs.defenderId,gs.attackerId];gs.phase='defense';
+  if(gs.mode!=='perevodnoy')return sendWs(ws,{type:'error',message:'Включен классический подкидной режим'});
+  if(gs.defenderId!==user.id)return sendWs(ws,{type:'error',message:'Переводить может только защищающийся'});
+  if(gs.table.length===0)return sendWs(ws,{type:'error',message:'Стол пуст'});
+  // Rule: Cannot pass if ANY card on the table has already been defended!
+  if(!gs.table.every(s=>!s.defense))return sendWs(ws,{type:'error',message:'Нельзя переводить после начала отбивания'});
+
+  const cardsToPass=Array.isArray(d.cards)?d.cards:(d.card?[d.card]:[]);
+  if(cardsToPass.length===0)return;
+
+  const baseRank=gs.table[0].attack.rank;
+  if(!gs.table.every(s=>s.attack.rank===baseRank)){
+    return sendWs(ws,{type:'error',message:'На столе карты разных достоинств, перевод невозможен'});
+  }
+  if(!cardsToPass.every(c=>c.rank===baseRank)){
+    return sendWs(ws,{type:'error',message:'Переводить можно только картами того же ранга'});
+  }
+
+  const targetHand=getH(room,gs.attackerId);
+  if(gs.table.length+cardsToPass.length>targetHand.length){
+    return sendWs(ws,{type:'error',message:'У соперника недостаточно карт для перевода'});
+  }
+  const maxTable=gs.isFirstRound?5:6;
+  if(gs.table.length+cardsToPass.length>maxTable){
+    return sendWs(ws,{type:'error',message:`Максимум ${maxTable} карт на столе`});
+  }
+
+  const hand=getH(room,user.id);
+  for(const card of cardsToPass){
+    const idx=hand.findIndex(c=>c.rank===card.rank&&c.suit===card.suit);
+    if(idx===-1)return sendWs(ws,{type:'error',message:'Карты нет в руке'});
+    hand.splice(idx,1);
+    gs.table.push({attack:card,defense:null});
+  }
+  setH(room,user.id,hand);
+
+  // Switch roles: old defender becomes attacker, old attacker becomes defender!
+  [gs.attackerId,gs.defenderId]=[gs.defenderId,gs.attackerId];
+  gs.phase='defense';
+  gs.passCount++;
   bcastDurak(room);
+  chkDurakWin(room);
   if(room.guest?.isBot)triggerBotTurn(room);
 }
+
 function onDurakTake(ws,user,d){
   const room=rooms.get(d.roomId);if(!room||room.status!=='active'||room.gameType!=='durak')return;
   const gs=room.gameState;if(gs.defenderId!==user.id)return sendWs(ws,{type:'error',message:'Не ваш ход'});
-  const hand=getH(room,user.id);for(const s of gs.table){hand.push(s.attack);if(s.defense)hand.push(s.defense);}
-  setH(room,user.id,hand);gs.table=[];gs.passCount=0;drawDurak(room);gs.phase='attack';
-  chkDurakWin(room);if(room.status!=='finished'){bcastDurak(room);if(room.guest?.isBot)triggerBotTurn(room);}
+  if(gs.table.length===0)return sendWs(ws,{type:'error',message:'Стол пуст'});
+
+  // Check if attacker has cards to toss in pursuit
+  const attackerHand=getH(room,gs.attackerId);
+  const tableRanks=new Set(gs.table.flatMap(t=>[t.attack.rank,t.defense?.rank].filter(Boolean)));
+  const maxTable=gs.isFirstRound?5:6;
+  const canTossMore=gs.table.length<maxTable&&attackerHand.some(c=>tableRanks.has(c.rank));
+
+  if(canTossMore){
+    gs.phase='taking';
+    bcastDurak(room);
+    if(room.guest?.isBot)triggerBotTurn(room);
+  }else{
+    resolveDurakTake(room);
+  }
 }
+
+function resolveDurakTake(room){
+  const gs=room.gameState;
+  const curAttacker=gs.attackerId,curDefender=gs.defenderId;
+  const hand=getH(room,curDefender);
+  for(const s of gs.table){
+    hand.push(s.attack);
+    if(s.defense)hand.push(s.defense);
+  }
+  setH(room,curDefender,hand);
+  gs.table=[];
+  gs.passCount=0;
+  gs.isFirstRound=false;
+
+  // Canonical order: attacker draws first, then defender!
+  drawDurak(room,curAttacker,curDefender);
+
+  // Attacker attacks again!
+  gs.phase='attack';
+  chkDurakWin(room);
+  if(room.status!=='finished'){
+    bcastDurak(room);
+    if(room.guest?.isBot)triggerBotTurn(room);
+  }
+}
+
 function onDurakDoneAttacking(ws,user,d){
   const room=rooms.get(d.roomId);if(!room||room.status!=='active'||room.gameType!=='durak')return;
-  const gs=room.gameState;if(gs.attackerId!==user.id||gs.phase!=='additional')return;
-  for(const s of gs.table){gs.discardPile.push(s.attack);if(s.defense)gs.discardPile.push(s.defense);}
-  gs.table=[];gs.passCount=0;const od=gs.defenderId;gs.attackerId=od;gs.defenderId=gs.attackerId===room.host.userId?room.guest.userId:room.host.userId;
-  drawDurak(room);gs.phase='attack';chkDurakWin(room);if(room.status!=='finished'){bcastDurak(room);if(room.guest?.isBot)triggerBotTurn(room);}
+  const gs=room.gameState;if(gs.attackerId!==user.id)return;
+
+  if(gs.phase==='taking'){
+    resolveDurakTake(room);
+    return;
+  }
+
+  if(gs.phase==='additional'){
+    // Бито!
+    for(const s of gs.table){
+      gs.discardPile.push(s.attack);
+      if(s.defense)gs.discardPile.push(s.defense);
+    }
+    gs.table=[];
+    gs.passCount=0;
+    gs.isFirstRound=false;
+
+    const curAttacker=gs.attackerId,curDefender=gs.defenderId;
+    drawDurak(room,curAttacker,curDefender);
+
+    // Defender becomes new attacker!
+    gs.attackerId=curDefender;
+    gs.defenderId=curAttacker;
+    gs.phase='attack';
+    chkDurakWin(room);
+    if(room.status!=='finished'){
+      bcastDurak(room);
+      if(room.guest?.isBot)triggerBotTurn(room);
+    }
+  }
 }
 
 // ─── BATTLESHIP ───────────────────────────────────────────────────────────────
