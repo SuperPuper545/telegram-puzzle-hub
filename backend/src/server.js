@@ -12,6 +12,7 @@ import {
   getUserRank, 
   upsertUser 
 } from './db.js';
+import { startBotPolling } from './bot.js';
 
 dotenv.config();
 
@@ -141,4 +142,9 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`🚀 Telegram Puzzle Hub backend running on http://localhost:${PORT}`);
   console.log(`⚡ Memory: ${(process.memoryUsage().rss / 1024 / 1024).toFixed(1)} MB`);
+  
+  // Start Telegram Bot polling
+  startBotPolling().catch(err => {
+    console.error('Failed to start Telegram Bot polling:', err);
+  });
 });
