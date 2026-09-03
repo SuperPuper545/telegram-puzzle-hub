@@ -1,0 +1,66 @@
+﻿@import "tailwindcss";
+
+@theme {
+  --color-tg-bg: var(--tg-theme-bg-color, #121826);
+  --color-tg-secondaryBg: var(--tg-theme-secondary-bg-color, #1a2234);
+  --color-tg-text: var(--tg-theme-text-color, #f8fafc);
+  --color-tg-hint: var(--tg-theme-hint-color, #94a3b8);
+  --color-tg-link: var(--tg-theme-link-color, #38bdf8);
+  --color-tg-button: var(--tg-theme-button-color, #2563eb);
+  --color-tg-buttonText: var(--tg-theme-button-text-color, #ffffff);
+  --color-tg-accent: #6366f1;
+}
+
+:root {
+  --tg-theme-bg-color: #0f172a;
+  --tg-theme-secondary-bg-color: #1e293b;
+  --tg-theme-text-color: #f8fafc;
+  --tg-theme-hint-color: #94a3b8;
+  --tg-theme-link-color: #38bdf8;
+  --tg-theme-button-color: #3b82f6;
+  --tg-theme-button-text-color: #ffffff;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  background-color: var(--tg-theme-bg-color);
+  color: var(--tg-theme-text-color);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  touch-action: pan-y pinch-zoom;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* For game boards: complete touch capture without default scrolling or gestures */
+.game-touch-surface {
+  touch-action: none;
+  -webkit-touch-callout: none;
+}
+
+/* Custom scrollbar for leaderboard and catalog */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
