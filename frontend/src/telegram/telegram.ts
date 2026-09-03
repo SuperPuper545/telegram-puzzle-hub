@@ -88,58 +88,68 @@ export function applyTelegramTheme() {
     }
   }
 
-  // 2. Map all native Telegram colors directly into CSS variables
-  if (tp.bg_color) {
-    root.style.setProperty('--tg-theme-bg-color', tp.bg_color);
-    if (typeof document !== 'undefined' && document.body) {
-      document.body.style.backgroundColor = tp.bg_color;
-    }
-  }
-  if (tp.text_color) {
-    root.style.setProperty('--tg-theme-text-color', tp.text_color);
-  }
-  if (tp.hint_color) {
-    root.style.setProperty('--tg-theme-hint-color', tp.hint_color);
-  }
-  if (tp.link_color) {
-    root.style.setProperty('--tg-theme-link-color', tp.link_color);
-  }
-  if (tp.button_color) {
-    root.style.setProperty('--tg-theme-button-color', tp.button_color);
-  }
-  if (tp.button_text_color) {
-    root.style.setProperty('--tg-theme-button-text-color', tp.button_text_color);
-  }
-  if (tp.header_bg_color) {
-    root.style.setProperty('--tg-theme-header-bg-color', tp.header_bg_color);
-  }
-  if (tp.section_bg_color) {
-    root.style.setProperty('--tg-theme-section-bg-color', tp.section_bg_color);
-  }
+  const rawBg = (tp.bg_color || '').trim();
+  const rawSec = (tp.secondary_bg_color || '').trim();
+  const rawHdr = (tp.header_bg_color || '').trim();
 
-  // 3. Determine if current theme is light or dark based on luminance of actual bg_color or colorScheme
-  const currentBg = tp.bg_color || root.style.getPropertyValue('--tg-theme-bg-color') || '#0e1621';
-  const isLight = tg?.colorScheme === 'light' || getLuminance(currentBg) > 0.55;
+  // 2. Determine whether client is in Light or Dark mode
+  const bgCandidate = rawBg || rawHdr || root.style.getPropertyValue('--tg-theme-bg-color') || '#0e1621';
+  const isLight = tg?.colorScheme === 'light' || (bgCandidate ? getLuminance(bgCandidate) > 0.55 : false);
 
   root.classList.toggle('dark', !isLight);
   root.classList.toggle('light', isLight);
 
-  // 4. Set secondary background (cards, sections, bottom nav)
-  if (tp.secondary_bg_color && tp.secondary_bg_color.toLowerCase() !== currentBg.toLowerCase()) {
-    root.style.setProperty('--tg-theme-secondary-bg-color', tp.secondary_bg_color);
-  } else {
-    // If Telegram did not provide a distinct secondary_bg_color, derive it dynamically:
-    if (isLight) {
-      root.style.setProperty('--tg-theme-secondary-bg-color', '#ffffff');
+  let finalBg = rawBg || '#0e1621';
+  let finalSec = rawSec || '#17212b';
+
+  if (!isLight) {
+    // In Dark / Night / AMOLED mode:
+    // The page background must connect seamlessly with Telegram's top header.
+    // On Telegram Android Night/AMOLED mode, header_bg_color is #000000, while bg_color is #212121,
+    // and secondary_bg_color is #0f0f0f / #121212 (darker than bg_color!).
+    const bgLum = rawBg ? getLuminance(rawBg) : 1;
+    const hdrLum = rawHdr ? getLuminance(rawHdr) : 1;
+    const secLum = rawSec ? getLuminance(rawSec) : 1;
+
+    if (rawHdr && (rawHdr === '#000000' || hdrLum < bgLum)) {
+      finalBg = rawHdr;
+      finalSec = rawSec && rawSec !== finalBg && getLuminance(rawSec) > hdrLum
+        ? rawSec
+        : rawBg && rawBg !== finalBg
+        ? rawBg
+        : 'color-mix(in srgb, var(--tg-theme-text-color, #ffffff) 9%, var(--tg-theme-bg-color, #000000))';
+    } else if (rawSec && secLum < bgLum) {
+      finalBg = rawSec;
+      finalSec = rawBg;
     } else {
-      root.style.setProperty(
-        '--tg-theme-secondary-bg-color',
-        'color-mix(in srgb, var(--tg-theme-text-color, #ffffff) 7%, var(--tg-theme-bg-color, #121212))'
-      );
+      finalBg = rawBg || '#0e1621';
+      finalSec = rawSec && rawSec.toLowerCase() !== finalBg.toLowerCase()
+        ? rawSec
+        : 'color-mix(in srgb, var(--tg-theme-text-color, #ffffff) 8%, var(--tg-theme-bg-color, #0e1621))';
     }
+  } else {
+    // Light mode (Classic, Day)
+    finalBg = rawBg || '#ffffff';
+    finalSec = rawSec && rawSec.toLowerCase() !== finalBg.toLowerCase() ? rawSec : '#ffffff';
   }
 
-  // 5. Ensure section separator is visible on all background shades
+  // 3. Set CSS variables
+  root.style.setProperty('--tg-theme-bg-color', finalBg);
+  root.style.setProperty('--tg-theme-secondary-bg-color', finalSec);
+
+  if (typeof document !== 'undefined' && document.body) {
+    document.body.style.backgroundColor = finalBg;
+  }
+
+  if (tp.text_color) root.style.setProperty('--tg-theme-text-color', tp.text_color);
+  if (tp.hint_color) root.style.setProperty('--tg-theme-hint-color', tp.hint_color);
+  if (tp.link_color) root.style.setProperty('--tg-theme-link-color', tp.link_color);
+  if (tp.button_color) root.style.setProperty('--tg-theme-button-color', tp.button_color);
+  if (tp.button_text_color) root.style.setProperty('--tg-theme-button-text-color', tp.button_text_color);
+  if (tp.header_bg_color) root.style.setProperty('--tg-theme-header-bg-color', tp.header_bg_color);
+  if (tp.section_bg_color) root.style.setProperty('--tg-theme-section-bg-color', tp.section_bg_color);
+
+  // 4. Section separator
   if (tp.section_separator_color) {
     root.style.setProperty('--tg-theme-section-separator-color', tp.section_separator_color);
   } else {
@@ -149,14 +159,13 @@ export function applyTelegramTheme() {
     );
   }
 
-  // 6. Synchronize Telegram system header and background colors
+  // 5. Synchronize Telegram system header and background colors
   try {
-    const activeHeader = tp.header_bg_color || tp.bg_color;
-    if (activeHeader && typeof tg?.setHeaderColor === 'function') {
-      tg.setHeaderColor(activeHeader);
+    if (typeof tg?.setHeaderColor === 'function') {
+      tg.setHeaderColor(finalBg);
     }
-    if (tp.bg_color && typeof tg?.setBackgroundColor === 'function') {
-      tg.setBackgroundColor(tp.bg_color);
+    if (typeof tg?.setBackgroundColor === 'function') {
+      tg.setBackgroundColor(finalBg);
     }
   } catch {}
 }

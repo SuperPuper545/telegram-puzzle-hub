@@ -22,12 +22,49 @@
             }
           }
           if (tp) {
-            var r = document.documentElement;
-            if (tp.bg_color) {
-              r.style.setProperty('--tg-theme-bg-color', tp.bg_color);
-              if (document.body) document.body.style.backgroundColor = tp.bg_color;
+            function getLum(hex) {
+              if (!hex) return 1;
+              var c = hex.replace('#', '');
+              if (c.length !== 6) return 0.5;
+              var r = parseInt(c.substring(0, 2), 16) / 255;
+              var g = parseInt(c.substring(2, 4), 16) / 255;
+              var b = parseInt(c.substring(4, 6), 16) / 255;
+              return 0.2126 * r + 0.7152 * g + 0.0722 * b;
             }
-            if (tp.secondary_bg_color) r.style.setProperty('--tg-theme-secondary-bg-color', tp.secondary_bg_color);
+
+            var bg = tp.bg_color || '';
+            var sec = tp.secondary_bg_color || '';
+            var hdr = tp.header_bg_color || '';
+            var isLight = (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.colorScheme === 'light') || getLum(bg || hdr) > 0.55;
+
+            var finalBg = bg || '#0e1621';
+            var finalSec = sec || '#17212b';
+
+            if (!isLight) {
+              // In dark / AMOLED / Night mode:
+              // Ensure base background connects seamlessly with Telegram's header.
+              // If header is black or darker than bg (common in Telegram Android Night theme):
+              var bgLum = getLum(bg);
+              var hdrLum = getLum(hdr);
+              var secLum = getLum(sec);
+
+              if (hdr && (hdr === '#000000' || hdrLum < bgLum)) {
+                finalBg = hdr;
+                finalSec = sec && sec !== finalBg && getLum(sec) > hdrLum ? sec : (bg && bg !== finalBg ? bg : '#181818');
+              } else if (sec && secLum < bgLum) {
+                finalBg = sec;
+                finalSec = bg;
+              }
+            } else {
+              finalBg = bg || '#ffffff';
+              finalSec = (sec && sec.toLowerCase() !== finalBg.toLowerCase()) ? sec : '#ffffff';
+            }
+
+            var r = document.documentElement;
+            r.style.setProperty('--tg-theme-bg-color', finalBg);
+            r.style.setProperty('--tg-theme-secondary-bg-color', finalSec);
+            if (document.body) document.body.style.backgroundColor = finalBg;
+
             if (tp.text_color) r.style.setProperty('--tg-theme-text-color', tp.text_color);
             if (tp.hint_color) r.style.setProperty('--tg-theme-hint-color', tp.hint_color);
             if (tp.link_color) r.style.setProperty('--tg-theme-link-color', tp.link_color);
