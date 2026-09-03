@@ -50,9 +50,21 @@ db.exec(`
     FOREIGN KEY (invited_id) REFERENCES users (id)
   );
 
+  CREATE TABLE IF NOT EXISTS purchases (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    item_id TEXT NOT NULL,
+    category TEXT NOT NULL,
+    price INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id),
+    UNIQUE(user_id, item_id)
+  );
+
   CREATE INDEX IF NOT EXISTS idx_scores_game_score ON scores (game_id, score DESC);
   CREATE INDEX IF NOT EXISTS idx_scores_user_game ON scores (user_id, game_id);
   CREATE INDEX IF NOT EXISTS idx_referrals_inviter ON referrals (inviter_id);
+  CREATE INDEX IF NOT EXISTS idx_purchases_user ON purchases (user_id);
 `);
 
 // Safe migrations for existing SQLite database
@@ -71,6 +83,9 @@ addColumnIfNotExists('users', 'coins', 'INTEGER DEFAULT 0');
 addColumnIfNotExists('users', 'daily_streak', 'INTEGER DEFAULT 0');
 addColumnIfNotExists('users', 'last_daily_claim', 'DATETIME DEFAULT NULL');
 addColumnIfNotExists('users', 'referrer_id', 'INTEGER DEFAULT NULL');
+addColumnIfNotExists('users', 'equipped_block_skin', "TEXT DEFAULT 'block_classic'");
+addColumnIfNotExists('users', 'equipped_gem_skin', "TEXT DEFAULT 'gem_classic'");
+addColumnIfNotExists('users', 'equipped_title', "TEXT DEFAULT 'title_novice'");
 
 
 export function upsertUser(tgUser) {
@@ -144,6 +159,7 @@ export function getLeaderboard(gameId, limit = 50) {
       u.first_name,
       u.last_name,
       u.photo_url,
+      u.equipped_title,
       MAX(s.score) as high_score,
       MAX(s.created_at) as achieved_at
     FROM scores s
@@ -378,6 +394,200 @@ export function getReferralsInfo(userId) {
       bonusPoints: item.bonus_points,
       createdAt: item.created_at,
     })),
+  };
+}
+
+export const SHOP_ITEMS = [
+  // Blockudoku Skins
+  { id: 'block_classic', category: 'block_skin', name: 'Классик Индиго', description: 'Стандартный неоново-синий стиль блоков', price: 0, previewColor: '#6366f1' },
+  { id: 'block_neon', category: 'block_skin', name: 'Неоновый Киберпанк', description: 'Яркие бирюзово-розовые неоновые грани', price: 500, previewColor: '#06b6d4' },
+  { id: 'block_gold', category: 'block_skin', name: 'Золотой VIP', description: 'Металлический блеск золотых слитков', price: 1000, previewColor: '#f59e0b' },
+  { id: 'block_crystal', category: 'block_skin', name: 'Кристальный Лед', description: 'Ледяное сапфировое сияние граней', price: 1500, previewColor: '#38bdf8' },
+
+  // Match-3 Gem Skins
+  { id: 'gem_classic', category: 'gem_skin', name: 'Ограненные самоцветы', description: 'Классические драгоценные камни', price: 0, previewColor: '#ec4899' },
+  { id: 'gem_orbs', category: 'gem_skin', name: 'Магические сферы', description: 'Плазменные светящиеся шары', price: 500, previewColor: '#8b5cf6' },
+  { id: 'gem_candy', category: 'gem_skin', name: 'Сладкие конфеты', description: 'Яркие леденцы и мармеладки', price: 1000, previewColor: '#f43f5e' },
+
+  // Titles & Profile Badges
+  { id: 'title_novice', category: 'title', name: 'Новичок', description: 'Базовый титул игрока', price: 0, icon: '🥉' },
+  { id: 'title_master', category: 'title', name: 'Мастер головоломок', description: 'Опытный покоритель логики', price: 250, icon: '🥈' },
+  { id: 'title_tycoon', category: 'title', name: 'Магнат хаба', description: 'Владелец солидного капитала монет', price: 750, icon: '🥇' },
+  { id: 'title_legend', category: 'title', name: 'Легенда TapTap', description: 'Королевская золотая анимированная рамка', price: 2000, icon: '👑' },
+];
+
+export function spendCoins(userId, amount, reason = 'booster') {
+  const safeAmount = Math.max(0, parseInt(amount, 10) || 0);
+  if (safeAmount <= 0) {
+    return { success: false, error: 'Invalid amount' };
+  }
+
+  const user = db.prepare('SELECT id, coins FROM users WHERE id = ?').get(userId);
+  if (!user) {
+    return { success: false, error: 'User not found' };
+  }
+
+  if ((user.coins || 0) < safeAmount) {
+    return { 
+      success: false, 
+      error: 'Недостаточно монет', 
+      coinsNeeded: safeAmount, 
+      coinsHave: user.coins || 0 
+    };
+  }
+
+  const updated = db.prepare(`
+    UPDATE users 
+    SET coins = coins - ? 
+    WHERE id = ? AND coins >= ?
+    RETURNING id, coins
+  `).get(safeAmount, userId, safeAmount);
+
+  if (!updated) {
+    return { success: false, error: 'Недостаточно монет' };
+  }
+
+  return {
+    success: true,
+    spent: safeAmount,
+    reason,
+    remainingCoins: updated.coins,
+  };
+}
+
+export function getShopCatalog(userId) {
+  const user = db.prepare(`
+    SELECT id, coins, equipped_block_skin, equipped_gem_skin, equipped_title 
+    FROM users 
+    WHERE id = ?
+  `).get(userId);
+  if (!user) return null;
+
+  const purchases = db.prepare('SELECT item_id FROM purchases WHERE user_id = ?').all(userId);
+  const purchasedSet = new Set(purchases.map(p => p.item_id));
+
+  const equippedBlock = user.equipped_block_skin || 'block_classic';
+  const equippedGem = user.equipped_gem_skin || 'gem_classic';
+  const equippedTitle = user.equipped_title || 'title_novice';
+
+  const items = SHOP_ITEMS.map(item => {
+    const isFree = item.price === 0;
+    const isPurchased = isFree || purchasedSet.has(item.id);
+    const isEquipped = (item.id === equippedBlock) || (item.id === equippedGem) || (item.id === equippedTitle);
+
+    return {
+      ...item,
+      isPurchased,
+      isEquipped,
+    };
+  });
+
+  return {
+    coins: user.coins || 0,
+    equipped: {
+      blockSkin: equippedBlock,
+      gemSkin: equippedGem,
+      title: equippedTitle,
+    },
+    items,
+  };
+}
+
+export function buyShopItem(userId, itemId) {
+  const item = SHOP_ITEMS.find(i => i.id === itemId);
+  if (!item) {
+    return { success: false, error: 'Предмет не найден' };
+  }
+
+  const user = db.prepare(`
+    SELECT id, coins, equipped_block_skin, equipped_gem_skin, equipped_title 
+    FROM users 
+    WHERE id = ?
+  `).get(userId);
+  if (!user) {
+    return { success: false, error: 'Пользователь не найден' };
+  }
+
+  if (item.price > 0) {
+    const existing = db.prepare('SELECT id FROM purchases WHERE user_id = ? AND item_id = ?').get(userId, itemId);
+    if (existing) {
+      return { success: false, error: 'Предмет уже куплен' };
+    }
+
+    if ((user.coins || 0) < item.price) {
+      return { 
+        success: false, 
+        error: 'Недостаточно монет для покупки', 
+        price: item.price, 
+        coinsHave: user.coins || 0 
+      };
+    }
+  }
+
+  let colName = 'equipped_block_skin';
+  if (item.category === 'gem_skin') colName = 'equipped_gem_skin';
+  if (item.category === 'title') colName = 'equipped_title';
+
+  const tx = db.transaction(() => {
+    if (item.price > 0) {
+      db.prepare('UPDATE users SET coins = coins - ? WHERE id = ?').run(item.price, userId);
+      db.prepare('INSERT INTO purchases (user_id, item_id, category, price) VALUES (?, ?, ?, ?)').run(userId, itemId, item.category, item.price);
+    }
+    db.prepare(`UPDATE users SET ${colName} = ? WHERE id = ?`).run(itemId, userId);
+  });
+
+  tx();
+
+  const updatedUser = db.prepare(`
+    SELECT coins, equipped_block_skin, equipped_gem_skin, equipped_title 
+    FROM users 
+    WHERE id = ?
+  `).get(userId);
+
+  return {
+    success: true,
+    item,
+    remainingCoins: updatedUser.coins,
+    equipped: {
+      blockSkin: updatedUser.equipped_block_skin,
+      gemSkin: updatedUser.equipped_gem_skin,
+      title: updatedUser.equipped_title,
+    },
+  };
+}
+
+export function equipShopItem(userId, itemId) {
+  const item = SHOP_ITEMS.find(i => i.id === itemId);
+  if (!item) {
+    return { success: false, error: 'Предмет не найден' };
+  }
+
+  if (item.price > 0) {
+    const purchase = db.prepare('SELECT id FROM purchases WHERE user_id = ? AND item_id = ?').get(userId, itemId);
+    if (!purchase) {
+      return { success: false, error: 'Сначала необходимо приобрести этот предмет' };
+    }
+  }
+
+  let colName = 'equipped_block_skin';
+  if (item.category === 'gem_skin') colName = 'equipped_gem_skin';
+  if (item.category === 'title') colName = 'equipped_title';
+
+  db.prepare(`UPDATE users SET ${colName} = ? WHERE id = ?`).run(itemId, userId);
+
+  const updatedUser = db.prepare(`
+    SELECT equipped_block_skin, equipped_gem_skin, equipped_title 
+    FROM users 
+    WHERE id = ?
+  `).get(userId);
+
+  return {
+    success: true,
+    equipped: {
+      blockSkin: updatedUser.equipped_block_skin,
+      gemSkin: updatedUser.equipped_gem_skin,
+      title: updatedUser.equipped_title,
+    },
   };
 }
 

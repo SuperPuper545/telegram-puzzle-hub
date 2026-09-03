@@ -1,4 +1,4 @@
-﻿// Procedural Web Audio API Sound Synthesizer (0 KB external files, zero latency)
+// Procedural Web Audio API Sound Synthesizer (0 KB external files, zero latency)
 
 class SoundManager {
   private ctx: AudioContext | null = null;
@@ -172,6 +172,10 @@ class SoundManager {
       osc.start(ctx.currentTime + idx * 0.03);
       osc.stop(ctx.currentTime + idx * 0.03 + 0.3);
     });
+  }
+
+  public playCombo() {
+    this.playGemMatch(3);
   }
 
   // Match-3: Bomb explosion

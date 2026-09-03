@@ -19,12 +19,30 @@ import {
   Ban,
   Volume2,
   VolumeX,
+  Coins,
+  Dices,
+  RotateCw,
+  Hammer,
 } from 'lucide-react';
 
 const FINGER_OFFSET_TOUCH = 65; // Lift piece above touch point on mobile screens only
 
+function getBlockSkinClass(skinId: string): string {
+  switch (skinId) {
+    case 'block_neon':
+      return 'bg-gradient-to-br from-cyan-400 to-fuchsia-500 border border-cyan-300 shadow-md shadow-cyan-500/30';
+    case 'block_gold':
+      return 'bg-gradient-to-br from-amber-300 via-yellow-400 to-amber-600 border border-yellow-200 shadow-md shadow-amber-500/40';
+    case 'block_crystal':
+      return 'bg-gradient-to-br from-sky-300 via-blue-400 to-indigo-500 border border-sky-200 shadow-md shadow-sky-400/40';
+    case 'block_classic':
+    default:
+      return 'bg-gradient-to-br from-indigo-500 to-indigo-600 border border-indigo-400/50 shadow-sm shadow-indigo-500/20';
+  }
+}
+
 export const BlockudokuGame: React.FC = () => {
-  const { closeGame, bestScores, submitScore } = useGameBridge();
+  const { closeGame, bestScores, submitScore, coins, spendCoins, equippedBlockSkin } = useGameBridge();
   const currentBest = bestScores['blockudoku'] || 0;
 
   const {
@@ -41,7 +59,13 @@ export const BlockudokuGame: React.FC = () => {
     comboBanner,
     placePiece,
     restartGame,
+    rerollTray,
+    rotateTrayPiece,
+    hammerClearCell,
   } = useBlockudoku(currentBest);
+
+  const [isHammerActive, setIsHammerActive] = useState(false);
+  const [boosterNotice, setBoosterNotice] = useState<string | null>(null);
 
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [selectedTrayIndex, setSelectedTrayIndex] = useState<number | null>(null);
@@ -230,8 +254,87 @@ export const BlockudokuGame: React.FC = () => {
     setDragState(null);
   }, [dragState, placePiece]);
 
-  // Click on board cell (Click-to-place mode)
-  const handleBoardClick = (targetRow: number, targetCol: number) => {
+  const showBoosterNotice = (msg: string) => {
+    setBoosterNotice(msg);
+    setTimeout(() => setBoosterNotice(null), 2500);
+  };
+
+  const handleReroll = async () => {
+    if (coins < 50) {
+      sound.playUiTap();
+      haptics.error();
+      showBoosterNotice('Нужно 50 🪙 для смены фигур!');
+      return;
+    }
+    const success = await spendCoins(50, 'blockudoku_reroll');
+    if (success) {
+      sound.playPickup();
+      haptics.medium();
+      rerollTray();
+      setSelectedTrayIndex(null);
+      showBoosterNotice('Фигуры обновлены! (-50 🪙)');
+    }
+  };
+
+  const handleRotate = async () => {
+    let targetIdx = selectedTrayIndex;
+    if (targetIdx === null) {
+      targetIdx = trayPieces.findIndex((p) => p !== null);
+    }
+    if (targetIdx === -1 || targetIdx === null || !trayPieces[targetIdx]) {
+      showBoosterNotice('Выберите фигуру для поворота!');
+      return;
+    }
+
+    if (coins < 75) {
+      sound.playUiTap();
+      haptics.error();
+      showBoosterNotice('Нужно 75 🪙 для поворота!');
+      return;
+    }
+
+    const success = await spendCoins(75, 'blockudoku_rotate');
+    if (success) {
+      sound.playPickup();
+      haptics.medium();
+      rotateTrayPiece(targetIdx);
+      setSelectedTrayIndex(targetIdx);
+      showBoosterNotice('Фигура повернута! (-75 🪙)');
+    }
+  };
+
+  const handleToggleHammer = () => {
+    sound.playUiTap();
+    haptics.selection();
+    if (coins < 150 && !isHammerActive) {
+      haptics.error();
+      showBoosterNotice('Нужно 150 🪙 для Молотка!');
+      return;
+    }
+    setIsHammerActive((prev) => !prev);
+    if (!isHammerActive) {
+      showBoosterNotice('Тапните по блоку на доске, чтобы разбить его!');
+    }
+  };
+
+  // Click on board cell (Click-to-place mode OR Hammer mode)
+  const handleBoardClick = async (targetRow: number, targetCol: number) => {
+    if (isHammerActive) {
+      if (grid[targetRow][targetCol] > 0) {
+        const success = await spendCoins(150, 'blockudoku_hammer');
+        if (success) {
+          sound.playClear(2);
+          haptics.heavy();
+          hammerClearCell(targetRow, targetCol);
+          setIsHammerActive(false);
+          showBoosterNotice('Блок уничтожен! (-150 🪙)');
+        }
+      } else {
+        showBoosterNotice('Тапните по заполненной клетке!');
+      }
+      return;
+    }
+
     if (selectedTrayIndex === null) return;
     const piece = trayPieces[selectedTrayIndex];
     if (!piece || !trayPlaceable[selectedTrayIndex]) return;
@@ -372,36 +475,51 @@ export const BlockudokuGame: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Header Buttons: Sound & Restart */}
-        <div className="flex items-center gap-1 -mr-2">
+        {/* Right Header Buttons: Sound, Coins & Restart */}
+        <div className="flex items-center gap-1.5 -mr-1">
+          <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-400/25 text-amber-300 text-xs font-black shadow-sm">
+            <Coins className="w-3.5 h-3.5" />
+            <span>{coins}</span>
+          </div>
+
           <button
             onClick={toggleSound}
-            className="p-2 rounded-xl text-slate-400 hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
+            className="p-1.5 rounded-xl text-slate-400 hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
             title={isMuted ? 'Включить звук (M)' : 'Выключить звук (M)'}
           >
             {isMuted ? (
-              <VolumeX className="w-5 h-5 text-slate-500" />
+              <VolumeX className="w-4 h-4 text-slate-500" />
             ) : (
-              <Volume2 className="w-5 h-5 text-indigo-400" />
+              <Volume2 className="w-4 h-4 text-indigo-400" />
             )}
           </button>
 
           <button
             onClick={handleRestart}
-            className="p-2 rounded-xl text-slate-400 hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
+            className="p-1.5 rounded-xl text-slate-400 hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
             title="Начать заново (R)"
           >
-            <RotateCcw className="w-5 h-5" />
+            <RotateCcw className="w-4 h-4" />
           </button>
         </div>
       </header>
 
       {/* 2. Fixed Status & Combo Banner (h-7) */}
       <div className="h-7 shrink-0 flex items-center justify-center px-4">
-        {isStuck ? (
+        {boosterNotice ? (
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-[11px] font-black text-amber-300 animate-fade-in shadow-md">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            {boosterNotice}
+          </div>
+        ) : isHammerActive ? (
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-rose-500/25 border border-rose-400/50 text-[11px] font-black text-rose-300 animate-pulse">
+            <Hammer className="w-3.5 h-3.5 text-rose-400" />
+            Режим Молотка: тапните по блоку на доске!
+          </div>
+        ) : isStuck ? (
           <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-rose-500/20 border border-rose-400/40 text-[11px] font-bold text-rose-300 animate-pulse">
             <Ban className="w-3.5 h-3.5 text-rose-400" />
-            Нет места для оставшихся фигур!
+            Нет места! Используйте Смену или Молоток!
           </div>
         ) : comboBanner ? (
           <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-[11px] font-bold text-indigo-300 animate-fade-in">
@@ -428,7 +546,9 @@ export const BlockudokuGame: React.FC = () => {
             width: 'min(86vw, 44vh, 370px)',
             height: 'min(86vw, 44vh, 370px)',
           }}
-          className="aspect-square bg-slate-900/95 rounded-2xl p-2 border-2 border-slate-800/90 shadow-2xl shadow-indigo-950/40 grid grid-cols-9 gap-1"
+          className={`aspect-square bg-slate-900/95 rounded-2xl p-2 border-2 shadow-2xl shadow-indigo-950/40 grid grid-cols-9 gap-1 transition-colors ${
+            isHammerActive ? 'border-rose-500/80 ring-2 ring-rose-500/30' : 'border-slate-800/90'
+          }`}
         >
           {grid.map((row, r) =>
             row.map((cell, c) => {
@@ -450,7 +570,7 @@ export const BlockudokuGame: React.FC = () => {
                       : isPredicted
                       ? 'bg-amber-400/80 ring-2 ring-amber-300 shadow-md shadow-amber-400/50 scale-95 animate-pulse z-10'
                       : cell > 0
-                      ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 border border-indigo-400/50 shadow-sm shadow-indigo-500/20'
+                      ? `${getBlockSkinClass(equippedBlockSkin)} ${isHammerActive ? 'hover:scale-105 ring-2 ring-rose-400 z-10' : ''}`
                       : isGhost
                       ? 'bg-indigo-400/50 border-2 border-indigo-300 scale-95 animate-pulse'
                       : isSubgridEven
@@ -469,6 +589,46 @@ export const BlockudokuGame: React.FC = () => {
             })
           )}
         </div>
+      </div>
+
+      {/* Booster Action Bar */}
+      <div className="shrink-0 px-3 py-1 flex items-center justify-between gap-2 max-w-md mx-auto w-full">
+        {/* Reroll */}
+        <button
+          onClick={handleReroll}
+          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl bg-slate-800/90 border border-slate-700/80 active:scale-95 transition-all text-[11px] font-bold text-tg-text hover:border-indigo-500/50 cursor-pointer shadow-sm"
+          title="Смена фигур за 50 монет"
+        >
+          <Dices className="w-3.5 h-3.5 text-indigo-400" />
+          <span>Смена</span>
+          <span className="text-[10px] text-amber-400 font-black">50🪙</span>
+        </button>
+
+        {/* Rotate */}
+        <button
+          onClick={handleRotate}
+          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl bg-slate-800/90 border border-slate-700/80 active:scale-95 transition-all text-[11px] font-bold text-tg-text hover:border-purple-500/50 cursor-pointer shadow-sm"
+          title="Поворот фигуры за 75 монет"
+        >
+          <RotateCw className="w-3.5 h-3.5 text-purple-400" />
+          <span>Поворот</span>
+          <span className="text-[10px] text-amber-400 font-black">75🪙</span>
+        </button>
+
+        {/* Hammer */}
+        <button
+          onClick={handleToggleHammer}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl border active:scale-95 transition-all text-[11px] font-bold cursor-pointer shadow-sm ${
+            isHammerActive
+              ? 'bg-rose-500/30 border-rose-400 text-rose-300 ring-2 ring-rose-400/50 animate-pulse'
+              : 'bg-slate-800/90 border-slate-700/80 text-tg-text hover:border-rose-500/50'
+          }`}
+          title="Разбить клетку за 150 монет"
+        >
+          <Hammer className={`w-3.5 h-3.5 ${isHammerActive ? 'text-rose-300' : 'text-rose-400'}`} />
+          <span>{isHammerActive ? 'Отмена' : 'Молоток'}</span>
+          <span className="text-[10px] text-amber-400 font-black">150🪙</span>
+        </button>
       </div>
 
       {/* 4. Tray of 3 Pieces (h-28) */}
@@ -600,6 +760,30 @@ export const BlockudokuGame: React.FC = () => {
             </div>
 
             <div className="space-y-2">
+              {score > 0 && (
+                <button
+                  onClick={async () => {
+                    if (coins >= 150) {
+                      const success = await spendCoins(150, 'blockudoku_rescue');
+                      if (success) {
+                        sound.playClear(2);
+                        haptics.heavy();
+                        rerollTray();
+                        setIsHammerActive(true);
+                        showBoosterNotice('Партия спасена! Тапните по блоку для очистки');
+                      }
+                    } else {
+                      sound.playUiTap();
+                      haptics.error();
+                      showBoosterNotice('Нужно 150 🪙 для спасения игры!');
+                    }
+                  }}
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white font-black text-xs shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Hammer className="w-4 h-4" />
+                  Спасти игру (Молоток + Смена за 150 🪙)
+                </button>
+              )}
               <button
                 onClick={handleRestart}
                 className="w-full py-3 px-4 rounded-xl tg-btn-primary font-bold text-sm shadow-lg shadow-indigo-600/30 cursor-pointer"

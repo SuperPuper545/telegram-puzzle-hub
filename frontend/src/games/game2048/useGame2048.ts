@@ -1,4 +1,4 @@
-﻿import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import type { BoardMatrix, Direction } from './types';
 import {
   createInitialBoard,
@@ -135,6 +135,34 @@ export function useGame2048(initialBestScore: number = 0) {
     [board, score, bestScore, hasWon, isGameOver]
   );
 
+  // In-Game Booster: Remove Lowest Tile (100 coins)
+  const removeLowTile = useCallback(() => {
+    let targetRow = -1;
+    let targetCol = -1;
+    let lowestVal = Infinity;
+
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        const val = board[r][c];
+        if (val > 0 && val < lowestVal) {
+          lowestVal = val;
+          targetRow = r;
+          targetCol = c;
+        }
+      }
+    }
+
+    if (targetRow === -1) return false;
+
+    const nextBoard = board.map((row, r) =>
+      row.map((cell, c) => (r === targetRow && c === targetCol ? 0 : cell))
+    );
+
+    setBoard(nextBoard);
+    setIsGameOver(false);
+    return true;
+  }, [board]);
+
   return {
     board,
     score,
@@ -146,5 +174,6 @@ export function useGame2048(initialBestScore: number = 0) {
     move,
     undo,
     restartGame,
+    removeLowTile,
   };
 }

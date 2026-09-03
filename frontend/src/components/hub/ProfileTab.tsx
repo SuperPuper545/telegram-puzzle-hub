@@ -1,6 +1,6 @@
 import React from 'react';
 import { useGameBridge } from '../../context/GameContext';
-import { Trophy, Gamepad2, Share2, Sparkles, Play, Flame, Coins, Gift } from 'lucide-react';
+import { Trophy, Gamepad2, Share2, Play, Flame, Coins, Gift, ShoppingBag } from 'lucide-react';
 import { haptics, getTelegramWebApp } from '../../telegram/telegram';
 import { sound } from '../../utils/sound';
 
@@ -11,12 +11,30 @@ export const ProfileTab: React.FC = () => {
     totalGamesPlayed, 
     coins, 
     dailyStreak, 
-    setIsDailyModalOpen, 
+    setIsDailyModalOpen,
+    setIsShopModalOpen,
+    equippedTitle,
     setActiveTab, 
     openGame 
   } = useGameBridge();
   const totalScore = Object.values(bestScores).reduce((acc, s) => acc + s, 0);
   const initials = (user.first_name || 'U').slice(0, 2).toUpperCase();
+
+  const getTitleInfo = (titleId: string) => {
+    switch (titleId) {
+      case 'title_legend':
+        return { name: 'Легенда TapTap', icon: '👑', color: 'text-amber-400', bg: 'bg-amber-500/15 border-amber-400/30' };
+      case 'title_tycoon':
+        return { name: 'Монетный Магнат', icon: '🥇', color: 'text-yellow-400', bg: 'bg-yellow-500/15 border-yellow-400/30' };
+      case 'title_master':
+        return { name: 'Мастер Головоломок', icon: '🥈', color: 'text-indigo-400', bg: 'bg-indigo-500/15 border-indigo-400/30' };
+      case 'title_novice':
+      default:
+        return { name: 'Новичок', icon: '🥉', color: 'text-slate-300', bg: 'bg-slate-800/80 border-slate-700/50' };
+    }
+  };
+
+  const titleInfo = getTitleInfo(equippedTitle);
 
   const shareSpecificGame = (gameTitle: string, score: number) => {
     haptics.medium();
@@ -108,15 +126,23 @@ export const ProfileTab: React.FC = () => {
           {user.username ? `@${user.username}` : `ID: ${user.id}`}
         </p>
 
-        <div className="mt-3.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/15 border border-indigo-400/25 text-indigo-300 text-xs font-bold">
-          <Sparkles className="w-3.5 h-3.5 text-indigo-300" /> Мастер головоломок
+        <div className={`mt-3.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${titleInfo.bg} ${titleInfo.color}`}>
+          <span>{titleInfo.icon}</span>
+          <span>{titleInfo.name}</span>
         </div>
       </div>
 
       {/* 4-Item Stats Grid */}
       <div className="grid grid-cols-2 gap-3">
         {/* Coins */}
-        <div className="p-3.5 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] flex items-center gap-3">
+        <div 
+          onClick={() => {
+            sound.playUiTap();
+            haptics.selection();
+            setIsShopModalOpen(true);
+          }}
+          className="p-3.5 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] flex items-center gap-3 cursor-pointer hover:border-amber-500/40 active:scale-98 transition-all"
+        >
           <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-400 shrink-0">
             <Coins className="w-5 h-5" />
           </div>
@@ -164,6 +190,29 @@ export const ProfileTab: React.FC = () => {
             <span className="text-[11px] text-tg-hint font-medium">Суммарный счет</span>
             <p className="text-base font-extrabold text-purple-300">{totalScore.toLocaleString()}</p>
           </div>
+        </div>
+      </div>
+
+      {/* Customization & Skins Shop Promo Card */}
+      <div 
+        onClick={() => {
+          sound.playUiTap();
+          haptics.selection();
+          setIsShopModalOpen(true);
+        }}
+        className="p-3.5 rounded-2xl bg-gradient-to-r from-indigo-950/70 via-purple-950/70 to-pink-950/60 border border-purple-500/40 flex items-center justify-between cursor-pointer active:scale-98 transition-all hover:border-purple-400 shadow-md"
+      >
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-purple-500/20 text-purple-300">
+            <ShoppingBag className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-white">Магазин кастомизации</p>
+            <p className="text-[10px] text-purple-200/80">Скины блоков, кристаллов и титулы</p>
+          </div>
+        </div>
+        <div className="px-2.5 py-1 rounded-xl bg-purple-500/30 text-xs font-bold text-purple-200 border border-purple-400/30">
+          Открыть
         </div>
       </div>
 

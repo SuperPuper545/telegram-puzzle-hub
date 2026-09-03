@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useGameBridge } from '../../context/GameContext';
 import { useGame2048 } from './useGame2048';
 import { getTileStyle } from './tileStyles';
@@ -14,10 +14,12 @@ import {
   Volume2,
   VolumeX,
   Flame,
+  Coins,
+  Eraser,
 } from 'lucide-react';
 
 export const Game2048: React.FC = () => {
-  const { closeGame, bestScores, submitScore } = useGameBridge();
+  const { closeGame, bestScores, submitScore, coins, spendCoins } = useGameBridge();
   const currentBest = bestScores['2048'] || 0;
 
   const {
@@ -31,7 +33,10 @@ export const Game2048: React.FC = () => {
     move,
     undo,
     restartGame,
+    removeLowTile,
   } = useGame2048(currentBest);
+
+  const [boosterNotice, setBoosterNotice] = useState<string | null>(null);
 
   const [isMuted, setIsMuted] = useState(() => sound.isMuted());
   const [isNewRecord, setIsNewRecord] = useState(false);
@@ -127,6 +132,48 @@ export const Game2048: React.FC = () => {
     }
   };
 
+  const showBoosterNotice = (msg: string) => {
+    setBoosterNotice(msg);
+    setTimeout(() => setBoosterNotice(null), 2500);
+  };
+
+  const handleBoosterUndo = async () => {
+    if (!canUndo) {
+      showBoosterNotice('Нет ходов для отмены!');
+      return;
+    }
+    if (coins < 25) {
+      sound.playUiTap();
+      haptics.error();
+      showBoosterNotice('Нужно 25 🪙 для отката хода!');
+      return;
+    }
+    const success = await spendCoins(25, '2048_undo');
+    if (success) {
+      sound.playUiTap();
+      haptics.medium();
+      undo();
+      showBoosterNotice('Ход отменен! (-25 🪙)');
+    }
+  };
+
+  const handleBoosterErase = async () => {
+    if (coins < 100) {
+      sound.playUiTap();
+      haptics.error();
+      showBoosterNotice('Нужно 100 🪙 для удаления плитки!');
+      return;
+    }
+    const success = await spendCoins(100, '2048_erase_low');
+    if (success) {
+      sound.playClear(2);
+      haptics.heavy();
+      removeLowTile();
+      hasSubmittedRef.current = false;
+      showBoosterNotice('Мелкая плитка удалена! (-100 🪙)');
+    }
+  };
+
   return (
     <div
       className="w-full h-full min-h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col justify-between bg-tg-bg text-tg-text select-none game-viewport-lock"
@@ -134,7 +181,7 @@ export const Game2048: React.FC = () => {
       onTouchEnd={handleTouchEnd}
     >
       {/* 1. Fixed Header (h-14) */}
-      <header className="h-14 shrink-0 px-4 flex items-center justify-between border-b border-[var(--tg-theme-section-separator-color)] bg-tg-secondaryBg/90 backdrop-blur-md z-10">
+      <header className="h-14 shrink-0 px-4 flex items-center justify-between border-b border-[var(--tg-theme-section-separator-color)] bg-tg-secondaryBg/80 backdrop-blur-md z-10">
         <button
           onClick={() => {
             sound.playUiTap();
@@ -178,49 +225,48 @@ export const Game2048: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Buttons: Undo, Sound, Restart */}
-        <div className="flex items-center gap-1 -mr-2">
-          <button
-            onClick={undo}
-            disabled={!canUndo}
-            className={`p-2 rounded-xl transition-all cursor-pointer ${
-              canUndo
-                ? 'text-indigo-400 hover:text-tg-text active:scale-95'
-                : 'text-tg-hint opacity-30 cursor-not-allowed'
-            }`}
-            title="Отменить ход (U)"
-          >
-            <Undo2 className="w-5 h-5" />
-          </button>
+        {/* Right Header Buttons: Coins, Sound, Restart */}
+        <div className="flex items-center gap-1.5 -mr-1">
+          <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-400/25 text-amber-300 text-xs font-black shadow-sm">
+            <Coins className="w-3.5 h-3.5" />
+            <span>{coins}</span>
+          </div>
 
           <button
             onClick={toggleSound}
-            className="p-2 rounded-xl text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
+            className="p-1.5 rounded-xl text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
             title={isMuted ? 'Включить звук (M)' : 'Выключить звук (M)'}
           >
             {isMuted ? (
-              <VolumeX className="w-5 h-5 text-tg-hint opacity-50" />
+              <VolumeX className="w-4 h-4 text-tg-hint opacity-50" />
             ) : (
-              <Volume2 className="w-5 h-5 text-amber-400" />
+              <Volume2 className="w-4 h-4 text-amber-400" />
             )}
           </button>
 
           <button
             onClick={handleRestart}
-            className="p-2 rounded-xl text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
+            className="p-1.5 rounded-xl text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
             title="Начать заново (R)"
           >
-            <RotateCcw className="w-5 h-5" />
+            <RotateCcw className="w-4 h-4" />
           </button>
         </div>
       </header>
 
       {/* 2. Status Bar (h-8) */}
       <div className="h-8 shrink-0 flex items-center justify-between px-5">
-        <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/30 text-[11px] font-extrabold text-amber-300">
-          <Flame className="w-3.5 h-3.5 fill-amber-400" />
-          Цель: плитка 2048!
-        </div>
+        {boosterNotice ? (
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-[11px] font-black text-amber-300 animate-fade-in shadow-md">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            {boosterNotice}
+          </div>
+        ) : (
+          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/30 text-[11px] font-extrabold text-amber-300">
+            <Flame className="w-3.5 h-3.5 fill-amber-400" />
+            Цель: плитка 2048!
+          </div>
+        )}
 
         <span className="text-[11px] text-tg-hint font-medium">
           Свайпай в любую сторону
@@ -259,11 +305,32 @@ export const Game2048: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. Controls & Hint Bar (h-14) */}
-      <div className="h-14 shrink-0 px-4 flex items-center justify-center border-t border-[var(--tg-theme-section-separator-color)] bg-tg-secondaryBg/40">
-        <p className="text-xs text-tg-hint text-center font-medium">
-          💡 На ПК используй стрелки клавиатуры или клавиши WASD
-        </p>
+      {/* 4. Booster Action Bar (h-14) */}
+      <div className="h-14 shrink-0 px-3 flex items-center justify-between gap-2 border-t border-[var(--tg-theme-section-separator-color)] bg-tg-secondaryBg/80">
+        <button
+          onClick={handleBoosterUndo}
+          disabled={!canUndo}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl border transition-all text-xs font-bold cursor-pointer shadow-sm ${
+            canUndo
+              ? 'bg-slate-800/90 border-slate-700/80 text-tg-text hover:border-indigo-500/50 active:scale-95'
+              : 'bg-slate-900/40 border-slate-800/40 text-tg-hint opacity-40 cursor-not-allowed'
+          }`}
+          title="Откат на 1 ход за 25 монет"
+        >
+          <Undo2 className="w-4 h-4 text-indigo-400" />
+          <span>Откат</span>
+          <span className="text-[10px] text-amber-400 font-black">25🪙</span>
+        </button>
+
+        <button
+          onClick={handleBoosterErase}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-slate-800/90 border border-slate-700/80 active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-amber-500/50 cursor-pointer shadow-sm"
+          title="Стереть минимальную плитку за 100 монет"
+        >
+          <Eraser className="w-4 h-4 text-amber-400" />
+          <span>Стереть 2/4</span>
+          <span className="text-[10px] text-amber-400 font-black">100🪙</span>
+        </button>
       </div>
 
       {/* 2048 Win Modal */}
@@ -328,6 +395,29 @@ export const Game2048: React.FC = () => {
             </div>
 
             <div className="space-y-2">
+              <button
+                onClick={async () => {
+                  if (coins >= 100) {
+                    const success = await spendCoins(100, '2048_rescue');
+                    if (success) {
+                      sound.playClear(2);
+                      haptics.heavy();
+                      removeLowTile();
+                      hasSubmittedRef.current = false;
+                      showBoosterNotice('Партия спасена: плитка стерта!');
+                    }
+                  } else {
+                    sound.playUiTap();
+                    haptics.error();
+                    showBoosterNotice('Нужно 100 🪙 для спасения игры!');
+                  }
+                }}
+                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white font-black text-xs shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Eraser className="w-4 h-4" />
+                Спасти игру (Стереть 2/4 за 100 🪙)
+              </button>
+
               <button
                 onClick={handleRestart}
                 className="w-full py-3 px-4 rounded-xl tg-btn-primary font-bold text-sm shadow-lg shadow-amber-600/30 cursor-pointer"

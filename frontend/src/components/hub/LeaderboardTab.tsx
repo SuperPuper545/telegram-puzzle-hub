@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useGameBridge, type GameId } from '../../context/GameContext';
 import { Trophy, Crown, RefreshCw } from 'lucide-react';
 import { haptics } from '../../telegram/telegram';
@@ -22,6 +22,19 @@ export const LeaderboardTab: React.FC = () => {
     { id: 'match3', label: 'Match-3' },
     { id: '2048', label: '2048' },
   ];
+
+  const getTitleBadge = (titleId?: string) => {
+    switch (titleId) {
+      case 'title_legend':
+        return { icon: '👑', label: 'Легенда' };
+      case 'title_tycoon':
+        return { icon: '🥇', label: 'Магнат' };
+      case 'title_master':
+        return { icon: '🥈', label: 'Мастер' };
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="p-4 space-y-4">
@@ -206,9 +219,16 @@ export const LeaderboardTab: React.FC = () => {
                         )}
                       </div>
                       <div>
-                        <p className="font-semibold text-xs text-tg-text leading-tight">
-                          {entry.firstName} {isCurrentUser && ' (Вы)'}
-                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-semibold text-xs text-tg-text leading-tight">
+                            {entry.firstName} {isCurrentUser && ' (Вы)'}
+                          </p>
+                          {entry.equippedTitle && getTitleBadge(entry.equippedTitle) && (
+                            <span className="text-[10px] select-none" title={getTitleBadge(entry.equippedTitle)?.label}>
+                              {getTitleBadge(entry.equippedTitle)?.icon}
+                            </span>
+                          )}
+                        </div>
                         {entry.username && (
                           <p className="text-[10px] text-tg-hint">@{entry.username}</p>
                         )}

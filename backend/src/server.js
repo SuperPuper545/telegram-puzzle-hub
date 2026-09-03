@@ -20,7 +20,11 @@ import {
   getDailyRewardStatus,
   claimDailyReward,
   processReferral,
-  getReferralsInfo
+  getReferralsInfo,
+  spendCoins,
+  getShopCatalog,
+  buyShopItem,
+  equipShopItem
 } from './db.js';
 import { startBotPolling } from './bot.js';
 
@@ -70,6 +74,9 @@ app.get('/api/me', authMiddleware, (req, res) => {
       coins: userRecord.coins || 0,
       dailyStreak: userRecord.daily_streak || 0,
       referrerId: userRecord.referrer_id || null,
+      equippedBlockSkin: userRecord.equipped_block_skin || 'block_classic',
+      equippedGemSkin: userRecord.equipped_gem_skin || 'gem_classic',
+      equippedTitle: userRecord.equipped_title || 'title_novice',
     },
     scores: scoresMap,
     totalGamesPlayed: totalPlayed,
@@ -129,6 +136,7 @@ app.get('/api/leaderboard/:gameId', (req, res) => {
       firstName: row.first_name,
       lastName: row.last_name,
       photoUrl: row.photo_url,
+      equippedTitle: row.equipped_title || 'title_novice',
       highScore: row.high_score,
       achievedAt: row.achieved_at,
     })),
@@ -179,6 +187,51 @@ app.get('/api/daily-reward/status', authMiddleware, (req, res) => {
 // 8. Claim daily reward
 app.post('/api/daily-reward/claim', authMiddleware, (req, res) => {
   const result = claimDailyReward(req.user.id);
+  if (!result.success) {
+    return res.status(400).json(result);
+  }
+  res.json(result);
+});
+
+// 9. Spend coins (in-game boosters)
+app.post('/api/coins/spend', authMiddleware, (req, res) => {
+  const { amount, reason } = req.body;
+  const result = spendCoins(req.user.id, amount, reason);
+  if (!result.success) {
+    return res.status(400).json(result);
+  }
+  res.json(result);
+});
+
+// 10. Shop items catalog
+app.get('/api/shop/items', authMiddleware, (req, res) => {
+  const catalog = getShopCatalog(req.user.id);
+  if (!catalog) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  res.json(catalog);
+});
+
+// 11. Buy item in shop
+app.post('/api/shop/buy', authMiddleware, (req, res) => {
+  const { itemId } = req.body;
+  if (!itemId) {
+    return res.status(400).json({ error: 'itemId is required' });
+  }
+  const result = buyShopItem(req.user.id, itemId);
+  if (!result.success) {
+    return res.status(400).json(result);
+  }
+  res.json(result);
+});
+
+// 12. Equip item in shop
+app.post('/api/shop/equip', authMiddleware, (req, res) => {
+  const { itemId } = req.body;
+  if (!itemId) {
+    return res.status(400).json({ error: 'itemId is required' });
+  }
+  const result = equipShopItem(req.user.id, itemId);
   if (!result.success) {
     return res.status(400).json(result);
   }

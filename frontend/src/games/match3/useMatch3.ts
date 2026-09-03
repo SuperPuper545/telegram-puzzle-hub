@@ -1,4 +1,4 @@
-﻿import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import type { GemCell, Position } from './types';
 import {
   createInitialBoard,
@@ -186,6 +186,61 @@ export function useMatch3(initialBestScore: number = 0) {
     [board, isBusy, isGameOver, movesLeft, score, processCascades]
   );
 
+  // In-Game Booster: Add +5 extra moves (100 coins)
+  const addExtraMoves = useCallback((count: number = 5) => {
+    setMovesLeft((prev) => prev + count);
+    setIsGameOver(false);
+  }, []);
+
+  // In-Game Booster: Color Bomb (150 coins)
+  const triggerColorBomb = useCallback(async () => {
+    if (isBusy || isGameOver) return false;
+    setIsBusy(true);
+
+    const counts: Record<number, number> = {};
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const t = board[r][c].type;
+        counts[t] = (counts[t] || 0) + 1;
+      }
+    }
+    let targetType = 0;
+    let maxC = 0;
+    Object.entries(counts).forEach(([t, count]) => {
+      if (count > maxC) {
+        maxC = count;
+        targetType = Number(t);
+      }
+    });
+
+    const clearing = new Set<string>();
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        if (board[r][c].type === targetType) {
+          clearing.add(`${r},${c}`);
+        }
+      }
+    }
+
+    setClearingKeys(clearing);
+    sound.playClear(4);
+    haptics.heavy();
+    await new Promise((res) => setTimeout(res, 300));
+
+    const nextBoard = applyGravityAndRefill(board, clearing, []);
+    setBoard(nextBoard);
+    setClearingKeys(new Set());
+
+    const gained = clearing.size * 35;
+    const newScore = score + gained;
+    setScore(newScore);
+    if (newScore > bestScore) setBestScore(newScore);
+    setLastScorePopup({ text: `+${gained} (Бомба!)`, id: Date.now() });
+
+    await processCascades(nextBoard, newScore, movesLeft);
+    return true;
+  }, [board, isBusy, isGameOver, score, bestScore, movesLeft, processCascades]);
+
   return {
     board,
     score,
@@ -200,5 +255,7 @@ export function useMatch3(initialBestScore: number = 0) {
     trySwap,
     finishGameEarly,
     restartGame,
+    addExtraMoves,
+    triggerColorBomb,
   };
 }

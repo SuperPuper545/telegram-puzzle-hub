@@ -165,6 +165,12 @@ export const haptics = {
       tg?.HapticFeedback?.notificationOccurred('warning');
     } catch (_) {}
   },
+  error: () => {
+    try {
+      const tg = getTelegramWebApp();
+      tg?.HapticFeedback?.notificationOccurred('error');
+    } catch (_) {}
+  },
   selection: () => {
     try {
       const tg = getTelegramWebApp();

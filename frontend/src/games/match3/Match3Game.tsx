@@ -1,7 +1,7 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useGameBridge } from '../../context/GameContext';
 import { useMatch3 } from './useMatch3';
-import { GEM_DEFINITIONS, GEM_TYPES_COUNT } from './gemData';
+import { getGemDefinition } from './gemData';
 import { MATCH3_SIZE } from './match3Logic';
 import { sound } from '../../utils/sound';
 import { haptics } from '../../telegram/telegram';
@@ -15,10 +15,13 @@ import {
   VolumeX,
   Zap,
   CheckCircle2,
+  Coins,
+  Bomb,
+  Hourglass,
 } from 'lucide-react';
 
 export const Match3Game: React.FC = () => {
-  const { closeGame, bestScores, submitScore } = useGameBridge();
+  const { closeGame, bestScores, submitScore, coins, spendCoins, equippedGemSkin } = useGameBridge();
   const currentBest = bestScores['match3'] || 0;
 
   const {
@@ -35,7 +38,11 @@ export const Match3Game: React.FC = () => {
     trySwap,
     finishGameEarly,
     restartGame,
+    addExtraMoves,
+    triggerColorBomb,
   } = useMatch3(currentBest);
+
+  const [boosterNotice, setBoosterNotice] = useState<string | null>(null);
 
   const [isMuted, setIsMuted] = useState(() => sound.isMuted());
   const [isNewRecord, setIsNewRecord] = useState(false);
@@ -150,10 +157,48 @@ export const Match3Game: React.FC = () => {
     }
   };
 
+  const showBoosterNotice = (msg: string) => {
+    setBoosterNotice(msg);
+    setTimeout(() => setBoosterNotice(null), 2500);
+  };
+
+  const handleBoosterMoves = async () => {
+    if (coins < 100) {
+      sound.playUiTap();
+      haptics.error();
+      showBoosterNotice('Нужно 100 🪙 для +5 ходов!');
+      return;
+    }
+    const success = await spendCoins(100, 'match3_extra_moves');
+    if (success) {
+      sound.playCombo();
+      haptics.success();
+      addExtraMoves(5);
+      hasSubmittedRef.current = false;
+      showBoosterNotice('+5 ходов добавлено! (-100 🪙)');
+    }
+  };
+
+  const handleBoosterBomb = async () => {
+    if (coins < 150) {
+      sound.playUiTap();
+      haptics.error();
+      showBoosterNotice('Нужно 150 🪙 для Радужной Бомбы!');
+      return;
+    }
+    const success = await spendCoins(150, 'match3_color_bomb');
+    if (success) {
+      sound.playCombo();
+      haptics.heavy();
+      await triggerColorBomb();
+      showBoosterNotice('Радужная бомба активирована! (-150 🪙)');
+    }
+  };
+
   return (
     <div className="w-full h-full min-h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col justify-between bg-tg-bg text-tg-text select-none game-viewport-lock">
-      {/* 1. Fixed Header (h-14) */}
-      <header className="h-14 shrink-0 px-4 flex items-center justify-between border-b border-[var(--tg-theme-section-separator-color)] bg-tg-secondaryBg/90 backdrop-blur-md z-10">
+      {/* 1. Header with Scores (h-14) */}
+      <header className="h-14 shrink-0 px-4 flex items-center justify-between border-b border-[var(--tg-theme-section-separator-color)] bg-tg-secondaryBg/80 backdrop-blur-md z-10">
         <button
           onClick={() => {
             sound.playUiTap();
@@ -197,50 +242,62 @@ export const Match3Game: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Header Buttons */}
-        <div className="flex items-center gap-1 -mr-2">
+        {/* Right Header Buttons: Coins, Early Finish, Sound & Restart */}
+        <div className="flex items-center gap-1.5 -mr-1">
+          <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-400/25 text-amber-300 text-xs font-black shadow-sm">
+            <Coins className="w-3.5 h-3.5" />
+            <span>{coins}</span>
+          </div>
+
           {score > 0 && !isGameOver && (
             <button
               onClick={handleFinishEarly}
-              className="p-2 rounded-xl text-emerald-400 hover:text-emerald-300 active:scale-95 transition-transform cursor-pointer"
+              className="p-1.5 rounded-xl text-emerald-400 hover:text-emerald-300 active:scale-95 transition-transform cursor-pointer"
               title="Завершить и сохранить счет"
             >
-              <CheckCircle2 className="w-5 h-5" />
+              <CheckCircle2 className="w-4 h-4" />
             </button>
           )}
 
           <button
             onClick={toggleSound}
-            className="p-2 rounded-xl text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
+            className="p-1.5 rounded-xl text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
             title={isMuted ? 'Включить звук (M)' : 'Выключить звук (M)'}
           >
             {isMuted ? (
-              <VolumeX className="w-5 h-5 text-tg-hint opacity-50" />
+              <VolumeX className="w-4 h-4 text-tg-hint opacity-50" />
             ) : (
-              <Volume2 className="w-5 h-5 text-pink-400" />
+              <Volume2 className="w-4 h-4 text-pink-400" />
             )}
           </button>
 
           <button
             onClick={handleRestart}
-            className="p-2 rounded-xl text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
+            className="p-1.5 rounded-xl text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
             title="Начать заново (R)"
           >
-            <RotateCcw className="w-5 h-5" />
+            <RotateCcw className="w-4 h-4" />
           </button>
         </div>
       </header>
 
       {/* 2. Moves & Status Bar (h-8) */}
       <div className="h-8 shrink-0 flex items-center justify-between px-5">
-        <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-slate-800/80 border border-slate-700/60">
-          <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-          <span className="text-xs font-extrabold text-tg-text">
-            Ходов: <span className={movesLeft <= 5 ? 'text-rose-400 animate-pulse font-black' : 'text-amber-300'}>{movesLeft}</span>
-          </span>
-        </div>
+        {boosterNotice ? (
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-[11px] font-black text-amber-300 animate-fade-in shadow-md">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            {boosterNotice}
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-slate-800/80 border border-slate-700/60">
+            <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+            <span className="text-xs font-extrabold text-tg-text">
+              Ходов: <span className={movesLeft <= 5 ? 'text-rose-400 animate-pulse font-black' : 'text-amber-300'}>{movesLeft}</span>
+            </span>
+          </div>
+        )}
 
-        {score > 0 && (
+        {score > 0 && !boosterNotice && (
           <button
             onClick={handleFinishEarly}
             className="text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold underline underline-offset-2 cursor-pointer"
@@ -264,7 +321,7 @@ export const Match3Game: React.FC = () => {
               const key = `${r},${c}`;
               const isClearing = clearingKeys.has(key);
               const isSelected = selectedGem?.row === r && selectedGem?.col === c;
-              const def = GEM_DEFINITIONS[gem.type % GEM_TYPES_COUNT];
+              const def = getGemDefinition(gem.type, equippedGemSkin);
 
               return (
                 <div
@@ -310,11 +367,27 @@ export const Match3Game: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. Bottom Hint Bar (h-14) */}
-      <div className="h-14 shrink-0 px-4 flex items-center justify-center border-t border-[var(--tg-theme-section-separator-color)] bg-tg-secondaryBg/40">
-        <p className="text-xs text-tg-hint text-center font-medium">
-          💡 Собирай 4 в ряд для линейной бомбы, 5 — для радужной!
-        </p>
+      {/* 4. Booster Action Bar (h-14) */}
+      <div className="h-14 shrink-0 px-3 flex items-center justify-between gap-2 border-t border-[var(--tg-theme-section-separator-color)] bg-tg-secondaryBg/80">
+        <button
+          onClick={handleBoosterMoves}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-slate-800/90 border border-slate-700/80 active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-amber-500/50 cursor-pointer shadow-sm"
+          title="+5 ходов за 100 монет"
+        >
+          <Hourglass className="w-4 h-4 text-amber-400" />
+          <span>+5 ходов</span>
+          <span className="text-[10px] text-amber-400 font-black">100🪙</span>
+        </button>
+
+        <button
+          onClick={handleBoosterBomb}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-slate-800/90 border border-slate-700/80 active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-purple-500/50 cursor-pointer shadow-sm"
+          title="Радужная бомба за 150 монет"
+        >
+          <Bomb className="w-4 h-4 text-pink-400" />
+          <span>Радужная бомба</span>
+          <span className="text-[10px] text-amber-400 font-black">150🪙</span>
+        </button>
       </div>
 
       {/* Game Over Modal */}
@@ -344,6 +417,29 @@ export const Match3Game: React.FC = () => {
             </div>
 
             <div className="space-y-2">
+              <button
+                onClick={async () => {
+                  if (coins >= 100) {
+                    const success = await spendCoins(100, 'match3_rescue');
+                    if (success) {
+                      sound.playCombo();
+                      haptics.success();
+                      addExtraMoves(5);
+                      hasSubmittedRef.current = false;
+                      showBoosterNotice('Партия продлена: +5 ходов!');
+                    }
+                  } else {
+                    sound.playUiTap();
+                    haptics.error();
+                    showBoosterNotice('Нужно 100 🪙 для продления игры!');
+                  }
+                }}
+                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-pink-500 to-purple-600 text-white font-black text-xs shadow-lg shadow-pink-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Zap className="w-4 h-4" />
+                Продлить игру (+5 ходов за 100 🪙)
+              </button>
+
               <button
                 onClick={handleRestart}
                 className="w-full py-3 px-4 rounded-xl tg-btn-primary font-bold text-sm shadow-lg shadow-pink-600/30 cursor-pointer"

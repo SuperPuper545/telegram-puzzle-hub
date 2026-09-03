@@ -1,4 +1,4 @@
-﻿import type { GemDefinition } from './types';
+import type { GemDefinition } from './types';
 
 export const GEM_TYPES_COUNT = 5;
 
@@ -44,3 +44,26 @@ export const GEM_DEFINITIONS: GemDefinition[] = [
     icon: '🔮',
   },
 ];
+
+export function getGemDefinition(type: number, skinId: string = 'gem_classic'): GemDefinition {
+  const base = GEM_DEFINITIONS[type] || GEM_DEFINITIONS[0];
+
+  if (skinId === 'gem_orbs') {
+    const orbIcons = ['🔴', '🔵', '🟢', '🟡', '🟣'];
+    return {
+      ...base,
+      icon: orbIcons[type] || '🔮',
+      glow: `${base.glow} rounded-full ring-2 ring-white/30`,
+    };
+  }
+
+  if (skinId === 'gem_candy') {
+    const candyIcons = ['🍓', '🫐', '🍏', '🍋', '🍇'];
+    return {
+      ...base,
+      icon: candyIcons[type] || '🍬',
+    };
+  }
+
+  return base;
+}

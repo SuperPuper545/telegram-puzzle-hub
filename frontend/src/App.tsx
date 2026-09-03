@@ -7,6 +7,7 @@ import { LeaderboardTab } from './components/hub/LeaderboardTab';
 import { FriendsTab } from './components/hub/FriendsTab';
 import { ProfileTab } from './components/hub/ProfileTab';
 import { DailyRewardModal } from './components/hub/DailyRewardModal';
+import { ShopModal } from './components/hub/ShopModal';
 import { BlockudokuGame } from './games/blockudoku/BlockudokuGame';
 import { Match3Game } from './games/match3/Match3Game';
 import { Game2048 } from './games/game2048/Game2048';
@@ -77,6 +78,9 @@ const HubContent: React.FC = () => {
 
         {/* Daily Streak Reward Modal */}
         <DailyRewardModal />
+
+        {/* Shop Modal */}
+        <ShopModal />
 
         {/* Firmly anchored bottom navigation bar */}
         <BottomNavigation />

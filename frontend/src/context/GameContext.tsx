@@ -21,6 +21,7 @@ export interface LeaderboardEntry {
   firstName: string;
   lastName: string | null;
   photoUrl: string | null;
+  equippedTitle?: string;
   highScore: number;
   achievedAt: string;
 }
@@ -54,6 +55,30 @@ export interface ReferralsData {
   botUsername: string;
 }
 
+export interface ShopItem {
+  id: string;
+  category: 'block_skin' | 'gem_skin' | 'title';
+  name: string;
+  description: string;
+  price: number;
+  previewColor?: string;
+  icon?: string;
+  isPurchased?: boolean;
+  isEquipped?: boolean;
+}
+
+export interface EquippedState {
+  blockSkin: string;
+  gemSkin: string;
+  title: string;
+}
+
+export interface ShopCatalog {
+  coins: number;
+  equipped: EquippedState;
+  items: ShopItem[];
+}
+
 interface GameContextType {
   user: TgUser;
   currentGame: GameId | null;
@@ -69,6 +94,16 @@ interface GameContextType {
   claimDaily: () => Promise<{ success: boolean; reward?: number; error?: string }>;
   referralsData: ReferralsData | null;
   fetchReferrals: () => Promise<void>;
+  equippedBlockSkin: string;
+  equippedGemSkin: string;
+  equippedTitle: string;
+  isShopModalOpen: boolean;
+  setIsShopModalOpen: (open: boolean) => void;
+  shopCatalog: ShopCatalog | null;
+  fetchShop: () => Promise<void>;
+  buyShopItem: (itemId: string) => Promise<{ success: boolean; error?: string }>;
+  equipShopItem: (itemId: string) => Promise<{ success: boolean; error?: string }>;
+  spendCoins: (amount: number, reason: string) => Promise<boolean>;
   openGame: (gameId: GameId) => void;
   closeGame: () => void;
   submitScore: (gameId: GameId, score: number, duration?: number) => Promise<{ isNewRecord: boolean; bestScore: number }>;
@@ -123,6 +158,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [leaderboards, setLeaderboards] = useState<Record<string, LeaderboardEntry[]>>({});
   const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState<boolean>(false);
 
+  // Shop & Customization State
+  const [equippedBlockSkin, setEquippedBlockSkin] = useState<string>(() => {
+    return localStorage.getItem('tma_hub_block_skin') || 'block_classic';
+  });
+  const [equippedGemSkin, setEquippedGemSkin] = useState<string>(() => {
+    return localStorage.getItem('tma_hub_gem_skin') || 'gem_classic';
+  });
+  const [equippedTitle, setEquippedTitle] = useState<string>(() => {
+    return localStorage.getItem('tma_hub_title') || 'title_novice';
+  });
+  const [isShopModalOpen, setIsShopModalOpen] = useState<boolean>(false);
+  const [shopCatalog, setShopCatalog] = useState<ShopCatalog | null>(null);
+
   // Initialize TMA on mount
   useEffect(() => {
     initTelegramApp();
@@ -160,6 +208,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (typeof data.user.dailyStreak === 'number') {
               setDailyStreak(data.user.dailyStreak);
               localStorage.setItem(LOCAL_STREAK_KEY, String(data.user.dailyStreak));
+            }
+            if (data.user.equippedBlockSkin) {
+              setEquippedBlockSkin(data.user.equippedBlockSkin);
+              localStorage.setItem('tma_hub_block_skin', data.user.equippedBlockSkin);
+            }
+            if (data.user.equippedGemSkin) {
+              setEquippedGemSkin(data.user.equippedGemSkin);
+              localStorage.setItem('tma_hub_gem_skin', data.user.equippedGemSkin);
+            }
+            if (data.user.equippedTitle) {
+              setEquippedTitle(data.user.equippedTitle);
+              localStorage.setItem('tma_hub_title', data.user.equippedTitle);
             }
           }
           if (data.dailyReward) {
@@ -334,6 +394,163 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  const spendCoins = useCallback(async (amount: number, reason: string): Promise<boolean> => {
+    if (coins < amount) {
+      return false;
+    }
+    const newCoins = Math.max(0, coins - amount);
+    setCoins(newCoins);
+    try {
+      localStorage.setItem(LOCAL_COINS_KEY, String(newCoins));
+    } catch (_) {}
+
+    try {
+      const initData = getTelegramInitData();
+      const currentUser = getTelegramUser();
+      const res = await fetch('/api/coins/spend', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `tma ${initData}`,
+          'x-mock-user-id': String(currentUser.id),
+          'x-mock-username': currentUser.first_name || 'Player',
+        },
+        body: JSON.stringify({ amount, reason }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.remainingCoins === 'number') {
+          setCoins(data.remainingCoins);
+          localStorage.setItem(LOCAL_COINS_KEY, String(data.remainingCoins));
+        }
+        return true;
+      }
+      return false;
+    } catch {
+      return true;
+    }
+  }, [coins]);
+
+  const fetchShop = useCallback(async () => {
+    try {
+      const initData = getTelegramInitData();
+      const currentUser = getTelegramUser();
+      const res = await fetch('/api/shop/items', {
+        headers: {
+          'Authorization': `tma ${initData}`,
+          'x-mock-user-id': String(currentUser.id),
+          'x-mock-username': currentUser.first_name || 'Player',
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setShopCatalog(data);
+        if (typeof data.coins === 'number') {
+          setCoins(data.coins);
+          localStorage.setItem(LOCAL_COINS_KEY, String(data.coins));
+        }
+        if (data.equipped) {
+          if (data.equipped.blockSkin) {
+            setEquippedBlockSkin(data.equipped.blockSkin);
+            localStorage.setItem('tma_hub_block_skin', data.equipped.blockSkin);
+          }
+          if (data.equipped.gemSkin) {
+            setEquippedGemSkin(data.equipped.gemSkin);
+            localStorage.setItem('tma_hub_gem_skin', data.equipped.gemSkin);
+          }
+          if (data.equipped.title) {
+            setEquippedTitle(data.equipped.title);
+            localStorage.setItem('tma_hub_title', data.equipped.title);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to fetch shop catalog:', err);
+    }
+  }, []);
+
+  const buyShopItem = useCallback(async (itemId: string) => {
+    try {
+      const initData = getTelegramInitData();
+      const currentUser = getTelegramUser();
+      const res = await fetch('/api/shop/buy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `tma ${initData}`,
+          'x-mock-user-id': String(currentUser.id),
+          'x-mock-username': currentUser.first_name || 'Player',
+        },
+        body: JSON.stringify({ itemId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (typeof data.remainingCoins === 'number') {
+          setCoins(data.remainingCoins);
+          localStorage.setItem(LOCAL_COINS_KEY, String(data.remainingCoins));
+        }
+        if (data.equipped) {
+          if (data.equipped.blockSkin) {
+            setEquippedBlockSkin(data.equipped.blockSkin);
+            localStorage.setItem('tma_hub_block_skin', data.equipped.blockSkin);
+          }
+          if (data.equipped.gemSkin) {
+            setEquippedGemSkin(data.equipped.gemSkin);
+            localStorage.setItem('tma_hub_gem_skin', data.equipped.gemSkin);
+          }
+          if (data.equipped.title) {
+            setEquippedTitle(data.equipped.title);
+            localStorage.setItem('tma_hub_title', data.equipped.title);
+          }
+        }
+        await fetchShop();
+        return { success: true };
+      }
+      return { success: false, error: data.error || 'Ошибка при покупке' };
+    } catch {
+      return { success: false, error: 'Ошибка соединения с сервером' };
+    }
+  }, [fetchShop]);
+
+  const equipShopItem = useCallback(async (itemId: string) => {
+    try {
+      const initData = getTelegramInitData();
+      const currentUser = getTelegramUser();
+      const res = await fetch('/api/shop/equip', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `tma ${initData}`,
+          'x-mock-user-id': String(currentUser.id),
+          'x-mock-username': currentUser.first_name || 'Player',
+        },
+        body: JSON.stringify({ itemId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (data.equipped) {
+          if (data.equipped.blockSkin) {
+            setEquippedBlockSkin(data.equipped.blockSkin);
+            localStorage.setItem('tma_hub_block_skin', data.equipped.blockSkin);
+          }
+          if (data.equipped.gemSkin) {
+            setEquippedGemSkin(data.equipped.gemSkin);
+            localStorage.setItem('tma_hub_gem_skin', data.equipped.gemSkin);
+          }
+          if (data.equipped.title) {
+            setEquippedTitle(data.equipped.title);
+            localStorage.setItem('tma_hub_title', data.equipped.title);
+          }
+        }
+        await fetchShop();
+        return { success: true };
+      }
+      return { success: false, error: data.error || 'Ошибка экипировки' };
+    } catch {
+      return { success: false, error: 'Ошибка соединения с сервером' };
+    }
+  }, [fetchShop]);
+
   return (
     <GameContext.Provider
       value={{
@@ -351,6 +568,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         claimDaily,
         referralsData,
         fetchReferrals,
+        equippedBlockSkin,
+        equippedGemSkin,
+        equippedTitle,
+        isShopModalOpen,
+        setIsShopModalOpen,
+        shopCatalog,
+        fetchShop,
+        buyShopItem,
+        equipShopItem,
+        spendCoins,
         openGame,
         closeGame,
         submitScore,

@@ -5,7 +5,7 @@ import { sound } from '../../utils/sound';
 import { haptics } from '../../telegram/telegram';
 
 export const HubHeader: React.FC = () => {
-  const { user, coins, dailyStreak, dailyReward, setIsDailyModalOpen } = useGameBridge();
+  const { user, coins, dailyStreak, dailyReward, setIsDailyModalOpen, setIsShopModalOpen, equippedTitle } = useGameBridge();
   const initials = (user.first_name || 'U').slice(0, 2).toUpperCase();
   const canClaim = dailyReward?.canClaim ?? false;
 
@@ -15,12 +15,34 @@ export const HubHeader: React.FC = () => {
     setIsDailyModalOpen(true);
   };
 
+  const handleOpenShop = () => {
+    sound.playUiTap();
+    haptics.selection();
+    setIsShopModalOpen(true);
+  };
+
+  const getTitleBadge = (titleId: string) => {
+    switch (titleId) {
+      case 'title_legend':
+        return { icon: '👑', color: 'text-amber-400', ring: 'ring-2 ring-amber-400/80 shadow-lg shadow-amber-500/30' };
+      case 'title_tycoon':
+        return { icon: '🥇', color: 'text-yellow-400', ring: 'ring-1 ring-yellow-400/50' };
+      case 'title_master':
+        return { icon: '🥈', color: 'text-indigo-400', ring: 'ring-1 ring-indigo-400/40' };
+      case 'title_novice':
+      default:
+        return null;
+    }
+  };
+
+  const titleBadge = getTitleBadge(equippedTitle);
+
   return (
     <header className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-md z-30 h-[56px] px-4 bg-tg-bg/95 backdrop-blur-md border-b border-[var(--tg-theme-section-separator-color)] shadow-sm flex items-center">
       <div className="w-full flex items-center justify-between">
         {/* User profile avatar & name */}
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 p-[2px] shadow-md shadow-indigo-500/20 shrink-0">
+          <div className={`w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 p-[2px] shadow-md shadow-indigo-500/20 shrink-0 relative ${titleBadge?.ring || ''}`}>
             {user.photo_url ? (
               <img
                 src={user.photo_url}
@@ -32,22 +54,27 @@ export const HubHeader: React.FC = () => {
                 {initials}
               </div>
             )}
+            {titleBadge && (
+              <span className="absolute -top-1 -right-1 text-xs select-none">
+                {titleBadge.icon}
+              </span>
+            )}
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <h1 className="font-bold text-xs text-tg-text tracking-tight leading-tight truncate max-w-[110px]">
+              <h1 className="font-bold text-xs text-tg-text tracking-tight leading-tight truncate max-w-[105px]">
                 {user.first_name}
               </h1>
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             </div>
-            <p className="text-[10px] text-tg-hint leading-none mt-0.5 truncate max-w-[110px]">
+            <p className="text-[10px] text-tg-hint leading-none mt-0.5 truncate max-w-[105px]">
               {user.username ? `@${user.username}` : 'Игрок TMA'}
             </p>
           </div>
         </div>
 
-        {/* Action Widgets: Daily Streak & Coins */}
-        <div className="flex items-center gap-2">
+        {/* Action Widgets: Daily Streak & Coins (Shop Trigger) */}
+        <div className="flex items-center gap-1.5">
           {/* Daily Streak Trigger */}
           <button
             onClick={handleOpenDaily}
@@ -62,13 +89,17 @@ export const HubHeader: React.FC = () => {
             <span>{canClaim ? 'Награда!' : `${dailyStreak} дн.`}</span>
           </button>
 
-          {/* Coins Badge */}
-          <div className="flex items-center gap-1.5 bg-tg-secondaryBg border border-amber-500/25 px-2.5 py-1.5 rounded-full shadow-inner">
+          {/* Coins Badge (Click to open Shop) */}
+          <button
+            onClick={handleOpenShop}
+            className="flex items-center gap-1.5 bg-tg-secondaryBg border border-amber-500/30 hover:border-amber-400/60 active:scale-95 px-2.5 py-1.5 rounded-full shadow-inner cursor-pointer transition-all"
+            title="Открыть магазин хаба"
+          >
             <Coins className="w-3.5 h-3.5 text-amber-400" />
             <span className="font-black text-amber-300 text-xs tracking-tight">
               {coins.toLocaleString()}
             </span>
-          </div>
+          </button>
         </div>
       </div>
     </header>

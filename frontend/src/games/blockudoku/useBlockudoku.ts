@@ -1,9 +1,21 @@
-﻿import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { GridCell, Shape } from './types';
 import { generateTrayShapes } from './shapes';
 
 export const GRID_SIZE = 9;
 const STORAGE_KEY = 'tma_blockudoku_saved_state';
+
+export function rotateMatrix90(matrix: number[][]): number[][] {
+  const rows = matrix.length;
+  const cols = matrix[0].length;
+  const rotated: number[][] = Array.from({ length: cols }, () => Array(rows).fill(0));
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      rotated[c][rows - 1 - r] = matrix[r][c];
+    }
+  }
+  return rotated;
+}
 
 export function createEmptyGrid(): GridCell[][] {
   return Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(0));
@@ -164,6 +176,15 @@ export function useBlockudoku(initialBestScore: number = 0) {
   const [clearingCells, setClearingCells] = useState<{ row: number; col: number }[]>([]);
   const [lastScorePopup, setLastScorePopup] = useState<{ text: string; id: number } | null>(null);
   const [comboBanner, setComboBanner] = useState<{ text: string; id: number } | null>(null);
+  const gameOverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (gameOverTimerRef.current) {
+        clearTimeout(gameOverTimerRef.current);
+      }
+    };
+  }, []);
 
   // Sync best score
   useEffect(() => {
@@ -365,10 +386,11 @@ export function useBlockudoku(initialBestScore: number = 0) {
         try {
           localStorage.removeItem(STORAGE_KEY);
         } catch (_) {}
-        // Delay game over modal display so user clearly sees the board & unplaceable pieces
-        setTimeout(() => {
+        if (gameOverTimerRef.current) clearTimeout(gameOverTimerRef.current);
+        // 3.5s window to use boosters and rescue the game!
+        gameOverTimerRef.current = setTimeout(() => {
           setIsGameOver(true);
-        }, 1800);
+        }, 3500);
       }
 
       return {
@@ -382,6 +404,71 @@ export function useBlockudoku(initialBestScore: number = 0) {
     },
     [grid, trayPieces, score, bestScore, streak]
   );
+
+  // In-Game Booster 1: Reroll Tray (50 coins)
+  const rerollTray = useCallback(() => {
+    const newShapes = generateTrayShapes();
+    setTrayPieces(newShapes);
+    const canFit = canAnyPieceFit(grid, newShapes);
+    if (canFit) {
+      if (gameOverTimerRef.current) {
+        clearTimeout(gameOverTimerRef.current);
+        gameOverTimerRef.current = null;
+      }
+      setIsStuck(false);
+      setIsGameOver(false);
+    }
+    return true;
+  }, [grid]);
+
+  // In-Game Booster 2: Rotate Piece (75 coins)
+  const rotateTrayPiece = useCallback((index: number) => {
+    const piece = trayPieces[index];
+    if (!piece) return false;
+    const rotatedMatrix = rotateMatrix90(piece.matrix);
+    const updatedPiece: Shape = {
+      ...piece,
+      matrix: rotatedMatrix,
+    };
+    const nextTray = [...trayPieces];
+    nextTray[index] = updatedPiece;
+    setTrayPieces(nextTray);
+
+    const canFit = canAnyPieceFit(grid, nextTray);
+    if (canFit) {
+      if (gameOverTimerRef.current) {
+        clearTimeout(gameOverTimerRef.current);
+        gameOverTimerRef.current = null;
+      }
+      setIsStuck(false);
+      setIsGameOver(false);
+    }
+    return true;
+  }, [trayPieces, grid]);
+
+  // In-Game Booster 3: Hammer - Clear Single Cell (150 coins)
+  const hammerClearCell = useCallback((row: number, col: number) => {
+    if (row < 0 || row >= GRID_SIZE || col < 0 || col >= GRID_SIZE) return false;
+    if (grid[row][col] === 0) return false;
+
+    const nextGrid = grid.map((r, rIdx) =>
+      rIdx === row ? r.map((c, cIdx) => (cIdx === col ? (0 as GridCell) : c)) : [...r]
+    );
+    setGrid(nextGrid);
+    setClearingCells([{ row, col }]);
+    setTimeout(() => setClearingCells([]), 350);
+
+    const canFit = canAnyPieceFit(nextGrid, trayPieces);
+    if (canFit) {
+      if (gameOverTimerRef.current) {
+        clearTimeout(gameOverTimerRef.current);
+        gameOverTimerRef.current = null;
+      }
+      setIsStuck(false);
+      setIsGameOver(false);
+    }
+    return true;
+  }, [grid, trayPieces]);
 
   return {
     grid,
@@ -398,5 +485,8 @@ export function useBlockudoku(initialBestScore: number = 0) {
     comboBanner,
     placePiece,
     restartGame,
+    rerollTray,
+    rotateTrayPiece,
+    hammerClearCell,
   };
 }
