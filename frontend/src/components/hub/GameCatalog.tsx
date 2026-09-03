@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useGameBridge, type GameId } from '../../context/GameContext';
-import { Play, Sparkles, Grid, Gem, Layers, Zap, Target, Flame, ChevronLeft } from 'lucide-react';
+import { Play, Sparkles, Grid, Gem, Layers, Zap, Target, Flame, ChevronRight } from 'lucide-react';
 import { haptics } from '../../telegram/telegram';
 import { sound } from '../../utils/sound';
 
@@ -16,26 +16,36 @@ interface CategoryMeta {
 
 export const GameCatalog: React.FC = () => {
   const { openGame, bestScores } = useGameBridge();
-  const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>('puzzles');
+  const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>(() => {
+    try {
+      const saved = localStorage.getItem('hub_selected_category');
+      if (saved === 'puzzles' || saved === 'arcade' || saved === 'pvp') {
+        return saved as CategoryFilter;
+      }
+    } catch {
+      // ignore
+    }
+    return 'puzzles';
+  });
 
   const categories: CategoryMeta[] = [
     {
       id: 'puzzles',
-      title: '🧩 Головоломки',
+      title: 'Головоломки',
       badge: 'Логика и комбо',
       description: 'Тренируй логику, очищай поле, собирай кристаллы и ставь рекорды!',
       icon: <Grid className="w-24 h-24 text-indigo-400" />,
     },
     {
       id: 'arcade',
-      title: '⚡ Одиночные Аркады',
-      badge: 'Скорость и драйв',
-      description: 'Быстрые раунды на реакцию, полет птицы, строитель башни и метание клинков!',
+      title: 'Аркады',
+      badge: 'Скорость и реакция',
+      description: 'Быстрые раунды: полёт птицы, строитель башни и метание клинков!',
       icon: <Zap className="w-24 h-24 text-emerald-400" />,
     },
     {
       id: 'pvp',
-      title: '⚔️ Сетевые Дуэли (PvP)',
+      title: 'Сетевые Дуэли',
       badge: 'Битва со ставками',
       description: 'Шахматы онлайн, Подкидной дурак и Морской бой на ставки в реальном времени!',
       icon: <Flame className="w-24 h-24 text-rose-400" />,
@@ -49,7 +59,13 @@ export const GameCatalog: React.FC = () => {
     sound.playUiTap();
     haptics.selection();
     const nextIdx = (currentCategoryIndex + 1) % categories.length;
-    setSelectedCategory(categories[nextIdx].id);
+    const nextCat = categories[nextIdx].id;
+    setSelectedCategory(nextCat);
+    try {
+      localStorage.setItem('hub_selected_category', nextCat);
+    } catch {
+      // ignore
+    }
   };
 
   const games: {
@@ -178,7 +194,7 @@ export const GameCatalog: React.FC = () => {
             className="p-3 rounded-2xl bg-tg-bg/90 hover:bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-text hover:text-indigo-400 shadow-md active:scale-90 transition-all cursor-pointer flex items-center justify-center shrink-0 z-20"
             title="Сменить жанр"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronRight className="w-5 h-5" />
           </button>
         </div>
 
