@@ -1,4 +1,4 @@
-﻿import express from 'express';
+import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -15,7 +15,12 @@ import {
   recordScore, 
   getLeaderboard, 
   getUserRank, 
-  upsertUser 
+  upsertUser,
+  getUserById,
+  getDailyRewardStatus,
+  claimDailyReward,
+  processReferral,
+  getReferralsInfo
 } from './db.js';
 import { startBotPolling } from './bot.js';
 
@@ -45,9 +50,11 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// 2. User profile & records
+// 2. User profile & records (enriched with coins and streak)
 app.get('/api/me', authMiddleware, (req, res) => {
+  const userRecord = getUserById(req.user.id) || req.user;
   const bestScores = getUserBestScores(req.user.id);
+  const dailyStatus = getDailyRewardStatus(req.user.id);
   
   // Format as a map { [gameId]: best_score }
   const scoresMap = {};
@@ -58,9 +65,15 @@ app.get('/api/me', authMiddleware, (req, res) => {
   }
 
   res.json({
-    user: req.user,
+    user: {
+      ...req.user,
+      coins: userRecord.coins || 0,
+      dailyStreak: userRecord.daily_streak || 0,
+      referrerId: userRecord.referrer_id || null,
+    },
     scores: scoresMap,
     totalGamesPlayed: totalPlayed,
+    dailyReward: dailyStatus,
   });
 });
 
@@ -121,6 +134,55 @@ app.get('/api/leaderboard/:gameId', (req, res) => {
     })),
     userRank,
   });
+});
+
+// 5. Referrals list & summary
+app.get('/api/referrals', authMiddleware, (req, res) => {
+  const referralsData = getReferralsInfo(req.user.id);
+  if (!referralsData) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  res.json({
+    ...referralsData,
+    botUsername: process.env.BOT_USERNAME || 'taptaphub_bot',
+  });
+});
+
+// 6. Claim referral via start_param from TMA
+app.post('/api/referrals/claim', authMiddleware, (req, res) => {
+  const { startParam } = req.body;
+  if (!startParam) {
+    return res.status(400).json({ error: 'startParam is required' });
+  }
+
+  const result = processReferral(req.user.id, startParam);
+  if (!result.success) {
+    return res.status(400).json(result);
+  }
+
+  const userRecord = getUserById(req.user.id);
+  res.json({
+    ...result,
+    newCoins: userRecord ? userRecord.coins : 0,
+  });
+});
+
+// 7. Daily reward calendar status
+app.get('/api/daily-reward/status', authMiddleware, (req, res) => {
+  const status = getDailyRewardStatus(req.user.id);
+  if (!status) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  res.json(status);
+});
+
+// 8. Claim daily reward
+app.post('/api/daily-reward/claim', authMiddleware, (req, res) => {
+  const result = claimDailyReward(req.user.id);
+  if (!result.success) {
+    return res.status(400).json(result);
+  }
+  res.json(result);
 });
 
 // 5. Serve frontend dist in production (if available)

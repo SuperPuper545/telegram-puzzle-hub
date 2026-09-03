@@ -1,19 +1,26 @@
-﻿import React from 'react';
+import React from 'react';
 import { useGameBridge } from '../../context/GameContext';
-import { Trophy } from 'lucide-react';
+import { Flame, Coins } from 'lucide-react';
+import { sound } from '../../utils/sound';
+import { haptics } from '../../telegram/telegram';
 
 export const HubHeader: React.FC = () => {
-  const { user, bestScores } = useGameBridge();
-  const totalScore = Object.values(bestScores).reduce((acc, s) => acc + s, 0);
-
+  const { user, coins, dailyStreak, dailyReward, setIsDailyModalOpen } = useGameBridge();
   const initials = (user.first_name || 'U').slice(0, 2).toUpperCase();
+  const canClaim = dailyReward?.canClaim ?? false;
+
+  const handleOpenDaily = () => {
+    sound.playUiTap();
+    haptics.selection();
+    setIsDailyModalOpen(true);
+  };
 
   return (
-    <header className="px-4 py-3 bg-tg-bg/95 backdrop-blur-md border-b border-slate-800/60 sticky top-0 z-20 shrink-0">
+    <header className="px-4 py-2.5 bg-tg-bg/95 backdrop-blur-md border-b border-[var(--tg-theme-section-separator-color)] sticky top-0 z-20 shrink-0">
       <div className="flex items-center justify-between">
         {/* User profile avatar & name */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 p-[2px] shadow-md shadow-indigo-500/20">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 p-[2px] shadow-md shadow-indigo-500/20 shrink-0">
             {user.photo_url ? (
               <img
                 src={user.photo_url}
@@ -28,25 +35,43 @@ export const HubHeader: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <h1 className="font-bold text-sm text-tg-text tracking-tight leading-tight">
+              <h1 className="font-bold text-xs text-tg-text tracking-tight leading-tight truncate max-w-[110px]">
                 {user.first_name}
               </h1>
-              <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             </div>
-            <p className="text-[11px] text-tg-hint leading-none mt-0.5">
+            <p className="text-[10px] text-tg-hint leading-none mt-0.5 truncate max-w-[110px]">
               {user.username ? `@${user.username}` : 'Игрок TMA'}
             </p>
           </div>
         </div>
 
-        {/* Global score / trophies badge */}
-        <div className="flex items-center gap-1.5 bg-tg-secondaryBg border border-amber-500/20 px-3 py-1.5 rounded-full shadow-inner">
-          <Trophy className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />
-          <span className="font-black text-amber-300 text-xs tracking-wide">
-            {totalScore.toLocaleString()}
-          </span>
+        {/* Action Widgets: Daily Streak & Coins */}
+        <div className="flex items-center gap-2">
+          {/* Daily Streak Trigger */}
+          <button
+            onClick={handleOpenDaily}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-black transition-all cursor-pointer ${
+              canClaim
+                ? 'bg-amber-500/20 border border-amber-400 text-amber-300 animate-pulse shadow-md shadow-amber-500/20'
+                : 'bg-tg-secondaryBg border border-white/5 text-tg-hint hover:text-tg-text'
+            }`}
+            title="Ежедневные награды"
+          >
+            <Flame className={`w-3.5 h-3.5 ${canClaim ? 'text-amber-400 fill-amber-400/40' : 'text-orange-400'}`} />
+            <span>{canClaim ? 'Награда!' : `${dailyStreak} дн.`}</span>
+          </button>
+
+          {/* Coins Badge */}
+          <div className="flex items-center gap-1.5 bg-tg-secondaryBg border border-amber-500/25 px-2.5 py-1.5 rounded-full shadow-inner">
+            <Coins className="w-3.5 h-3.5 text-amber-400" />
+            <span className="font-black text-amber-300 text-xs tracking-tight">
+              {coins.toLocaleString()}
+            </span>
+          </div>
         </div>
       </div>
     </header>
   );
 };
+

@@ -1,4 +1,4 @@
-﻿// Safe wrapper around Telegram WebApp & TMA SDK
+// Safe wrapper around Telegram WebApp & TMA SDK
 export interface TgUser {
   id: string | number;
   first_name: string;
@@ -14,6 +14,7 @@ declare global {
         initData: string;
         initDataUnsafe?: {
           user?: TgUser;
+          start_param?: string;
         };
         themeParams?: Record<string, string>;
         colorScheme?: 'light' | 'dark';
@@ -197,3 +198,17 @@ export function removeBackButton() {
   }
   tg.BackButton.hide();
 }
+
+export function getTelegramStartParam(): string | null {
+  const tg = getTelegramWebApp();
+  if (tg?.initDataUnsafe?.start_param) {
+    return tg.initDataUnsafe.start_param;
+  }
+  if (typeof window !== 'undefined') {
+    const urlParams = new URLSearchParams(window.location.search);
+    const param = urlParams.get('tgWebAppStartParam') || urlParams.get('startapp') || urlParams.get('start_param');
+    if (param) return param;
+  }
+  return null;
+}
+

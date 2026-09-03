@@ -1,11 +1,20 @@
-﻿import React from 'react';
+import React from 'react';
 import { useGameBridge } from '../../context/GameContext';
-import { Trophy, Gamepad2, Share2, Sparkles, Play } from 'lucide-react';
+import { Trophy, Gamepad2, Share2, Sparkles, Play, Flame, Coins, Gift } from 'lucide-react';
 import { haptics, getTelegramWebApp } from '../../telegram/telegram';
 import { sound } from '../../utils/sound';
 
 export const ProfileTab: React.FC = () => {
-  const { user, bestScores, totalGamesPlayed, openGame } = useGameBridge();
+  const { 
+    user, 
+    bestScores, 
+    totalGamesPlayed, 
+    coins, 
+    dailyStreak, 
+    setIsDailyModalOpen, 
+    setActiveTab, 
+    openGame 
+  } = useGameBridge();
   const totalScore = Object.values(bestScores).reduce((acc, s) => acc + s, 0);
   const initials = (user.first_name || 'U').slice(0, 2).toUpperCase();
 
@@ -77,7 +86,7 @@ export const ProfileTab: React.FC = () => {
   ];
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-4 space-y-4 animate-fade-in">
       {/* Profile Card */}
       <div className="rounded-3xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-5 shadow-lg text-center">
         <div className="w-18 h-18 mx-auto rounded-full bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 p-[2.5px] shadow-lg shadow-indigo-500/20 mb-3">
@@ -104,10 +113,40 @@ export const ProfileTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Stats Grid */}
+      {/* 4-Item Stats Grid */}
       <div className="grid grid-cols-2 gap-3">
+        {/* Coins */}
         <div className="p-3.5 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-indigo-500/15 text-indigo-400">
+          <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-400 shrink-0">
+            <Coins className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] text-tg-hint font-medium">Баланс монет</span>
+            <p className="text-base font-black text-amber-300">{coins.toLocaleString()} 🪙</p>
+          </div>
+        </div>
+
+        {/* Daily Streak */}
+        <div 
+          onClick={() => {
+            sound.playUiTap();
+            haptics.selection();
+            setIsDailyModalOpen(true);
+          }}
+          className="p-3.5 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] flex items-center gap-3 cursor-pointer active:scale-98 transition-transform hover:border-amber-500/40"
+        >
+          <div className="p-2.5 rounded-xl bg-orange-500/15 text-orange-400 shrink-0">
+            <Flame className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] text-tg-hint font-medium">Серия входов</span>
+            <p className="text-base font-black text-orange-400">{dailyStreak} дн. 🔥</p>
+          </div>
+        </div>
+
+        {/* Games Played */}
+        <div className="p-3.5 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-indigo-500/15 text-indigo-400 shrink-0">
             <Gamepad2 className="w-5 h-5" />
           </div>
           <div>
@@ -116,14 +155,38 @@ export const ProfileTab: React.FC = () => {
           </div>
         </div>
 
+        {/* Total Score */}
         <div className="p-3.5 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-400">
+          <div className="p-2.5 rounded-xl bg-purple-500/15 text-purple-400 shrink-0">
             <Trophy className="w-5 h-5" />
           </div>
           <div>
             <span className="text-[11px] text-tg-hint font-medium">Суммарный счет</span>
-            <p className="text-base font-extrabold text-amber-300">{totalScore.toLocaleString()}</p>
+            <p className="text-base font-extrabold text-purple-300">{totalScore.toLocaleString()}</p>
           </div>
+        </div>
+      </div>
+
+      {/* Referrals Promo Card */}
+      <div 
+        onClick={() => {
+          sound.playUiTap();
+          haptics.selection();
+          setActiveTab('friends');
+        }}
+        className="p-3.5 rounded-2xl bg-gradient-to-r from-indigo-900/40 via-purple-900/40 to-pink-900/30 border border-purple-500/30 flex items-center justify-between cursor-pointer active:scale-98 transition-transform"
+      >
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-purple-500/20 text-purple-300">
+            <Gift className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-white">Приглашай друзей — получай 500 🪙</p>
+            <p className="text-[10px] text-purple-200/80">Твоя реферальная ссылка и статистика</p>
+          </div>
+        </div>
+        <div className="px-2.5 py-1 rounded-xl bg-white/10 text-xs font-bold text-white">
+          Открыть
         </div>
       </div>
 
