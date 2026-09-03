@@ -1,7 +1,11 @@
 ﻿import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { getLeaderboard, getUserBestScores, upsertUser } from './db.js';
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const BOT_TOKEN = process.env.BOT_TOKEN || '';
 const API_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
@@ -50,7 +54,6 @@ async function handleMessage(msg) {
   const text = (msg.text || '').trim();
   const tgUser = msg.from;
 
-  // Upsert user in database
   let dbUser = null;
   if (tgUser) {
     try {
@@ -249,7 +252,6 @@ async function handleCallback(query) {
     } catch (_) {}
   }
 
-  // Acknowledge callback query
   await tgCall('answerCallbackQuery', { callback_query_id: query.id });
 
   if (data === 'cb_leaderboard') {
@@ -322,7 +324,6 @@ export async function startBotPolling() {
         }
       }
     } catch (err) {
-      // Network or abort error, wait briefly
       await new Promise((r) => setTimeout(r, 3000));
     }
   }
