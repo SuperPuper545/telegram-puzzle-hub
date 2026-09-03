@@ -1,15 +1,31 @@
-import React from 'react';
-import { useGameBridge } from '../../context/GameContext';
-import { Play, Sparkles, Grid, Gem, Layers } from 'lucide-react';
+import React, { useState } from 'react';
+import { useGameBridge, type GameId } from '../../context/GameContext';
+import { Play, Sparkles, Grid, Gem, Layers, Zap, Target, Flame } from 'lucide-react';
 import { haptics } from '../../telegram/telegram';
 import { sound } from '../../utils/sound';
 
+type CategoryFilter = 'all' | 'puzzles' | 'arcade' | 'pvp';
+
 export const GameCatalog: React.FC = () => {
   const { openGame, bestScores } = useGameBridge();
+  const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>('all');
 
-  const games = [
+  const games: {
+    id: GameId;
+    title: string;
+    subtitle: string;
+    description: string;
+    icon: React.ReactNode;
+    color: string;
+    borderColor: string;
+    badge: string;
+    available: boolean;
+    bestScore: number;
+    tags: string[];
+    category: 'puzzles' | 'arcade' | 'pvp';
+  }[] = [
     {
-      id: 'blockudoku' as const,
+      id: 'blockudoku',
       title: 'Blockudoku',
       subtitle: 'Блокудоку 9x9',
       description: 'Размещай блоки, очищай строки и квадраты 3x3. Казуальная классика с комбо-очками!',
@@ -20,9 +36,10 @@ export const GameCatalog: React.FC = () => {
       available: true,
       bestScore: bestScores['blockudoku'] || 0,
       tags: ['Головоломка', '9x9', 'Комбо'],
+      category: 'puzzles',
     },
     {
-      id: 'match3' as const,
+      id: 'match3',
       title: 'Crystal Match-3',
       subtitle: 'Три в ряд',
       description: 'Собирай разноцветные кристаллы 3+ в ряд, вызывай каскадные взрывы и получай супер-бомбы!',
@@ -33,9 +50,10 @@ export const GameCatalog: React.FC = () => {
       available: true,
       bestScore: bestScores['match3'] || 0,
       tags: ['Три в ряд', 'Каскады', '8x8'],
+      category: 'puzzles',
     },
     {
-      id: '2048' as const,
+      id: '2048',
       title: '2048 Classic',
       subtitle: 'Слияние плиток',
       description: 'Сдвигай плитки, объединяй одинаковые числа и доберись до заветной плитки 2048!',
@@ -46,8 +64,56 @@ export const GameCatalog: React.FC = () => {
       available: true,
       bestScore: bestScores['2048'] || 0,
       tags: ['Логика', 'Свайпы', '4x4'],
+      category: 'puzzles',
+    },
+    {
+      id: 'flappy',
+      title: 'Flappy Hub',
+      subtitle: 'Птичий полёт',
+      description: 'Тапай по экрану, держи высоту и пролетай сквозь трубы. Собирай золотые монетки на лету!',
+      icon: <Zap className="w-6 h-6 text-emerald-400" />,
+      color: 'from-emerald-600/20 via-teal-600/10 to-transparent',
+      borderColor: 'border-emerald-500/30 hover:border-emerald-400/50',
+      badge: 'Аркада 🕊️',
+      available: true,
+      bestScore: bestScores['flappy'] || 0,
+      tags: ['Аркада', 'Тап', 'Реакция'],
+      category: 'arcade',
+    },
+    {
+      id: 'stack',
+      title: 'Tower Stack',
+      subtitle: 'Строитель башни',
+      description: 'Ставь блоки точно вовремя! Срезай лишние края и возводи самую высокую башню.',
+      icon: <Layers className="w-6 h-6 text-cyan-400" />,
+      color: 'from-cyan-600/20 via-blue-600/10 to-transparent',
+      borderColor: 'border-cyan-500/30 hover:border-cyan-400/50',
+      badge: 'Тайминг 🏗️',
+      available: true,
+      bestScore: bestScores['stack'] || 0,
+      tags: ['Башня', 'Комбо', 'Тайминг'],
+      category: 'arcade',
+    },
+    {
+      id: 'knife',
+      title: 'Knife Master',
+      subtitle: 'Метание клинков',
+      description: 'Метко вонзай ножи во вращающуюся мишень. Не задень другие клинки и побеждай боссов!',
+      icon: <Target className="w-6 h-6 text-rose-400" />,
+      color: 'from-rose-600/20 via-red-600/10 to-transparent',
+      borderColor: 'border-rose-500/30 hover:border-rose-400/50',
+      badge: 'Драйв 🗡️',
+      available: true,
+      bestScore: bestScores['knife'] || 0,
+      tags: ['Точность', 'Боссы', 'Реакция'],
+      category: 'arcade',
     },
   ];
+
+  const filteredGames = games.filter((g) => {
+    if (selectedCategory === 'all') return true;
+    return g.category === selectedCategory;
+  });
 
   return (
     <div className="p-4 space-y-4">
@@ -55,23 +121,94 @@ export const GameCatalog: React.FC = () => {
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500/15 via-purple-500/10 to-tg-secondaryBg p-4 border border-indigo-500/25 shadow-md">
         <div className="relative z-10">
           <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-400/30 mb-2">
-            <Sparkles className="w-3 h-3 text-indigo-400" /> Сезон #1
+            <Sparkles className="w-3 h-3 text-indigo-400" /> Игровой Каталог #1
           </span>
           <h2 className="text-lg font-black text-tg-text tracking-tight">
-            Каталог Головоломок
+            Каталог Игр TapTap Hub
           </h2>
           <p className="text-xs text-tg-hint mt-1 max-w-[260px] leading-relaxed">
-            Выбирай игру, тренируй логику и соревнуйся за первое место в лидерборде!
+            Головоломки, скоростные аркады и сетевые дуэли за монеты в одном месте!
           </p>
         </div>
         <div className="absolute right-2 -bottom-2 opacity-15 pointer-events-none">
-          <Grid className="w-28 h-28 text-indigo-400" />
+          <Flame className="w-28 h-28 text-indigo-400" />
         </div>
+      </div>
+
+      {/* Category Segmented Filter */}
+      <div className="flex items-center gap-1 p-1 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] shadow-sm">
+        <button
+          onClick={() => {
+            sound.playUiTap();
+            haptics.selection();
+            setSelectedCategory('all');
+          }}
+          className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            selectedCategory === 'all'
+              ? 'tg-btn-primary shadow-sm'
+              : 'text-tg-hint hover:text-tg-text'
+          }`}
+        >
+          Все ({games.length})
+        </button>
+        <button
+          onClick={() => {
+            sound.playUiTap();
+            haptics.selection();
+            setSelectedCategory('puzzles');
+          }}
+          className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            selectedCategory === 'puzzles'
+              ? 'tg-btn-primary shadow-sm'
+              : 'text-tg-hint hover:text-tg-text'
+          }`}
+        >
+          🧩 Логика
+        </button>
+        <button
+          onClick={() => {
+            sound.playUiTap();
+            haptics.selection();
+            setSelectedCategory('arcade');
+          }}
+          className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            selectedCategory === 'arcade'
+              ? 'tg-btn-primary shadow-sm'
+              : 'text-tg-hint hover:text-tg-text'
+          }`}
+        >
+          ⚡ Аркады
+        </button>
+        <button
+          onClick={() => {
+            sound.playUiTap();
+            haptics.selection();
+            setSelectedCategory('pvp');
+          }}
+          className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            selectedCategory === 'pvp'
+              ? 'tg-btn-primary shadow-sm'
+              : 'text-tg-hint hover:text-tg-text'
+          }`}
+        >
+          ⚔️ PvP
+        </button>
       </div>
 
       {/* Grouped Game Cards */}
       <div className="space-y-3">
-        {games.map((game) => (
+        {selectedCategory === 'pvp' ? (
+          <div className="p-8 text-center rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] shadow-sm space-y-2">
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center text-2xl">
+              ⚔️
+            </div>
+            <h3 className="font-extrabold text-tg-text text-sm">Сетевые Дуэли со ставками</h3>
+            <p className="text-xs text-tg-hint max-w-xs mx-auto leading-relaxed">
+              Шахматы онлайн, Подкидной дурак и Морской бой на подходе! Готовься к игре со ставками.
+            </p>
+          </div>
+        ) : (
+          filteredGames.map((game) => (
           <div
             key={game.id}
             className={`rounded-2xl bg-tg-secondaryBg border ${game.borderColor} p-4 shadow-sm transition-all duration-200`}
@@ -141,7 +278,7 @@ export const GameCatalog: React.FC = () => {
               )}
             </div>
           </div>
-        ))}
+        )))}
       </div>
     </div>
   );

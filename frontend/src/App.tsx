@@ -11,6 +11,9 @@ import { ShopModal } from './components/hub/ShopModal';
 import { BlockudokuGame } from './games/blockudoku/BlockudokuGame';
 import { Match3Game } from './games/match3/Match3Game';
 import { Game2048 } from './games/game2048/Game2048';
+import { FlappyGame } from './games/flappy/FlappyGame';
+import { TowerStackGame } from './games/stack/TowerStackGame';
+import { KnifeGame } from './games/knife/KnifeGame';
 
 const HubContent: React.FC = () => {
   const { currentGame, closeGame, activeTab, setActiveTab } = useGameBridge();
@@ -57,6 +60,36 @@ const HubContent: React.FC = () => {
       <div className="w-full h-[100dvh] max-h-[100dvh] flex items-center justify-center bg-tg-bg">
         <div className="w-full h-full max-w-md mx-auto flex flex-col overflow-hidden md:border-x md:border-[var(--tg-theme-section-separator-color)] md:shadow-2xl">
           <Game2048 />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentGame === 'flappy') {
+    return (
+      <div className="w-full h-[100dvh] max-h-[100dvh] flex items-center justify-center bg-tg-bg">
+        <div className="w-full h-full max-w-md mx-auto flex flex-col overflow-hidden md:border-x md:border-[var(--tg-theme-section-separator-color)] md:shadow-2xl">
+          <FlappyGame />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentGame === 'stack') {
+    return (
+      <div className="w-full h-[100dvh] max-h-[100dvh] flex items-center justify-center bg-tg-bg">
+        <div className="w-full h-full max-w-md mx-auto flex flex-col overflow-hidden md:border-x md:border-[var(--tg-theme-section-separator-color)] md:shadow-2xl">
+          <TowerStackGame />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentGame === 'knife') {
+    return (
+      <div className="w-full h-[100dvh] max-h-[100dvh] flex items-center justify-center bg-tg-bg">
+        <div className="w-full h-full max-w-md mx-auto flex flex-col overflow-hidden md:border-x md:border-[var(--tg-theme-section-separator-color)] md:shadow-2xl">
+          <KnifeGame />
         </div>
       </div>
     );

@@ -18,9 +18,12 @@ export const LeaderboardTab: React.FC = () => {
   const rest = list.slice(3);
 
   const gameNames: { id: GameId; label: string }[] = [
-    { id: 'blockudoku', label: 'Blockudoku' },
-    { id: 'match3', label: 'Match-3' },
-    { id: '2048', label: '2048' },
+    { id: 'blockudoku', label: '🧩 Блокудоку' },
+    { id: 'match3', label: '💎 3 в ряд' },
+    { id: '2048', label: '🔢 2048' },
+    { id: 'flappy', label: '🕊️ Flappy' },
+    { id: 'stack', label: '🏗️ Stack' },
+    { id: 'knife', label: '🗡️ Knife' },
   ];
 
   return (
@@ -41,15 +44,15 @@ export const LeaderboardTab: React.FC = () => {
             fetchLeaderboard(selectedGame);
           }}
           disabled={isLoadingLeaderboard}
-          className="p-2.5 bg-tg-secondaryBg border border-slate-800/80 rounded-xl text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
+          className="p-2.5 bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] rounded-xl text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
           title="Обновить"
         >
-          <RefreshCw className={`w-4 h-4 ${isLoadingLeaderboard ? 'animate-spin text-indigo-400' : ''}`} />
+          <RefreshCw className={`w-4 h-4 ${isLoadingLeaderboard ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
-      {/* Telegram Segmented Control */}
-      <div className="flex items-center gap-1 p-1 bg-tg-secondaryBg rounded-xl border border-[var(--tg-theme-section-separator-color)]">
+      {/* Telegram Segmented Control (2x3 Grid for 6 games) */}
+      <div className="grid grid-cols-3 gap-1 p-1 bg-tg-secondaryBg rounded-2xl border border-[var(--tg-theme-section-separator-color)]">
         {gameNames.map((g) => {
           const isActive = selectedGame === g.id;
           return (
@@ -59,7 +62,7 @@ export const LeaderboardTab: React.FC = () => {
                 haptics.selection();
                 setSelectedGame(g.id);
               }}
-              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              className={`py-1.5 px-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer truncate ${
                 isActive
                   ? 'tg-btn-primary shadow-sm'
                   : 'text-tg-hint hover:text-tg-text'

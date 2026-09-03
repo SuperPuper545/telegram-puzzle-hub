@@ -10,7 +10,7 @@ import {
   getTelegramStartParam
 } from '../telegram/telegram';
 
-export type GameId = 'blockudoku' | 'match3' | '2048';
+export type GameId = 'blockudoku' | 'match3' | '2048' | 'flappy' | 'stack' | 'knife';
 export type HubTab = 'catalog' | 'leaderboard' | 'friends' | 'profile';
 
 export interface LeaderboardEntry {

@@ -334,6 +334,99 @@ class SoundManager {
     osc.start();
     osc.stop(ctx.currentTime + 0.03);
   }
+
+  // Flappy wing flap sound
+  public playFlap() {
+    if (this.muted) return;
+    const ctx = this.initContext();
+    if (!ctx) return;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(400, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(900, ctx.currentTime + 0.06);
+
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.07);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.07);
+  }
+
+  // Score point / coin ding
+  public playScore() {
+    if (this.muted) return;
+    const ctx = this.initContext();
+    if (!ctx) return;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(987.77, ctx.currentTime); // B5
+    osc.frequency.setValueAtTime(1318.51, ctx.currentTime + 0.05); // E6
+
+    gain.gain.setValueAtTime(0.12, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.19);
+  }
+
+  // Sharp knife hit / thud
+  public playHit() {
+    if (this.muted) return;
+    const ctx = this.initContext();
+    if (!ctx) return;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(320, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.06);
+
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.07);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.07);
+  }
+
+  // Slicing sound for Tower Stack
+  public playSlice(combo: number = 0) {
+    if (this.muted) return;
+    const ctx = this.initContext();
+    if (!ctx) return;
+
+    const baseFreq = 523.25 * Math.pow(1.05946, Math.min(combo, 12)); // C5 up to C6 with combo
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(baseFreq, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.5, ctx.currentTime + 0.1);
+
+    gain.gain.setValueAtTime(0.12, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.13);
+  }
 }
 
 export const sound = new SoundManager();
