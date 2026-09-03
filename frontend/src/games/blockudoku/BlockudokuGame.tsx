@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useGameBridge } from '../../context/GameContext';
 import {
   useBlockudoku,
@@ -55,15 +55,18 @@ export const BlockudokuGame: React.FC = () => {
     setIsMuted(next);
   };
 
-  // Submit score on game over & play game over sound
+  const hasSubmittedRef = useRef(false);
+
+  // Submit score on game over & play game over sound (EXACTLY ONCE)
   useEffect(() => {
-    if (isStuck) {
+    if (isStuck && !hasSubmittedRef.current) {
       sound.playGameOver();
     }
   }, [isStuck]);
 
   useEffect(() => {
-    if (isGameOver && score > 0) {
+    if (isGameOver && score > 0 && !hasSubmittedRef.current) {
+      hasSubmittedRef.current = true;
       haptics.warning();
       submitScore('blockudoku', score).then((res) => {
         if (res.isNewRecord) {
@@ -261,6 +264,7 @@ export const BlockudokuGame: React.FC = () => {
     setIsNewRecordAchieved(false);
     setSelectedTrayIndex(null);
     setHoverBoardCell(null);
+    hasSubmittedRef.current = false;
     restartGame();
   };
 

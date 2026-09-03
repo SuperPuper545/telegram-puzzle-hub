@@ -52,12 +52,20 @@ export function getTelegramWebApp() {
   return null;
 }
 
+// Calculate relative luminance from hex color string
+function getLuminance(hex: string): number {
+  const cleanHex = hex.replace('#', '');
+  if (cleanHex.length !== 6) return 0.2;
+  const r = parseInt(cleanHex.substring(0, 2), 16) / 255;
+  const g = parseInt(cleanHex.substring(2, 4), 16) / 255;
+  const b = parseInt(cleanHex.substring(4, 6), 16) / 255;
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
 export function applyTelegramTheme() {
   const tg = getTelegramWebApp();
-  if (!tg) return;
-
   const root = document.documentElement;
-  const tp = tg.themeParams || {};
+  const tp = tg?.themeParams || {};
 
   // Standard Telegram Theme variables
   if (tp.bg_color) root.style.setProperty('--tg-theme-bg-color', tp.bg_color);
@@ -71,13 +79,20 @@ export function applyTelegramTheme() {
   if (tp.section_bg_color) root.style.setProperty('--tg-theme-section-bg-color', tp.section_bg_color);
   if (tp.section_separator_color) root.style.setProperty('--tg-theme-section-separator-color', tp.section_separator_color);
 
-  // Set dark or light class
-  if (tg.colorScheme === 'light') {
+  // Clean previous theme classes
+  root.classList.remove('tg-light', 'tg-dark', 'tg-amoled');
+
+  const bgHex = (tp.bg_color || '').toLowerCase().trim();
+  const lum = bgHex ? getLuminance(bgHex) : 0.05;
+
+  if (lum > 0.55 || tg?.colorScheme === 'light') {
     root.classList.add('tg-light');
-    root.classList.remove('tg-dark');
+  } else if (bgHex === '#000000' || bgHex === '#0a0a0a' || lum < 0.015) {
+    // Pure AMOLED Black
+    root.classList.add('tg-amoled');
   } else {
+    // Classic Telegram Night / Midnight Blue
     root.classList.add('tg-dark');
-    root.classList.remove('tg-light');
   }
 }
 
@@ -94,6 +109,8 @@ export function initTelegramApp() {
     } catch (e) {
       console.warn('Could not fully init TMA WebApp features:', e);
     }
+  } else {
+    applyTelegramTheme();
   }
 }
 

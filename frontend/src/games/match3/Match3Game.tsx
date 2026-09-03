@@ -14,6 +14,7 @@ import {
   Volume2,
   VolumeX,
   Zap,
+  CheckCircle2,
 } from 'lucide-react';
 
 export const Match3Game: React.FC = () => {
@@ -32,21 +33,24 @@ export const Match3Game: React.FC = () => {
     lastScorePopup,
     setSelectedGem,
     trySwap,
+    finishGameEarly,
     restartGame,
   } = useMatch3(currentBest);
 
   const [isMuted, setIsMuted] = useState(() => sound.isMuted());
   const [isNewRecord, setIsNewRecord] = useState(false);
   const touchStartRef = useRef<{ row: number; col: number; x: number; y: number } | null>(null);
+  const hasSubmittedRef = useRef(false);
 
   const toggleSound = () => {
     const next = sound.toggleMute();
     setIsMuted(next);
   };
 
-  // Submit score on game over
+  // Submit score on game over (EXACTLY ONCE)
   useEffect(() => {
-    if (isGameOver && score > 0) {
+    if (isGameOver && score > 0 && !hasSubmittedRef.current) {
+      hasSubmittedRef.current = true;
       sound.playGameOver();
       haptics.warning();
       submitScore('match3', score).then((res) => {
@@ -87,7 +91,15 @@ export const Match3Game: React.FC = () => {
     haptics.medium();
     sound.playUiTap();
     setIsNewRecord(false);
+    hasSubmittedRef.current = false;
     restartGame();
+  };
+
+  const handleFinishEarly = () => {
+    if (score === 0) return;
+    haptics.medium();
+    sound.playUiTap();
+    finishGameEarly();
   };
 
   // Click on gem
@@ -141,13 +153,13 @@ export const Match3Game: React.FC = () => {
   return (
     <div className="w-full h-full min-h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col justify-between bg-tg-bg text-tg-text select-none game-viewport-lock">
       {/* 1. Fixed Header (h-14) */}
-      <header className="h-14 shrink-0 px-4 flex items-center justify-between border-b border-slate-800/60 bg-tg-secondaryBg/80 backdrop-blur-md z-10">
+      <header className="h-14 shrink-0 px-4 flex items-center justify-between border-b border-[var(--tg-theme-section-separator-color)] bg-tg-secondaryBg/90 backdrop-blur-md z-10">
         <button
           onClick={() => {
             sound.playUiTap();
             closeGame();
           }}
-          className="p-2 -ml-2 rounded-xl text-slate-400 hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
+          className="p-2 -ml-2 rounded-xl text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
           title="В меню (Esc)"
         >
           <ArrowLeft className="w-6 h-6" />
@@ -172,28 +184,38 @@ export const Match3Game: React.FC = () => {
             )}
           </div>
 
-          <div className="h-6 w-[1px] bg-slate-800" />
+          <div className="h-6 w-[1px] bg-[var(--tg-theme-section-separator-color)]" />
 
           <div className="text-center">
             <span className="text-[10px] uppercase tracking-wider text-tg-hint font-semibold block leading-none mb-1">
               Рекорд
             </span>
-            <span className="text-base font-bold text-amber-400 leading-none flex items-center gap-1 justify-center">
+            <span className="text-base font-bold text-amber-300 leading-none flex items-center gap-1 justify-center">
               <Trophy className="w-3.5 h-3.5 fill-amber-400/20" />
               {bestScore}
             </span>
           </div>
         </div>
 
-        {/* Sound & Restart Buttons */}
+        {/* Right Header Buttons */}
         <div className="flex items-center gap-1 -mr-2">
+          {score > 0 && !isGameOver && (
+            <button
+              onClick={handleFinishEarly}
+              className="p-2 rounded-xl text-emerald-400 hover:text-emerald-300 active:scale-95 transition-transform cursor-pointer"
+              title="Завершить и сохранить счет"
+            >
+              <CheckCircle2 className="w-5 h-5" />
+            </button>
+          )}
+
           <button
             onClick={toggleSound}
-            className="p-2 rounded-xl text-slate-400 hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
+            className="p-2 rounded-xl text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
             title={isMuted ? 'Включить звук (M)' : 'Выключить звук (M)'}
           >
             {isMuted ? (
-              <VolumeX className="w-5 h-5 text-slate-500" />
+              <VolumeX className="w-5 h-5 text-tg-hint opacity-50" />
             ) : (
               <Volume2 className="w-5 h-5 text-pink-400" />
             )}
@@ -201,7 +223,7 @@ export const Match3Game: React.FC = () => {
 
           <button
             onClick={handleRestart}
-            className="p-2 rounded-xl text-slate-400 hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
+            className="p-2 rounded-xl text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
             title="Начать заново (R)"
           >
             <RotateCcw className="w-5 h-5" />
@@ -214,13 +236,18 @@ export const Match3Game: React.FC = () => {
         <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-slate-800/80 border border-slate-700/60">
           <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
           <span className="text-xs font-extrabold text-tg-text">
-            Ходов: <span className={movesLeft <= 5 ? 'text-rose-400 animate-pulse' : 'text-amber-300'}>{movesLeft}</span>
+            Ходов: <span className={movesLeft <= 5 ? 'text-rose-400 animate-pulse font-black' : 'text-amber-300'}>{movesLeft}</span>
           </span>
         </div>
 
-        <span className="text-[11px] text-tg-hint font-medium">
-          Свайпай или кликай кристаллы
-        </span>
+        {score > 0 && (
+          <button
+            onClick={handleFinishEarly}
+            className="text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold underline underline-offset-2 cursor-pointer"
+          >
+            Завершить и зафиксировать
+          </button>
+        )}
       </div>
 
       {/* 3. Responsive 8x8 Board Container */}
@@ -230,7 +257,7 @@ export const Match3Game: React.FC = () => {
             width: 'min(88vw, 44vh, 370px)',
             height: 'min(88vw, 44vh, 370px)',
           }}
-          className="aspect-square bg-slate-900/95 rounded-2xl p-2 border-2 border-slate-800/90 shadow-2xl shadow-purple-950/40 grid grid-cols-8 gap-1 relative"
+          className="aspect-square bg-tg-secondaryBg rounded-2xl p-2 border-2 border-[var(--tg-theme-section-separator-color)] shadow-2xl grid grid-cols-8 gap-1 relative"
         >
           {board.map((row, r) =>
             row.map((gem, c) => {
@@ -283,8 +310,8 @@ export const Match3Game: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. Bottom Game Controls & Hints (h-14) */}
-      <div className="h-14 shrink-0 px-4 flex items-center justify-center border-t border-slate-800/60 bg-tg-secondaryBg/40">
+      {/* 4. Bottom Hint Bar (h-14) */}
+      <div className="h-14 shrink-0 px-4 flex items-center justify-center border-t border-[var(--tg-theme-section-separator-color)] bg-tg-secondaryBg/40">
         <p className="text-xs text-tg-hint text-center font-medium">
           💡 Собирай 4 в ряд для линейной бомбы, 5 — для радужной!
         </p>
@@ -292,16 +319,18 @@ export const Match3Game: React.FC = () => {
 
       {/* Game Over Modal */}
       {isGameOver && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in">
-          <div className="w-full max-w-sm rounded-3xl bg-tg-secondaryBg border border-slate-700/80 p-6 text-center shadow-2xl animate-pop">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in">
+          <div className="w-full max-w-sm rounded-3xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-6 text-center shadow-2xl animate-pop">
             <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-pink-500 to-amber-500 p-[2px] shadow-lg shadow-pink-500/20 flex items-center justify-center">
               <Trophy className="w-8 h-8 text-white fill-white/20" />
             </div>
 
             <h3 className="text-xl font-black text-tg-text">Партия завершена!</h3>
-            <p className="text-xs text-tg-hint mt-1">Закончились все доступные ходы</p>
+            <p className="text-xs text-tg-hint mt-1">
+              {movesLeft <= 0 ? 'Закончились все доступные ходы' : 'Вы зафиксировали результат'}
+            </p>
 
-            <div className="my-5 p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+            <div className="my-5 p-4 rounded-2xl bg-black/25 border border-white/10">
               <span className="text-xs text-tg-hint uppercase font-semibold">
                 Итоговые кристаллы
               </span>
@@ -326,7 +355,7 @@ export const Match3Game: React.FC = () => {
                   sound.playUiTap();
                   closeGame();
                 }}
-                className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-tg-hint font-semibold text-xs border border-slate-700 active:scale-95 transition-all cursor-pointer"
+                className="w-full py-2.5 px-4 rounded-xl bg-black/30 hover:bg-black/40 text-tg-hint font-semibold text-xs border border-white/10 active:scale-95 transition-all cursor-pointer"
               >
                 В главное меню
               </button>

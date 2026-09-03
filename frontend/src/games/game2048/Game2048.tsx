@@ -37,15 +37,17 @@ export const Game2048: React.FC = () => {
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [acknowledgedWin, setAcknowledgedWin] = useState(false);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const hasSubmittedRef = useRef(false);
 
   const toggleSound = () => {
     const next = sound.toggleMute();
     setIsMuted(next);
   };
 
-  // Submit score on game over
+  // Submit score on game over (EXACTLY ONCE)
   useEffect(() => {
-    if (isGameOver && score > 0) {
+    if (isGameOver && score > 0 && !hasSubmittedRef.current) {
+      hasSubmittedRef.current = true;
       sound.playGameOver();
       haptics.warning();
       submitScore('2048', score).then((res) => {
@@ -98,6 +100,7 @@ export const Game2048: React.FC = () => {
     sound.playUiTap();
     setIsNewRecord(false);
     setAcknowledgedWin(false);
+    hasSubmittedRef.current = false;
     restartGame();
   };
 
@@ -131,13 +134,13 @@ export const Game2048: React.FC = () => {
       onTouchEnd={handleTouchEnd}
     >
       {/* 1. Fixed Header (h-14) */}
-      <header className="h-14 shrink-0 px-4 flex items-center justify-between border-b border-slate-800/60 bg-tg-secondaryBg/80 backdrop-blur-md z-10">
+      <header className="h-14 shrink-0 px-4 flex items-center justify-between border-b border-[var(--tg-theme-section-separator-color)] bg-tg-secondaryBg/90 backdrop-blur-md z-10">
         <button
           onClick={() => {
             sound.playUiTap();
             closeGame();
           }}
-          className="p-2 -ml-2 rounded-xl text-slate-400 hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
+          className="p-2 -ml-2 rounded-xl text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
           title="В меню (Esc)"
         >
           <ArrowLeft className="w-6 h-6" />
@@ -162,7 +165,7 @@ export const Game2048: React.FC = () => {
             )}
           </div>
 
-          <div className="h-6 w-[1px] bg-slate-800" />
+          <div className="h-6 w-[1px] bg-[var(--tg-theme-section-separator-color)]" />
 
           <div className="text-center">
             <span className="text-[10px] uppercase tracking-wider text-tg-hint font-semibold block leading-none mb-1">
@@ -182,8 +185,8 @@ export const Game2048: React.FC = () => {
             disabled={!canUndo}
             className={`p-2 rounded-xl transition-all cursor-pointer ${
               canUndo
-                ? 'text-indigo-300 hover:text-white active:scale-95'
-                : 'text-slate-600 opacity-40 cursor-not-allowed'
+                ? 'text-indigo-400 hover:text-tg-text active:scale-95'
+                : 'text-tg-hint opacity-30 cursor-not-allowed'
             }`}
             title="Отменить ход (U)"
           >
@@ -192,11 +195,11 @@ export const Game2048: React.FC = () => {
 
           <button
             onClick={toggleSound}
-            className="p-2 rounded-xl text-slate-400 hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
+            className="p-2 rounded-xl text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
             title={isMuted ? 'Включить звук (M)' : 'Выключить звук (M)'}
           >
             {isMuted ? (
-              <VolumeX className="w-5 h-5 text-slate-500" />
+              <VolumeX className="w-5 h-5 text-tg-hint opacity-50" />
             ) : (
               <Volume2 className="w-5 h-5 text-amber-400" />
             )}
@@ -204,7 +207,7 @@ export const Game2048: React.FC = () => {
 
           <button
             onClick={handleRestart}
-            className="p-2 rounded-xl text-slate-400 hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
+            className="p-2 rounded-xl text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
             title="Начать заново (R)"
           >
             <RotateCcw className="w-5 h-5" />
@@ -212,7 +215,7 @@ export const Game2048: React.FC = () => {
         </div>
       </header>
 
-      {/* 2. Status / Instructions Bar (h-8) */}
+      {/* 2. Status Bar (h-8) */}
       <div className="h-8 shrink-0 flex items-center justify-between px-5">
         <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/30 text-[11px] font-extrabold text-amber-300">
           <Flame className="w-3.5 h-3.5 fill-amber-400" />
@@ -231,7 +234,7 @@ export const Game2048: React.FC = () => {
             width: 'min(88vw, 44vh, 370px)',
             height: 'min(88vw, 44vh, 370px)',
           }}
-          className="aspect-square bg-slate-900/95 rounded-3xl p-3 border-2 border-slate-800/90 shadow-2xl shadow-amber-950/30 grid grid-cols-4 grid-rows-4 gap-2.5 relative"
+          className="aspect-square bg-tg-secondaryBg rounded-3xl p-3 border-2 border-[var(--tg-theme-section-separator-color)] shadow-2xl grid grid-cols-4 grid-rows-4 gap-2.5 relative"
         >
           {board.map((row, r) =>
             row.map((val, c) => {
@@ -240,7 +243,7 @@ export const Game2048: React.FC = () => {
               return (
                 <div
                   key={`${r}-${c}`}
-                  className="relative rounded-2xl bg-slate-800/60 border border-slate-700/40 flex items-center justify-center overflow-hidden aspect-square"
+                  className="relative rounded-2xl bg-black/15 border border-white/5 flex items-center justify-center overflow-hidden aspect-square"
                 >
                   {val > 0 && (
                     <div
@@ -257,15 +260,15 @@ export const Game2048: React.FC = () => {
       </div>
 
       {/* 4. Controls & Hint Bar (h-14) */}
-      <div className="h-14 shrink-0 px-4 flex items-center justify-center border-t border-slate-800/60 bg-tg-secondaryBg/40">
+      <div className="h-14 shrink-0 px-4 flex items-center justify-center border-t border-[var(--tg-theme-section-separator-color)] bg-tg-secondaryBg/40">
         <p className="text-xs text-tg-hint text-center font-medium">
           💡 На ПК используй стрелки клавиатуры или клавиши WASD
         </p>
       </div>
 
-      {/* 2048 Win Modal (once achieved) */}
+      {/* 2048 Win Modal */}
       {hasWon && !acknowledgedWin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in">
           <div className="w-full max-w-sm rounded-3xl bg-tg-secondaryBg border border-amber-500/80 p-6 text-center shadow-2xl animate-pop">
             <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-yellow-400 to-amber-500 p-[2px] shadow-lg shadow-amber-500/40 flex items-center justify-center">
               <Sparkles className="w-8 h-8 text-white fill-white/20 animate-spin" />
@@ -274,7 +277,7 @@ export const Game2048: React.FC = () => {
             <h3 className="text-xl font-black text-amber-300">Плитка 2048 собрана! 🎉</h3>
             <p className="text-xs text-tg-hint mt-1">Потрясающая победа! Вы достигли легендарной плитки.</p>
 
-            <div className="my-5 p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+            <div className="my-5 p-4 rounded-2xl bg-black/25 border border-white/10">
               <span className="text-xs text-tg-hint uppercase font-semibold">Текущий счет</span>
               <p className="text-3xl font-black text-amber-400 mt-1">{score}</p>
             </div>
@@ -291,7 +294,7 @@ export const Game2048: React.FC = () => {
                   sound.playUiTap();
                   closeGame();
                 }}
-                className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-tg-hint font-semibold text-xs border border-slate-700 active:scale-95 transition-all cursor-pointer"
+                className="w-full py-2.5 px-4 rounded-xl bg-black/30 hover:bg-black/40 text-tg-hint font-semibold text-xs border border-white/10 active:scale-95 transition-all cursor-pointer"
               >
                 В главное меню
               </button>
@@ -302,8 +305,8 @@ export const Game2048: React.FC = () => {
 
       {/* Game Over Modal */}
       {isGameOver && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in">
-          <div className="w-full max-w-sm rounded-3xl bg-tg-secondaryBg border border-slate-700/80 p-6 text-center shadow-2xl animate-pop">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in">
+          <div className="w-full max-w-sm rounded-3xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-6 text-center shadow-2xl animate-pop">
             <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 p-[2px] shadow-lg shadow-amber-500/20 flex items-center justify-center">
               <Trophy className="w-8 h-8 text-white fill-white/20" />
             </div>
@@ -311,7 +314,7 @@ export const Game2048: React.FC = () => {
             <h3 className="text-xl font-black text-tg-text">Игра окончена</h3>
             <p className="text-xs text-tg-hint mt-1">Нет доступных ходов для слияния</p>
 
-            <div className="my-5 p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+            <div className="my-5 p-4 rounded-2xl bg-black/25 border border-white/10">
               <span className="text-xs text-tg-hint uppercase font-semibold">
                 Итоговый результат
               </span>
@@ -336,7 +339,7 @@ export const Game2048: React.FC = () => {
                   sound.playUiTap();
                   closeGame();
                 }}
-                className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-tg-hint font-semibold text-xs border border-slate-700 active:scale-95 transition-all cursor-pointer"
+                className="w-full py-2.5 px-4 rounded-xl bg-black/30 hover:bg-black/40 text-tg-hint font-semibold text-xs border border-white/10 active:scale-95 transition-all cursor-pointer"
               >
                 В главное меню
               </button>

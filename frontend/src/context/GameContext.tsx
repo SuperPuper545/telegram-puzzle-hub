@@ -69,15 +69,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Initialize TMA on mount
   useEffect(() => {
     initTelegramApp();
-    setUser(getTelegramUser());
+    const currentUser = getTelegramUser();
+    setUser(currentUser);
 
     // Fetch user profile from backend
     const initData = getTelegramInitData();
     fetch('/api/me', {
       headers: {
         'Authorization': `tma ${initData}`,
-        'x-mock-user-id': String(user.id),
-        'x-mock-username': user.first_name || 'Player',
+        'x-mock-user-id': String(currentUser.id),
+        'x-mock-username': currentUser.first_name || 'Player',
       }
     })
       .then(res => res.ok ? res.json() : null)
@@ -111,62 +112,69 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, [closeGame]);
 
+  // Stable submitScore using functional state updates (Zero dependency re-renders!)
   const submitScore = useCallback(async (gameId: GameId, score: number, duration: number = 0) => {
-    // 1. Update local state & localStorage immediately
-    const prevBest = bestScores[gameId] || 0;
-    const isNewRecord = score > prevBest;
-    const newBest = Math.max(prevBest, score);
+    let isNewRecord = false;
+    let newBest = score;
 
-    const updatedScores = { ...bestScores, [gameId]: newBest };
-    setBestScores(updatedScores);
-    localStorage.setItem(LOCAL_SCORES_KEY, JSON.stringify(updatedScores));
+    setBestScores((prev) => {
+      const prevBest = prev[gameId] || 0;
+      isNewRecord = score > prevBest;
+      newBest = Math.max(prevBest, score);
+      const updated = { ...prev, [gameId]: newBest };
+      try {
+        localStorage.setItem(LOCAL_SCORES_KEY, JSON.stringify(updated));
+      } catch (_) {}
+      return updated;
+    });
 
-    const updatedPlayed = totalGamesPlayed + 1;
-    setTotalGamesPlayed(updatedPlayed);
-    localStorage.setItem(LOCAL_TOTAL_PLAYED_KEY, String(updatedPlayed));
+    setTotalGamesPlayed((prev) => {
+      const updated = prev + 1;
+      try {
+        localStorage.setItem(LOCAL_TOTAL_PLAYED_KEY, String(updated));
+      } catch (_) {}
+      return updated;
+    });
 
-    // 2. Send to backend
+    // Send to backend
     try {
       const initData = getTelegramInitData();
+      const currentUser = getTelegramUser();
       const res = await fetch('/api/scores', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `tma ${initData}`,
-          'x-mock-user-id': String(user.id),
-          'x-mock-username': user.first_name || 'Player',
+          'x-mock-user-id': String(currentUser.id),
+          'x-mock-username': currentUser.first_name || 'Player',
         },
         body: JSON.stringify({ gameId, score, duration }),
       });
+
       if (res.ok) {
         const data = await res.json();
-        return { isNewRecord: data.isNewRecord, bestScore: data.bestScore };
+        return {
+          isNewRecord: data.isNewRecord ?? isNewRecord,
+          bestScore: data.highScore ?? newBest,
+        };
       }
     } catch (err) {
-      console.warn('Could not sync score with server, saved locally:', err);
+      console.warn('Could not post score to server (offline mode):', err);
     }
 
     return { isNewRecord, bestScore: newBest };
-  }, [bestScores, totalGamesPlayed, user]);
+  }, []);
 
   const fetchLeaderboard = useCallback(async (gameId: GameId) => {
     setIsLoadingLeaderboard(true);
     try {
-      const initData = getTelegramInitData();
-      const res = await fetch(`/api/leaderboard/${gameId}`, {
-        headers: {
-          'Authorization': `tma ${initData}`,
-        }
-      });
+      const res = await fetch(`/api/leaderboard/${gameId}`);
       if (res.ok) {
         const data = await res.json();
-        setLeaderboards(prev => ({
-          ...prev,
-          [gameId]: data.leaderboard || [],
-        }));
+        setLeaderboards(prev => ({ ...prev, [gameId]: data.leaderboard || [] }));
       }
     } catch (err) {
-      console.warn('Failed to load leaderboard:', err);
+      console.warn(`Failed to fetch leaderboard for ${gameId}:`, err);
     } finally {
       setIsLoadingLeaderboard(false);
     }
@@ -197,7 +205,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 export const useGameBridge = () => {
   const context = useContext(GameContext);
   if (!context) {
-    throw new Error('useGameBridge must be used within a GameProvider');
+    throw new Error('useGameBridge must be used within GameProvider');
   }
   return context;
 };

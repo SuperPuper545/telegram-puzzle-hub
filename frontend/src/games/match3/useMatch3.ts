@@ -13,7 +13,6 @@ const STORAGE_KEY = 'tma_match3_saved_state';
 const INITIAL_MOVES = 25;
 
 export function useMatch3(initialBestScore: number = 0) {
-  // Load saved state
   const saved = useMemo(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -71,6 +70,15 @@ export function useMatch3(initialBestScore: number = 0) {
     setLastScorePopup(null);
   }, []);
 
+  // Early cash out / finish game
+  const finishGameEarly = useCallback(() => {
+    if (isGameOver || isBusy) return;
+    setIsGameOver(true);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (_) {}
+  }, [isGameOver, isBusy]);
+
   // Cascade resolution loop
   const processCascades = useCallback(
     async (currentBoard: GemCell[][], currentScore: number, remainingMoves: number) => {
@@ -83,7 +91,6 @@ export function useMatch3(initialBestScore: number = 0) {
         const scan = scanMatches(activeBoard);
         if (scan.matchedCount === 0) break;
 
-        // Visual clearing pulse
         setClearingKeys(scan.matchedKeys);
         if (combo > 1) {
           sound.playGemMatch(combo);
@@ -93,36 +100,29 @@ export function useMatch3(initialBestScore: number = 0) {
           haptics.light();
         }
 
-        // Calculate score
         const points = scan.matchedCount * 30 * combo;
         totalGained += points;
 
-        // Bonus moves for multi-matches
         if (scan.matchedCount >= 4) {
           currentMoves += 1;
         }
 
-        // Show score popup
         setLastScorePopup({
           text: combo > 1 ? `Каскад x${combo}! +${points}` : `+${points}`,
           id: Date.now(),
         });
 
-        // Delay for clearing animation
         await new Promise((res) => setTimeout(res, 260));
 
-        // Gravity fall & refill
         activeBoard = applyGravityAndRefill(activeBoard, scan.matchedKeys, scan.specialsCreated);
         setBoard(activeBoard);
         setClearingKeys(new Set());
 
-        // Delay for drop animation
         await new Promise((res) => setTimeout(res, 220));
 
         combo++;
       }
 
-      // Check if deadlock -> auto-shuffle
       if (!hasValidMoves(activeBoard)) {
         activeBoard = createInitialBoard();
         setBoard(activeBoard);
@@ -135,7 +135,6 @@ export function useMatch3(initialBestScore: number = 0) {
         setBestScore(newScore);
       }
 
-      // Game Over check
       if (currentMoves <= 0) {
         setIsGameOver(true);
         try {
@@ -148,7 +147,7 @@ export function useMatch3(initialBestScore: number = 0) {
     [bestScore]
   );
 
-  // Attempt to swap two adjacent gems
+  // Attempt swap
   const trySwap = useCallback(
     async (p1: Position, p2: Position) => {
       if (isBusy || isGameOver) return;
@@ -163,7 +162,6 @@ export function useMatch3(initialBestScore: number = 0) {
       setSelectedGem(null);
       sound.playGemSwap();
 
-      // Perform swap
       const swappedBoard = board.map((r) => [...r]);
       const temp = swappedBoard[p1.row][p1.col];
       swappedBoard[p1.row][p1.col] = swappedBoard[p2.row][p2.col];
@@ -171,7 +169,6 @@ export function useMatch3(initialBestScore: number = 0) {
 
       setBoard(swappedBoard);
 
-      // Check for match
       const initialMatches = scanMatches(swappedBoard);
 
       if (initialMatches.matchedCount === 0) {
@@ -182,7 +179,6 @@ export function useMatch3(initialBestScore: number = 0) {
         return;
       }
 
-      // Valid move! Decrement moves and start cascade
       const nextMoves = movesLeft - 1;
       setMovesLeft(nextMoves);
       await processCascades(swappedBoard, score, nextMoves);
@@ -202,6 +198,7 @@ export function useMatch3(initialBestScore: number = 0) {
     lastScorePopup,
     setSelectedGem,
     trySwap,
+    finishGameEarly,
     restartGame,
   };
 }

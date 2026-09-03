@@ -30,8 +30,8 @@ const HubContent: React.FC = () => {
 
   if (currentGame === 'blockudoku') {
     return (
-      <div className="w-full h-[100dvh] max-h-[100dvh] flex items-center justify-center bg-slate-950">
-        <div className="w-full h-full max-w-md mx-auto flex flex-col overflow-hidden md:border-x md:border-slate-800/80 md:shadow-2xl">
+      <div className="w-full h-[100dvh] max-h-[100dvh] flex items-center justify-center bg-tg-bg">
+        <div className="w-full h-full max-w-md mx-auto flex flex-col overflow-hidden md:border-x md:border-[var(--tg-theme-section-separator-color)] md:shadow-2xl">
           <BlockudokuGame />
         </div>
       </div>
@@ -40,8 +40,8 @@ const HubContent: React.FC = () => {
 
   if (currentGame === 'match3') {
     return (
-      <div className="w-full h-[100dvh] max-h-[100dvh] flex items-center justify-center bg-slate-950">
-        <div className="w-full h-full max-w-md mx-auto flex flex-col overflow-hidden md:border-x md:border-slate-800/80 md:shadow-2xl">
+      <div className="w-full h-[100dvh] max-h-[100dvh] flex items-center justify-center bg-tg-bg">
+        <div className="w-full h-full max-w-md mx-auto flex flex-col overflow-hidden md:border-x md:border-[var(--tg-theme-section-separator-color)] md:shadow-2xl">
           <Match3Game />
         </div>
       </div>
@@ -50,8 +50,8 @@ const HubContent: React.FC = () => {
 
   if (currentGame === '2048') {
     return (
-      <div className="w-full h-[100dvh] max-h-[100dvh] flex items-center justify-center bg-slate-950">
-        <div className="w-full h-full max-w-md mx-auto flex flex-col overflow-hidden md:border-x md:border-slate-800/80 md:shadow-2xl">
+      <div className="w-full h-[100dvh] max-h-[100dvh] flex items-center justify-center bg-tg-bg">
+        <div className="w-full h-full max-w-md mx-auto flex flex-col overflow-hidden md:border-x md:border-[var(--tg-theme-section-separator-color)] md:shadow-2xl">
           <Game2048 />
         </div>
       </div>
@@ -59,9 +59,9 @@ const HubContent: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-start">
+    <div className="min-h-screen bg-tg-bg flex flex-col items-center justify-start">
       {/* Centered responsive container */}
-      <div className="w-full max-w-md mx-auto min-h-screen flex flex-col relative bg-tg-bg md:shadow-2xl md:border-x md:border-slate-800/80">
+      <div className="w-full max-w-md mx-auto min-h-screen flex flex-col relative bg-tg-bg md:shadow-2xl md:border-x md:border-[var(--tg-theme-section-separator-color)]">
         {/* HubHeader shown in Catalog and Leaderboard, hidden in Profile */}
         {activeTab !== 'profile' && <HubHeader />}
 
