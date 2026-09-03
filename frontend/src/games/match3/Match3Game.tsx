@@ -364,8 +364,8 @@ export const Match3Game: React.FC = () => {
 
       {/* Game Over Modal */}
       {isGameOver && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-          <div className="w-full max-w-sm rounded-3xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-6 text-center shadow-2xl animate-pop">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 dark:bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-6 text-center shadow-2xl animate-pop text-tg-text">
             <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-pink-500 to-amber-500 p-[2px] shadow-lg shadow-pink-500/20 flex items-center justify-center">
               <Trophy className="w-8 h-8 text-white fill-white/20" />
             </div>
@@ -375,11 +375,11 @@ export const Match3Game: React.FC = () => {
               Закончились все доступные ходы
             </p>
 
-            <div className="my-5 p-4 rounded-2xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)]">
+            <div className="my-5 p-4 rounded-2xl bg-black/[0.04] dark:bg-tg-bg border border-[var(--tg-theme-section-separator-color)]">
               <span className="text-xs text-tg-hint uppercase font-semibold">
                 Итоговые кристаллы
               </span>
-              <p className="text-3xl font-black text-pink-400 mt-1">{score}</p>
+              <p className="text-3xl font-black text-pink-500 mt-1">{score}</p>
 
               {isNewRecord && (
                 <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-500 text-xs font-extrabold animate-bounce">
@@ -423,7 +423,7 @@ export const Match3Game: React.FC = () => {
                   sound.playUiTap();
                   closeGame();
                 }}
-                className="w-full py-2.5 px-4 rounded-xl bg-tg-bg hover:bg-tg-secondaryBg text-tg-hint font-semibold text-xs border border-[var(--tg-theme-section-separator-color)] active:scale-95 transition-all cursor-pointer"
+                className="w-full py-3 px-4 rounded-xl bg-black/[0.05] dark:bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] text-tg-text font-bold text-sm hover:opacity-80 transition-opacity cursor-pointer"
               >
                 В главное меню
               </button>

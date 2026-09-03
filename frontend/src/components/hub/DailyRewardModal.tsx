@@ -63,32 +63,32 @@ export const DailyRewardModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 dark:bg-black/80 backdrop-blur-sm animate-fade-in">
       <div 
-        className="relative w-full max-w-sm rounded-3xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-5 shadow-2xl overflow-hidden"
+        className="relative w-full max-w-sm rounded-3xl bg-white dark:bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-5 shadow-2xl overflow-hidden text-tg-text"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="absolute -top-12 -right-12 w-32 h-32 bg-amber-500/20 rounded-full blur-2xl pointer-events-none" />
-        <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -top-12 -right-12 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
 
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-amber-500/15 text-amber-400">
-              <Flame className="w-5 h-5 fill-amber-400/20" />
+            <div className="p-2 rounded-xl bg-amber-500/15 text-amber-500">
+              <Flame className="w-5 h-5 fill-amber-500/20" />
             </div>
             <div>
               <h2 className="text-base font-extrabold text-tg-text leading-tight">
                 Ежедневные награды
               </h2>
               <p className="text-xs text-tg-hint">
-                Серия: <span className="font-bold text-amber-400">{currentStreak} дн.</span> подряд
+                Серия: <span className="font-bold text-amber-500">{currentStreak} дн.</span> подряд
               </p>
             </div>
           </div>
 
           <button
             onClick={closeModal}
-            className="p-1.5 rounded-full text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer bg-tg-bg border border-[var(--tg-theme-section-separator-color)]"
+            className="p-1.5 rounded-full text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer bg-black/[0.05] dark:bg-tg-bg border border-[var(--tg-theme-section-separator-color)]"
           >
             <X className="w-4 h-4" />
           </button>
@@ -112,7 +112,7 @@ export const DailyRewardModal: React.FC = () => {
                     ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-500'
                     : isCurrent
                     ? 'bg-amber-500/20 border-amber-400 shadow-lg shadow-amber-500/20 scale-[1.03] text-amber-500 ring-2 ring-amber-400/50'
-                    : 'bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint opacity-60'
+                    : 'bg-black/[0.04] dark:bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint opacity-60'
                 }`}
               >
                 <span className="text-[10px] font-bold uppercase tracking-wider mb-1">
@@ -129,7 +129,7 @@ export const DailyRewardModal: React.FC = () => {
                       <Coins className="w-4 h-4" />
                     </div>
                   ) : (
-                    <div className="w-6 h-6 rounded-full bg-tg-secondaryBg flex items-center justify-center text-tg-hint">
+                    <div className="w-6 h-6 rounded-full bg-black/[0.06] dark:bg-tg-secondaryBg flex items-center justify-center text-tg-hint">
                       <Lock className="w-3.5 h-3.5" />
                     </div>
                   )}
@@ -155,7 +155,7 @@ export const DailyRewardModal: React.FC = () => {
                   ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-500'
                   : isDay7Current
                   ? 'bg-gradient-to-r from-amber-500/20 via-pink-500/20 to-purple-500/20 border-amber-400 shadow-xl shadow-amber-500/20 ring-2 ring-amber-400/60'
-                  : 'bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint opacity-75'
+                  : 'bg-black/[0.04] dark:bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint opacity-75'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -164,7 +164,7 @@ export const DailyRewardModal: React.FC = () => {
                     ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/40 animate-bounce' 
                     : isDay7Claimed
                     ? 'bg-emerald-500/20 text-emerald-500'
-                    : 'bg-tg-secondaryBg text-amber-500 border border-[var(--tg-theme-section-separator-color)]'
+                    : 'bg-black/[0.06] dark:bg-tg-secondaryBg text-amber-500 border border-[var(--tg-theme-section-separator-color)]'
                 }`}>
                   <Gift className="w-5 h-5" />
                 </div>

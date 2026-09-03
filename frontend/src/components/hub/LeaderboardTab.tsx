@@ -83,7 +83,7 @@ export const LeaderboardTab: React.FC = () => {
         <>
           {/* Top 3 Podium */}
           {top1 && (
-            <div className="pt-2 pb-2">
+            <div className="pt-7 pb-2">
               <div className="flex items-end justify-center gap-2">
                 {/* 2nd Place */}
                 <div className="flex-1 flex flex-col items-center">
@@ -119,9 +119,9 @@ export const LeaderboardTab: React.FC = () => {
                 </div>
 
                 {/* 1st Place */}
-                <div className="flex-1 flex flex-col items-center -mt-3">
+                <div className="flex-1 flex flex-col items-center">
                   <div className="relative mb-2">
-                    <Crown className="w-5 h-5 text-amber-500 absolute -top-4 left-1/2 -translate-x-1/2 animate-bounce" />
+                    <Crown className="w-5 h-5 text-amber-500 absolute -top-5 left-1/2 -translate-x-1/2 drop-shadow-sm" />
                     <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-amber-400 to-yellow-300 p-[2px] shadow-lg shadow-amber-500/20">
                       <div className="w-full h-full bg-tg-bg rounded-full flex items-center justify-center font-black text-amber-500 text-sm overflow-hidden border border-[var(--tg-theme-section-separator-color)]">
                         {top1.photoUrl ? (

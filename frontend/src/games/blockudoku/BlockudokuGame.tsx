@@ -577,7 +577,7 @@ export const BlockudokuGame: React.FC = () => {
       </div>
 
       {/* 4. Tray of 3 Pieces (h-28) */}
-      <div className="h-28 shrink-0 pb-3 px-3 bg-tg-secondaryBg/40 border-t border-[var(--tg-theme-section-separator-color)]">
+      <div className="h-28 shrink-0 pb-3 px-3 bg-tg-secondaryBg border-t border-[var(--tg-theme-section-separator-color)]">
         <div className="max-w-md mx-auto grid grid-cols-3 gap-2.5 h-full">
           {trayPieces.map((piece, index) => {
             const isBeingDragged = dragState?.pieceIndex === index;
@@ -595,12 +595,12 @@ export const BlockudokuGame: React.FC = () => {
                 }}
                 className={`relative rounded-2xl border transition-all duration-200 flex items-center justify-center overflow-hidden touch-none ${
                   !piece
-                    ? 'bg-slate-900/30 border-slate-800/40'
+                    ? 'bg-black/[0.04] dark:bg-white/[0.04] border-[var(--tg-theme-section-separator-color)]'
                     : !canPlace
-                    ? 'bg-slate-900/40 border-dashed border-slate-700/60 opacity-30 grayscale cursor-not-allowed'
+                    ? 'bg-black/[0.05] dark:bg-white/[0.05] border-dashed border-[var(--tg-theme-section-separator-color)] opacity-40 grayscale cursor-not-allowed'
                     : isSelected
-                    ? 'border-indigo-400 ring-2 ring-indigo-500/40 bg-indigo-950/30 cursor-grab active:cursor-grabbing'
-                    : 'bg-slate-900/80 border-slate-800/80 hover:border-slate-700 cursor-grab active:cursor-grabbing'
+                    ? 'border-indigo-500 ring-2 ring-indigo-500/40 bg-indigo-500/15 cursor-grab active:cursor-grabbing'
+                    : 'bg-tg-bg border border-[var(--tg-theme-section-separator-color)] hover:border-indigo-500/40 cursor-grab active:cursor-grabbing shadow-sm'
                 }`}
               >
                 {piece && !isBeingDragged && (
@@ -624,7 +624,7 @@ export const BlockudokuGame: React.FC = () => {
                               val === 1
                                 ? canPlace
                                   ? `${piece.colorClass} shadow-sm ${piece.glowClass}`
-                                  : 'bg-slate-600'
+                                  : 'bg-black/30 dark:bg-white/20'
                                 : 'opacity-0'
                             }`}
                           />
@@ -636,7 +636,7 @@ export const BlockudokuGame: React.FC = () => {
 
                 {/* Subtitle if unplaceable */}
                 {piece && !canPlace && (
-                  <span className="absolute bottom-1 text-[9px] font-semibold text-slate-400/80 tracking-tight">
+                  <span className="absolute bottom-1 text-[9px] font-semibold text-tg-hint tracking-tight">
                     нет места
                   </span>
                 )}
@@ -680,8 +680,8 @@ export const BlockudokuGame: React.FC = () => {
 
       {/* Game Over Modal */}
       {isGameOver && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-          <div className="w-full max-w-sm rounded-3xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-6 text-center shadow-2xl animate-pop">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 dark:bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-6 text-center shadow-2xl animate-pop text-tg-text">
             <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 p-[2px] shadow-lg shadow-amber-500/20 flex items-center justify-center">
               <Trophy className="w-8 h-8 text-white fill-white/20" />
             </div>
@@ -691,11 +691,11 @@ export const BlockudokuGame: React.FC = () => {
               Для оставшихся фигур не нашлось места на поле
             </p>
 
-            <div className="my-5 p-4 rounded-2xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)]">
+            <div className="my-5 p-4 rounded-2xl bg-black/[0.04] dark:bg-tg-bg border border-[var(--tg-theme-section-separator-color)]">
               <span className="text-xs text-tg-hint uppercase font-semibold">
                 Итоговый результат
               </span>
-              <p className="text-3xl font-black text-indigo-400 mt-1">{score}</p>
+              <p className="text-3xl font-black text-indigo-500 mt-1">{score}</p>
 
               {isNewRecordAchieved && (
                 <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-500 text-xs font-extrabold animate-bounce">
@@ -739,7 +739,7 @@ export const BlockudokuGame: React.FC = () => {
                   sound.playUiTap();
                   closeGame();
                 }}
-                className="w-full py-2.5 px-4 rounded-xl bg-tg-bg hover:bg-tg-secondaryBg text-tg-hint font-semibold text-xs border border-[var(--tg-theme-section-separator-color)] active:scale-95 transition-all cursor-pointer"
+                className="w-full py-3 px-4 rounded-xl bg-black/[0.05] dark:bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] text-tg-text font-bold text-sm hover:opacity-80 transition-opacity cursor-pointer"
               >
                 В главное меню
               </button>

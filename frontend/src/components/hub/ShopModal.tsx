@@ -82,18 +82,18 @@ export const ShopModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 dark:bg-black/80 backdrop-blur-sm animate-fade-in">
       <div
-        className="relative w-full max-w-sm rounded-3xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-5 shadow-2xl overflow-hidden flex flex-col max-h-[85dvh]"
+        className="relative w-full max-w-sm rounded-3xl bg-white dark:bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-5 shadow-2xl overflow-hidden flex flex-col max-h-[85dvh] text-tg-text"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="absolute -top-12 -right-12 w-32 h-32 bg-purple-500/20 rounded-full blur-2xl pointer-events-none" />
-        <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-amber-500/20 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -top-12 -right-12 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
 
         {/* Modal Header */}
         <div className="flex items-center justify-between mb-3 shrink-0">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-purple-500/15 text-purple-400">
+            <div className="p-2 rounded-xl bg-purple-500/15 text-purple-500">
               <ShoppingBag className="w-5 h-5" />
             </div>
             <div>
@@ -101,8 +101,8 @@ export const ShopModal: React.FC = () => {
                 Магазин Хаба
               </h2>
               <div className="flex items-center gap-1 mt-0.5">
-                <Coins className="w-3.5 h-3.5 text-amber-400" />
-                <span className="text-xs font-black text-amber-300">
+                <Coins className="w-3.5 h-3.5 text-amber-500" />
+                <span className="text-xs font-black text-amber-500">
                   {coins.toLocaleString()} 🪙
                 </span>
               </div>
@@ -111,14 +111,14 @@ export const ShopModal: React.FC = () => {
 
           <button
             onClick={closeModal}
-            className="p-1.5 rounded-full text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer bg-tg-bg border border-[var(--tg-theme-section-separator-color)]"
+            className="p-1.5 rounded-full text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer bg-black/[0.05] dark:bg-tg-bg border border-[var(--tg-theme-section-separator-color)]"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Categories Tab Bar */}
-        <div className="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] mb-3.5 shrink-0">
+        <div className="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-black/[0.04] dark:bg-tg-bg border border-[var(--tg-theme-section-separator-color)] mb-3.5 shrink-0">
           <button
             onClick={() => {
               sound.playUiTap();
@@ -185,7 +185,7 @@ export const ShopModal: React.FC = () => {
                 className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
                   isEquipped
                     ? 'bg-indigo-500/15 border-indigo-500/40 shadow-sm'
-                    : 'bg-tg-bg border border-[var(--tg-theme-section-separator-color)]'
+                    : 'bg-black/[0.03] dark:bg-tg-bg border border-[var(--tg-theme-section-separator-color)]'
                 }`}
               >
                 {/* Item Icon / Swatch */}
@@ -225,7 +225,7 @@ export const ShopModal: React.FC = () => {
                     <button
                       onClick={() => handleEquip(item.id)}
                       disabled={isLoading}
-                      className="px-3.5 py-1.5 rounded-xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] hover:border-indigo-500/40 active:scale-95 text-xs font-bold text-tg-text transition-all cursor-pointer shadow-sm"
+                      className="px-3.5 py-1.5 rounded-xl bg-black/[0.05] dark:bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] hover:border-indigo-500/40 active:scale-95 text-xs font-bold text-tg-text transition-all cursor-pointer shadow-sm"
                     >
                       {isLoading ? '...' : 'Надеть'}
                     </button>
@@ -236,7 +236,7 @@ export const ShopModal: React.FC = () => {
                       className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-md ${
                         canAfford
                           ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white active:scale-95 shadow-amber-500/20 hover:brightness-110'
-                          : 'bg-tg-secondaryBg text-tg-hint border border-[var(--tg-theme-section-separator-color)] opacity-50 cursor-not-allowed'
+                          : 'bg-black/[0.05] dark:bg-tg-secondaryBg text-tg-hint border border-[var(--tg-theme-section-separator-color)] opacity-50 cursor-not-allowed'
                       }`}
                     >
                       <Sparkles className="w-3.5 h-3.5" />
