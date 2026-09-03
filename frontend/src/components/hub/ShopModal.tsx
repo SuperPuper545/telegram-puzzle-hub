@@ -4,6 +4,7 @@ import { X, Check, Sparkles, Coins, ShoppingBag, Palette, Gem, Layers, Zap, Targ
 import confetti from 'canvas-confetti';
 import { sound } from '../../utils/sound';
 import { haptics } from '../../telegram/telegram';
+import { useLockBodyScroll } from '../../utils/useLockBodyScroll';
 
 type ShopCategory = 'block_skin' | 'gem_skin' | 'tile_skin' | 'bird_skin' | 'stack_skin' | 'knife_skin';
 
@@ -26,6 +27,8 @@ export const ShopModal: React.FC = () => {
 
   const [activeCategory, setActiveCategory] = useState<ShopCategory>('block_skin');
   const [loadingItemId, setLoadingItemId] = useState<string | null>(null);
+
+  useLockBodyScroll(isShopModalOpen);
 
   useEffect(() => {
     if (isShopModalOpen) {
@@ -94,7 +97,12 @@ export const ShopModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 dark:bg-black/80 backdrop-blur-sm animate-fade-in">
+    <div
+      onTouchMove={(e) => {
+        if (e.target === e.currentTarget) e.preventDefault();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-fade-in touch-none overscroll-contain"
+    >
       <div
         className="relative w-full max-w-sm rounded-3xl bg-white dark:bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-5 shadow-2xl overflow-hidden flex flex-col max-h-[85dvh] text-tg-text"
         onClick={(e) => e.stopPropagation()}
@@ -155,7 +163,7 @@ export const ShopModal: React.FC = () => {
         </div>
 
         {/* Items List */}
-        <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 -mr-1">
+        <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 -mr-1 overscroll-contain touch-pan-y">
           {items.map((item) => {
             const isEquipped =
               item.id === equippedBlockSkin ||
@@ -183,7 +191,7 @@ export const ShopModal: React.FC = () => {
                     style={{ backgroundColor: item.previewColor || '#6366f1' }}
                     className="w-10 h-10 rounded-2xl flex items-center justify-center text-lg shadow-md shrink-0 border border-white/20"
                   >
-                    {item.icon || (item.category === 'block_skin' ? '🧩' : item.category === 'gem_skin' ? '💎' : '🔢')}
+                    {item.icon || (item.category === 'block_skin' ? '🧩' : item.category === 'gem_skin' ? <div className="w-5 h-5 rounded-lg bg-white/30 border border-white/40 shadow-inner rotate-45" /> : '🔢')}
                   </div>
 
                   <div className="min-w-0">

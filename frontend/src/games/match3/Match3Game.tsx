@@ -262,16 +262,39 @@ export const Match3Game: React.FC = () => {
         </div>
       </header>
 
-      {/* 2. Moves & Status Bar (h-8) */}
-      <div className="h-8 shrink-0 flex items-center justify-center px-5">
+      {/* 2. Top Booster Action Bar (+5 Moves & Rainbow Bomb at the top) */}
+      <div className="shrink-0 px-4 pt-1.5 pb-0.5 flex items-center justify-between gap-3 max-w-md mx-auto w-full">
+        <button
+          onClick={handleBoosterMoves}
+          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-amber-500/50 cursor-pointer shadow-sm"
+          title="+5 ходов за 100 монет"
+        >
+          <Hourglass className="w-3.5 h-3.5 text-amber-500" />
+          <span>+5 ходов</span>
+          <span className="text-[10px] text-amber-500 font-black">100🪙</span>
+        </button>
+
+        <button
+          onClick={handleBoosterBomb}
+          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-purple-500/50 cursor-pointer shadow-sm"
+          title="Радужная бомба за 150 монет"
+        >
+          <Bomb className="w-3.5 h-3.5 text-pink-400" />
+          <span>Радужная бомба</span>
+          <span className="text-[10px] text-amber-500 font-black">150🪙</span>
+        </button>
+      </div>
+
+      {/* 3. Moves & Status Bar (placed strictly below the boosters) */}
+      <div className="h-7 shrink-0 flex items-center justify-center px-4">
         {boosterNotice ? (
           <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-[11px] font-black text-amber-500 animate-fade-in shadow-md">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <Sparkles className="w-3 h-3 text-amber-500" />
             {boosterNotice}
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] shadow-sm">
-            <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+          <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] shadow-sm">
+            <Zap className="w-3 h-3 text-amber-500 fill-amber-500" />
             <span className="text-xs font-extrabold text-tg-text">
               Осталось ходов: <span className={movesLeft <= 5 ? 'text-rose-400 animate-pulse font-black' : 'text-amber-500'}>{movesLeft}</span>
             </span>
@@ -279,14 +302,14 @@ export const Match3Game: React.FC = () => {
         )}
       </div>
 
-      {/* 3. Responsive 8x8 Board Container */}
+      {/* 4. Enlarged Responsive 7x7 Board with spacious, comfortable touch targets */}
       <div className="flex-1 flex items-center justify-center p-2 min-h-0">
         <div
           style={{
-            width: 'min(88vw, 44vh, 370px)',
-            height: 'min(88vw, 44vh, 370px)',
+            width: 'min(94vw, 55vh, 420px)',
+            height: 'min(94vw, 55vh, 420px)',
           }}
-          className="aspect-square bg-tg-secondaryBg rounded-2xl p-2 border-2 border-[var(--tg-theme-section-separator-color)] shadow-2xl grid grid-cols-8 gap-1 relative"
+          className="aspect-square bg-tg-secondaryBg/90 backdrop-blur-sm rounded-2xl p-2 border-[1.5px] border-[var(--tg-theme-section-separator-color)] shadow-2xl grid grid-cols-7 gap-1.5 sm:gap-2 relative"
         >
           {board.map((row, r) =>
             row.map((gem, c) => {
@@ -294,6 +317,7 @@ export const Match3Game: React.FC = () => {
               const isClearing = clearingKeys.has(key);
               const isSelected = selectedGem?.row === r && selectedGem?.col === c;
               const def = getGemDefinition(gem.type, equippedGemSkin);
+              const isKnopachki = equippedGemSkin === 'gem_orbs';
 
               return (
                 <div
@@ -301,36 +325,58 @@ export const Match3Game: React.FC = () => {
                   onClick={() => handleCellClick(r, c)}
                   onTouchStart={(e) => handleTouchStart(r, c, e)}
                   onTouchEnd={handleTouchEnd}
-                  className={`relative rounded-xl flex items-center justify-center cursor-pointer transition-all duration-150 aspect-square ${
+                  className={`relative flex items-center justify-center cursor-pointer transition-all duration-150 aspect-square select-none touch-none ${
+                    isKnopachki ? 'rounded-full' : 'rounded-2xl'
+                  } ${
                     isClearing
-                      ? 'scale-110 bg-amber-300 shadow-xl shadow-amber-400/80 z-20 animate-ping'
+                      ? 'scale-125 bg-amber-300 shadow-xl shadow-amber-400/80 z-20 animate-ping opacity-80'
                       : isSelected
-                      ? 'ring-2 ring-white scale-105 shadow-lg shadow-white/30 z-10'
+                      ? 'ring-4 ring-white/90 scale-105 shadow-xl shadow-white/40 z-10'
                       : 'hover:scale-105 active:scale-95'
                   }`}
                 >
                   <div
-                    className={`w-full h-full rounded-xl bg-gradient-to-br ${def.gradient} border ${def.border} ${def.glow} flex items-center justify-center relative overflow-hidden transition-transform`}
+                    className={`w-full h-full bg-gradient-to-br ${def.gradient} border ${def.border} ${def.glow} flex items-center justify-center relative overflow-hidden transition-all shadow-md ${
+                      isKnopachki ? 'rounded-full ring-2 ring-white/40' : 'rounded-2xl'
+                    }`}
                   >
-                    <div className="absolute inset-0 bg-white/20 rounded-xl clip-triangle pointer-events-none opacity-60" />
+                    {/* Glossy / tactile highlight */}
+                    {isKnopachki ? (
+                      <>
+                        {/* Tactile Button: upper curved specular glare and central indicator */}
+                        <div className="absolute top-0 inset-x-0 h-[45%] rounded-t-full bg-gradient-to-b from-white/50 to-transparent pointer-events-none" />
+                        <div className="w-2.5 h-2.5 rounded-full bg-white/70 shadow-sm border border-white/50 pointer-events-none" />
+                      </>
+                    ) : (
+                      <>
+                        {/* Sleek Faceted Gem: crisp diagonal facet reflection without emoji */}
+                        <div className="absolute inset-0 bg-white/20 rounded-2xl clip-triangle pointer-events-none opacity-60" />
+                        <div className="w-3 h-3 rounded-[3px] bg-white/30 border border-white/50 shadow-inner rotate-45 pointer-events-none" />
+                      </>
+                    )}
 
+                    {/* Special Gem Effects */}
                     {gem.special === 'line_h' && (
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="w-full h-1 bg-white shadow-lg shadow-white animate-pulse" />
+                        <div className="w-full h-1.5 bg-white shadow-lg shadow-white animate-pulse" />
                       </div>
                     )}
                     {gem.special === 'line_v' && (
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="h-full w-1 bg-white shadow-lg shadow-white animate-pulse" />
+                        <div className="h-full w-1.5 bg-white shadow-lg shadow-white animate-pulse" />
                       </div>
                     )}
                     {gem.special === 'hypercube' && (
-                      <div className="absolute inset-1 rounded-full bg-gradient-to-r from-amber-400 via-rose-500 to-indigo-500 animate-spin opacity-80" />
+                      <div className="absolute inset-1 rounded-full bg-gradient-to-r from-amber-400 via-rose-500 to-indigo-500 animate-spin opacity-90 shadow-lg" />
                     )}
 
-                    <span className="text-sm select-none drop-shadow-md">
-                      {gem.special === 'hypercube' ? '🌈' : def.icon}
-                    </span>
+                    {def.icon ? (
+                      <span className="text-base select-none drop-shadow-md z-10">
+                        {gem.special === 'hypercube' ? '🌈' : def.icon}
+                      </span>
+                    ) : gem.special === 'hypercube' ? (
+                      <span className="text-base select-none drop-shadow-md z-10">🌈</span>
+                    ) : null}
                   </div>
                 </div>
               );
@@ -339,33 +385,15 @@ export const Match3Game: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. Booster Action Bar (h-14) */}
-      <div className="h-14 shrink-0 px-3 flex items-center justify-between gap-2 border-t border-[var(--tg-theme-section-separator-color)] bg-tg-secondaryBg/80">
-        <button
-          onClick={handleBoosterMoves}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-amber-500/50 cursor-pointer shadow-sm"
-          title="+5 ходов за 100 монет"
-        >
-          <Hourglass className="w-4 h-4 text-amber-500" />
-          <span>+5 ходов</span>
-          <span className="text-[10px] text-amber-500 font-black">100🪙</span>
-        </button>
-
-        <button
-          onClick={handleBoosterBomb}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-purple-500/50 cursor-pointer shadow-sm"
-          title="Радужная бомба за 150 монет"
-        >
-          <Bomb className="w-4 h-4 text-pink-400" />
-          <span>Радужная бомба</span>
-          <span className="text-[10px] text-amber-500 font-black">150🪙</span>
-        </button>
-      </div>
-
       {/* Game Over Modal */}
       {isGameOver && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 dark:bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-6 text-center shadow-2xl animate-pop text-tg-text">
+        <div
+          onTouchMove={(e) => {
+            if (e.target === e.currentTarget) e.preventDefault();
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in touch-none overscroll-contain"
+        >
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-6 text-center shadow-2xl animate-pop text-tg-text overscroll-contain">
             <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-pink-500 to-amber-500 p-[2px] shadow-lg shadow-pink-500/20 flex items-center justify-center">
               <Trophy className="w-8 h-8 text-white fill-white/20" />
             </div>

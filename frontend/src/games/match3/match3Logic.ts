@@ -1,7 +1,7 @@
-﻿import type { GemCell, SpecialType } from './types';
+import type { GemCell, SpecialType } from './types';
 import { GEM_TYPES_COUNT } from './gemData';
 
-export const MATCH3_SIZE = 8;
+export const MATCH3_SIZE = 7;
 
 let nextGemId = 1;
 

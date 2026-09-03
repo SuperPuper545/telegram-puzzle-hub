@@ -4,6 +4,7 @@ import { X, Check, Lock, Gift, Flame, Sparkles, Coins } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { sound } from '../../utils/sound';
 import { haptics } from '../../telegram/telegram';
+import { useLockBodyScroll } from '../../utils/useLockBodyScroll';
 
 export const DailyRewardModal: React.FC = () => {
   const { 
@@ -14,6 +15,8 @@ export const DailyRewardModal: React.FC = () => {
   } = useGameBridge();
   const [isClaiming, setIsClaiming] = useState(false);
   const [claimedJustNow, setClaimedJustNow] = useState(false);
+
+  useLockBodyScroll(isDailyModalOpen);
 
   if (!isDailyModalOpen) return null;
 
@@ -49,9 +52,10 @@ export const DailyRewardModal: React.FC = () => {
           }, 2000);
         }, 500);
       } else {
+        haptics.error();
         setIsClaiming(false);
       }
-    } catch {
+    } catch (_) {
       setIsClaiming(false);
     }
   };
@@ -63,7 +67,12 @@ export const DailyRewardModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 dark:bg-black/80 backdrop-blur-sm animate-fade-in">
+    <div
+      onTouchMove={(e) => {
+        if (e.target === e.currentTarget) e.preventDefault();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-fade-in touch-none overscroll-contain"
+    >
       <div 
         className="relative w-full max-w-sm rounded-3xl bg-white dark:bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-5 shadow-2xl overflow-hidden text-tg-text"
         onClick={(e) => e.stopPropagation()}

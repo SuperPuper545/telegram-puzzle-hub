@@ -441,8 +441,8 @@ export const SHOP_ITEMS = [
   { id: 'block_neon', category: 'block_skin', name: 'Розовый Неон', description: 'Деликатный розоватый неон с мягким неслепящим ореолом', price: 1200, previewColor: '#f43f5e' },
 
   // Match-3 Gem Skins
-  { id: 'gem_classic', category: 'gem_skin', name: 'Ограненные самоцветы', description: 'Классические драгоценные камни', price: 0, previewColor: '#ec4899' },
-  { id: 'gem_orbs', category: 'gem_skin', name: 'Магические сферы', description: 'Плазменные светящиеся шары', price: 500, previewColor: '#8b5cf6' },
+  { id: 'gem_classic', category: 'gem_skin', name: 'Стандарт', description: 'Чистые лаконичные кристаллы', price: 0, previewColor: '#ec4899' },
+  { id: 'gem_orbs', category: 'gem_skin', name: 'Кнопачки', description: 'Стильные тактильные кнопочки', price: 500, previewColor: '#8b5cf6' },
   { id: 'gem_candy', category: 'gem_skin', name: 'Сладкие конфеты', description: 'Яркие леденцы и мармеладки', price: 1000, previewColor: '#f43f5e' },
 
   // 2048 Tile Skins

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Zap, Share2, Swords, Timer, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
 import { sound } from '../../utils/sound';
 import { haptics, getTelegramWebApp } from '../../telegram/telegram';
+import { useLockBodyScroll } from '../../utils/useLockBodyScroll';
 import type { DuelGameType } from './types';
 
 interface Props {
@@ -53,6 +54,8 @@ export const DuelSetupModal: React.FC<Props> = ({
   const [durakMode, setDurakMode] = useState<string>('perevodnoy');
   const [searchSeconds, setSearchSeconds] = useState(0);
   const searchTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useLockBodyScroll(isOpen);
 
   useEffect(() => {
     if (isSearching) {
@@ -109,9 +112,14 @@ export const DuelSetupModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+    <div
+      onTouchMove={(e) => {
+        if (e.target === e.currentTarget) e.preventDefault();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in touch-none overscroll-contain"
+    >
       <div
-        className="relative w-full max-w-sm rounded-3xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-5 shadow-2xl overflow-hidden flex flex-col text-tg-text animate-scale-up"
+        className="relative w-full max-w-sm rounded-3xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-5 shadow-2xl overflow-hidden flex flex-col text-tg-text animate-scale-up overscroll-contain"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
