@@ -153,7 +153,11 @@ export const DuelLobby: React.FC<Props> = ({
         if (d.sunk) setSunkEnemyCells((prev) => [...prev, ...(d.sunk || [])]);
       }),
       on('battleship_opponent_shot', (d) => {
-        setOppShots((prev) => [...prev, { r: d.r, c: d.c, hit: d.hit }]);
+        if (d.allShots) {
+          setOppShots(d.allShots);
+        } else {
+          setOppShots((prev) => [...prev, { r: d.r, c: d.c, hit: d.hit }, ...(d.autoMisses || [])]);
+        }
         setBattleAttackerId(d.nextAttackerId);
       }),
       on('game_over', (d) => {

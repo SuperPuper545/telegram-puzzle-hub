@@ -66,6 +66,7 @@ export interface DuelEventMap {
     c: number;
     hit: boolean;
     sunk: ShipCell[] | null;
+    autoMisses?: ShotCell[];
     myShots: ShotCell[];
     nextAttackerId: number;
   };
@@ -74,6 +75,8 @@ export interface DuelEventMap {
     c: number;
     hit: boolean;
     sunk: ShipCell[] | null;
+    autoMisses?: ShotCell[];
+    allShots?: ShotCell[];
     nextAttackerId: number;
   };
   opponent_disconnected: { reconnectSeconds: number };

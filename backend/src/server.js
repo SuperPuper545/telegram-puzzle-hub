@@ -379,12 +379,34 @@ function onBattleShoot(ws,user,d){
   const tBoard=isH?gs.board2:gs.board1,tShots=isH?gs.shots1:gs.shots2,tShips=isH?gs.ships2:gs.ships1;
   if(tShots.find(s=>s.r===r&&s.c===c))return sendWs(ws,{type:'error',message:'Уже стреляли'});
   const hit=tBoard[r][c]===1;tShots.push({r,c,hit});
-  let sunk=null;
-  if(hit)for(const ship of tShips){if(!ship.sunk&&ship.cells.every(cell=>tShots.find(s=>s.r===cell.r&&s.c===cell.c&&s.hit))){ship.sunk=true;sunk=ship;}}
+  let sunk=null,autoMisses=[];
+  if(hit){
+    for(const ship of tShips){
+      if(!ship.sunk&&ship.cells.every(cell=>tShots.find(s=>s.r===cell.r&&s.c===cell.c&&s.hit))){
+        ship.sunk=true;
+        sunk=ship;
+        // Auto-open surrounding perimeter cells as misses
+        for(const cell of ship.cells){
+          for(let dr=-1;dr<=1;dr++){
+            for(let dc=-1;dc<=1;dc++){
+              const nr=cell.r+dr,nc=cell.c+dc;
+              if(nr>=0&&nr<10&&nc>=0&&nc<10){
+                if(!tShots.find(s=>s.r===nr&&s.c===nc)){
+                  const miss={r:nr,c:nc,hit:false};
+                  tShots.push(miss);
+                  autoMisses.push(miss);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
   const allSunk=tShips.every(s=>s.sunk);
   const op=opp(room,user.id),nextId=hit&&!allSunk?user.id:op?.userId;
-  sendWs(ws,{type:'battleship_shot_result',r,c,hit,sunk:sunk?.cells||null,myShots:tShots,nextAttackerId:nextId});
-  sendWs(op?.ws,{type:'battleship_opponent_shot',r,c,hit,sunk:sunk?.cells||null,nextAttackerId:nextId});
+  sendWs(ws,{type:'battleship_shot_result',r,c,hit,sunk:sunk?.cells||null,autoMisses,myShots:tShots,nextAttackerId:nextId});
+  sendWs(op?.ws,{type:'battleship_opponent_shot',r,c,hit,sunk:sunk?.cells||null,autoMisses,allShots:tShots,nextAttackerId:nextId});
   if(allSunk)finishBattle(room,user.id,'all_sunk');
   else{
     gs.currentAttackerId=nextId;
