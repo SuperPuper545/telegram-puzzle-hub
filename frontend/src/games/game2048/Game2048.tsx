@@ -18,6 +18,8 @@ import {
   Eraser,
 } from 'lucide-react';
 
+import { useLockBodyScroll } from '../../utils/useLockBodyScroll';
+
 export const Game2048: React.FC = () => {
   const { closeGame, bestScores, submitScore, coins, spendCoins, equippedTileSkin } = useGameBridge();
   const currentBest = bestScores['2048'] || 0;
@@ -45,6 +47,8 @@ export const Game2048: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const swipeHandledRef = useRef(false);
   const hasSubmittedRef = useRef(false);
+
+  useLockBodyScroll(isGameOver || (hasWon && !acknowledgedWin));
 
   const toggleSound = () => {
     const next = sound.toggleMute();
@@ -309,33 +313,61 @@ export const Game2048: React.FC = () => {
         </div>
       </header>
 
-      {/* 2. Status Bar (h-8) */}
-      <div className="h-8 shrink-0 flex items-center justify-between px-5">
-        {boosterNotice ? (
-          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-[11px] font-black text-amber-500 animate-fade-in shadow-md">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            {boosterNotice}
-          </div>
-        ) : (
-          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/30 text-[11px] font-extrabold text-amber-500">
-            <Flame className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-            Цель: плитка 2048!
-          </div>
-        )}
+      {/* 2. Top Booster Action Bar (Undo & Erase at the top) */}
+      <div className="shrink-0 px-4 pt-1.5 pb-0.5 flex items-center justify-between gap-3 max-w-md mx-auto w-full">
+        <button
+          onClick={handleBoosterUndo}
+          disabled={!canUndo}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl border transition-all text-xs font-bold cursor-pointer shadow-sm ${
+            canUndo
+              ? 'bg-tg-secondaryBg border-[var(--tg-theme-section-separator-color)] text-tg-text hover:border-indigo-500/50 active:scale-95'
+              : 'bg-tg-secondaryBg/40 border-[var(--tg-theme-section-separator-color)] text-tg-hint opacity-40 cursor-not-allowed'
+          }`}
+          title="Откат на 1 ход за 25 монет"
+        >
+          <Undo2 className="w-3.5 h-3.5 text-indigo-400" />
+          <span>Откат</span>
+          <span className="text-[10px] text-amber-500 font-black">25🪙</span>
+        </button>
+
+        <button
+          onClick={handleBoosterErase}
+          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-amber-500/50 cursor-pointer shadow-sm"
+          title="Стереть плитки 2/4 за 100 монет"
+        >
+          <Eraser className="w-3.5 h-3.5 text-amber-400" />
+          <span>Стереть 2/4</span>
+          <span className="text-[10px] text-amber-500 font-black">100🪙</span>
+        </button>
+      </div>
+
+      {/* 3. Status Bar (placed strictly below the boosters with non-blocking toast) */}
+      <div className="h-7 shrink-0 flex items-center justify-between px-5 relative max-w-md mx-auto w-full">
+        <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/30 text-[11px] font-extrabold text-amber-500">
+          <Flame className="w-3 h-3 fill-amber-500 text-amber-500" />
+          Цель: плитка 2048!
+        </div>
 
         <span className="text-[11px] text-tg-hint font-medium">
           Свайпай в любую сторону
         </span>
+
+        {boosterNotice && (
+          <div className="absolute top-8 left-1/2 -translate-x-1/2 z-30 inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500 border border-amber-300/80 text-white text-[11px] font-black shadow-lg shadow-amber-500/40 animate-fade-in pointer-events-none whitespace-nowrap">
+            <Sparkles className="w-3 h-3 fill-white text-white" />
+            <span>{boosterNotice}</span>
+          </div>
+        )}
       </div>
 
-      {/* 3. 4x4 Board Container */}
-      <div className="flex-1 flex items-center justify-center p-3 min-h-0">
+      {/* 4. 4x4 Board Container - Centered higher with bottom breathing room */}
+      <div className="flex-1 flex flex-col items-center justify-center p-3 pb-8 sm:pb-12 min-h-0">
         <div
           style={{
-            width: 'min(88vw, 44vh, 370px)',
-            height: 'min(88vw, 44vh, 370px)',
+            width: 'min(92vw, 50vh, 390px)',
+            height: 'min(92vw, 50vh, 390px)',
           }}
-          className="aspect-square bg-tg-secondaryBg rounded-3xl p-3 border-2 border-[var(--tg-theme-section-separator-color)] shadow-2xl grid grid-cols-4 grid-rows-4 gap-2.5 relative touch-none select-none"
+          className="aspect-square bg-tg-secondaryBg rounded-2xl p-3 border-[1.5px] border-[var(--tg-theme-section-separator-color)] shadow-2xl grid grid-cols-4 grid-rows-4 gap-2 sm:gap-2.5 relative touch-none select-none"
         >
           {board.map((row, r) =>
             row.map((val, c) => {
@@ -360,37 +392,14 @@ export const Game2048: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. Booster Action Bar (h-14) */}
-      <div className="h-14 shrink-0 px-3 flex items-center justify-between gap-2 border-t border-[var(--tg-theme-section-separator-color)] bg-tg-secondaryBg/80">
-        <button
-          onClick={handleBoosterUndo}
-          disabled={!canUndo}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl border transition-all text-xs font-bold cursor-pointer shadow-sm ${
-            canUndo
-              ? 'bg-tg-bg border-[var(--tg-theme-section-separator-color)] text-tg-text hover:border-indigo-500/50 active:scale-95'
-              : 'bg-tg-secondaryBg/40 border-[var(--tg-theme-section-separator-color)] text-tg-hint opacity-40 cursor-not-allowed'
-          }`}
-          title="Откат на 1 ход за 25 монет"
-        >
-          <Undo2 className="w-4 h-4 text-indigo-400" />
-          <span>Откат</span>
-          <span className="text-[10px] text-amber-500 font-black">25🪙</span>
-        </button>
-
-        <button
-          onClick={handleBoosterErase}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-amber-500/50 cursor-pointer shadow-sm"
-          title="Стереть минимальную плитку за 100 монет"
-        >
-          <Eraser className="w-4 h-4 text-amber-400" />
-          <span>Стереть 2/4</span>
-          <span className="text-[10px] text-amber-500 font-black">100🪙</span>
-        </button>
-      </div>
-
       {/* 2048 Win Modal */}
       {hasWon && !acknowledgedWin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 dark:bg-black/80 backdrop-blur-sm animate-fade-in">
+        <div
+          onTouchMove={(e) => {
+            if (e.target === e.currentTarget) e.preventDefault();
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in touch-none overscroll-contain"
+        >
           <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-tg-secondaryBg border border-amber-500/80 p-6 text-center shadow-2xl animate-pop text-tg-text">
             <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-yellow-400 to-amber-500 p-[2px] shadow-lg shadow-amber-500/40 flex items-center justify-center">
               <Sparkles className="w-8 h-8 text-white fill-white/20 animate-spin" />
@@ -427,8 +436,13 @@ export const Game2048: React.FC = () => {
 
       {/* Game Over Modal */}
       {isGameOver && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 dark:bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-6 text-center shadow-2xl animate-pop text-tg-text">
+        <div
+          onTouchMove={(e) => {
+            if (e.target === e.currentTarget) e.preventDefault();
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in touch-none overscroll-contain"
+        >
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-6 text-center shadow-2xl animate-pop text-tg-text overscroll-contain">
             <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 p-[2px] shadow-lg shadow-amber-500/20 flex items-center justify-center">
               <Trophy className="w-8 h-8 text-white fill-white/20" />
             </div>

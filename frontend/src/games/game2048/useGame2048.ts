@@ -60,6 +60,16 @@ export function useGame2048(initialBestScore: number = 0) {
     }
   }, [board, score, hasWon, isGameOver]);
 
+function countActiveTiles(b: number[][]): number {
+  let count = 0;
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      if (b[r][c] > 0) count++;
+    }
+  }
+  return count;
+}
+
   // Restart
   const restartGame = useCallback(() => {
     try {
@@ -73,17 +83,24 @@ export function useGame2048(initialBestScore: number = 0) {
     setLastScorePopup(null);
   }, []);
 
-  // Undo (step back 1 move)
+  // Undo (step back 1 move, can also rescue from Game Over)
   const undo = useCallback(() => {
-    if (history.length === 0 || isGameOver) return false;
+    if (history.length === 0) return false;
     const prev = history[history.length - 1];
-    setBoard(prev.board);
+
+    let restoredBoard = prev.board;
+    while (countActiveTiles(restoredBoard) < 2) {
+      restoredBoard = spawnRandomTile(restoredBoard);
+    }
+
+    setBoard(restoredBoard);
     setScore(prev.score);
     setHistory((h) => h.slice(0, -1));
+    setIsGameOver(false);
     sound.playUiTap();
     haptics.medium();
     return true;
-  }, [history, isGameOver]);
+  }, [history]);
 
   // Move handler
   const move = useCallback(
@@ -103,8 +120,8 @@ export function useGame2048(initialBestScore: number = 0) {
         haptics.light();
       }
 
-      // Save history for Undo (max 3 steps)
-      setHistory((prev) => [...prev.slice(-2), { board, score }]);
+      // Save history for Undo (up to 4 steps)
+      setHistory((prev) => [...prev.slice(-3), { board, score }]);
 
       // Spawn new tile
       const boardWithSpawn = spawnRandomTile(res.board);
@@ -135,28 +152,51 @@ export function useGame2048(initialBestScore: number = 0) {
     [board, score, bestScore, hasWon, isGameOver]
   );
 
-  // In-Game Booster: Remove Lowest Tile (100 coins)
+  // In-Game Booster: Remove small tiles (2 and 4, or up to 2 lowest tiles) giving real breathing room without ever emptying the board
   const removeLowTile = useCallback(() => {
-    let targetRow = -1;
-    let targetCol = -1;
-    let lowestVal = Infinity;
-
+    const activeTiles: { r: number; c: number; val: number }[] = [];
     for (let r = 0; r < 4; r++) {
       for (let c = 0; c < 4; c++) {
-        const val = board[r][c];
-        if (val > 0 && val < lowestVal) {
-          lowestVal = val;
-          targetRow = r;
-          targetCol = c;
+        if (board[r][c] > 0) {
+          activeTiles.push({ r, c, val: board[r][c] });
         }
       }
     }
 
-    if (targetRow === -1) return false;
+    // Never remove if board already has 2 or fewer tiles
+    if (activeTiles.length <= 2) return false;
 
-    const nextBoard = board.map((row, r) =>
-      row.map((cell, c) => (r === targetRow && c === targetCol ? 0 : cell))
+    // Sort ascending by tile value
+    activeTiles.sort((a, b) => a.val - b.val);
+
+    const targetCoords = new Set<string>();
+
+    // Target all 2s and 4s while ensuring at least 2 tiles remain
+    for (const tile of activeTiles) {
+      if ((tile.val === 2 || tile.val === 4) && activeTiles.length - targetCoords.size > 2) {
+        targetCoords.add(`${tile.r},${tile.c}`);
+      }
+    }
+
+    // If less than 2 low tiles were found, take up to 2 lowest tiles to give real room to play
+    if (targetCoords.size < 2) {
+      for (const tile of activeTiles) {
+        if (activeTiles.length - targetCoords.size <= 2) break;
+        targetCoords.add(`${tile.r},${tile.c}`);
+        if (targetCoords.size >= 2) break;
+      }
+    }
+
+    if (targetCoords.size === 0) return false;
+
+    let nextBoard = board.map((row, r) =>
+      row.map((cell, c) => (targetCoords.has(`${r},${c}`) ? 0 : cell))
     );
+
+    // Guarantee at least 2 tiles remain on the board
+    while (countActiveTiles(nextBoard) < 2) {
+      nextBoard = spawnRandomTile(nextBoard);
+    }
 
     setBoard(nextBoard);
     setIsGameOver(false);
@@ -167,7 +207,7 @@ export function useGame2048(initialBestScore: number = 0) {
     board,
     score,
     bestScore,
-    canUndo: history.length > 0 && !isGameOver,
+    canUndo: history.length > 0,
     isGameOver,
     hasWon,
     lastScorePopup,

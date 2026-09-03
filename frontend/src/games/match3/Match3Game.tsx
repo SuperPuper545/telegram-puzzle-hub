@@ -199,7 +199,7 @@ export const Match3Game: React.FC = () => {
     if (coins < 150) {
       sound.playUiTap();
       haptics.error();
-      showBoosterNotice('Нужно 150 🪙 для Радужной Бомбы!');
+      showBoosterNotice('Нужно 150 🪙 для Бомбы!');
       return;
     }
     const success = await spendCoins(150, 'match3_color_bomb');
@@ -207,7 +207,7 @@ export const Match3Game: React.FC = () => {
       sound.playCombo();
       haptics.heavy();
       await triggerColorBomb();
-      showBoosterNotice('Радужная бомба активирована! (-150 🪙)');
+      showBoosterNotice('Бомба активирована! (-150 🪙)');
     }
   };
 
@@ -302,10 +302,10 @@ export const Match3Game: React.FC = () => {
         <button
           onClick={handleBoosterBomb}
           className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-purple-500/50 cursor-pointer shadow-sm"
-          title="Радужная бомба за 150 монет"
+          title="Бомба за 150 монет"
         >
           <Bomb className="w-3.5 h-3.5 text-pink-400" />
-          <span>Радужная бомба</span>
+          <span>Бомба</span>
           <span className="text-[10px] text-amber-500 font-black">150🪙</span>
         </button>
       </div>
