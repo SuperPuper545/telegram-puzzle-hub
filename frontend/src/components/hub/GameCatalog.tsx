@@ -77,9 +77,24 @@ export const GameCatalog: React.FC = () => {
             className={`rounded-2xl bg-tg-secondaryBg border ${game.borderColor} p-4 shadow-md transition-all duration-200`}
           >
             <div className="flex items-start gap-3.5">
-              <div className="p-2.5 rounded-xl bg-slate-800/90 border border-slate-700/60 shrink-0">
-                {game.icon}
+              {/* Left Column: Icon + Best Score Badge underneath */}
+              <div className="flex flex-col items-center gap-1.5 shrink-0 w-12">
+                <div className="p-2.5 rounded-xl bg-slate-800/90 border border-slate-700/60 flex items-center justify-center">
+                  {game.icon}
+                </div>
+                {game.bestScore > 0 && (
+                  <div className="text-center w-full px-0.5">
+                    <span className="block text-[9px] uppercase tracking-wider text-tg-hint leading-none font-semibold mb-0.5">
+                      Рекорд
+                    </span>
+                    <span className="text-[11px] font-black text-amber-300 leading-none">
+                      {game.bestScore.toLocaleString()}
+                    </span>
+                  </div>
+                )}
               </div>
+
+              {/* Right Column: Title, Subtitle, Description */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
                   <h3 className="font-bold text-sm text-tg-text truncate">{game.title}</h3>
@@ -94,9 +109,9 @@ export const GameCatalog: React.FC = () => {
               </div>
             </div>
 
-            {/* Bottom Row */}
+            {/* Bottom Row: Tags on left, Play Button on right */}
             <div className="mt-3.5 pt-3 border-t border-slate-800/70 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 {game.tags.map((tag) => (
                   <span
                     key={tag}
@@ -107,34 +122,23 @@ export const GameCatalog: React.FC = () => {
                 ))}
               </div>
 
-              <div className="flex items-center gap-3">
-                {game.bestScore > 0 && (
-                  <div className="text-right">
-                    <span className="block text-[10px] text-tg-hint leading-none">Рекорд</span>
-                    <span className="text-xs font-black text-amber-300 leading-tight">
-                      {game.bestScore.toLocaleString()}
-                    </span>
-                  </div>
-                )}
-
-                {game.available ? (
-                  <button
-                    onClick={() => {
-                      haptics.medium();
-                      sound.playUiTap();
-                      openGame(game.id);
-                    }}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl tg-btn-primary font-bold text-xs shadow-md shadow-indigo-600/25 cursor-pointer"
-                  >
-                    <Play className="w-3.5 h-3.5 fill-current" />
-                    Играть
-                  </button>
-                ) : (
-                  <span className="px-3 py-1.5 rounded-xl bg-slate-800/60 text-slate-500 font-semibold text-xs border border-slate-700/40">
-                    Скоро
-                  </span>
-                )}
-              </div>
+              {game.available ? (
+                <button
+                  onClick={() => {
+                    haptics.medium();
+                    sound.playUiTap();
+                    openGame(game.id);
+                  }}
+                  className="flex items-center gap-1.5 px-5 py-2 rounded-xl tg-btn-primary font-bold text-xs shadow-md shadow-indigo-600/25 cursor-pointer shrink-0 active:scale-95 transition-transform"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  Играть
+                </button>
+              ) : (
+                <span className="px-3 py-1.5 rounded-xl bg-slate-800/60 text-slate-500 font-semibold text-xs border border-slate-700/40 shrink-0">
+                  Скоро
+                </span>
+              )}
             </div>
           </div>
         ))}
