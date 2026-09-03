@@ -489,6 +489,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setEquippedTileSkin(data.equipped.tileSkin);
             localStorage.setItem('tma_hub_tile_skin', data.equipped.tileSkin);
           }
+          if (data.equipped.birdSkin) {
+            setEquippedBirdSkin(data.equipped.birdSkin);
+            localStorage.setItem('tma_hub_bird_skin', data.equipped.birdSkin);
+          }
+          if (data.equipped.stackSkin) {
+            setEquippedStackSkin(data.equipped.stackSkin);
+            localStorage.setItem('tma_hub_stack_skin', data.equipped.stackSkin);
+          }
+          if (data.equipped.knifeSkin) {
+            setEquippedKnifeSkin(data.equipped.knifeSkin);
+            localStorage.setItem('tma_hub_knife_skin', data.equipped.knifeSkin);
+          }
         }
       }
     } catch (err) {
