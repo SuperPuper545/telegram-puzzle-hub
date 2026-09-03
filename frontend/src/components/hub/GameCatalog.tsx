@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useGameBridge, type GameId } from '../../context/GameContext';
-import { Play, Sparkles, Grid, Gem, Layers, Zap, Target, Flame, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Play, Sparkles, Grid, Gem, Layers, Zap, Target, Flame, ChevronLeft } from 'lucide-react';
 import { haptics } from '../../telegram/telegram';
 import { sound } from '../../utils/sound';
 
@@ -50,13 +50,6 @@ export const GameCatalog: React.FC = () => {
     haptics.selection();
     const nextIdx = (currentCategoryIndex + 1) % categories.length;
     setSelectedCategory(categories[nextIdx].id);
-  };
-
-  const handlePrevCategory = () => {
-    sound.playUiTap();
-    haptics.selection();
-    const prevIdx = (currentCategoryIndex - 1 + categories.length) % categories.length;
-    setSelectedCategory(categories[prevIdx].id);
   };
 
   const games: {
@@ -163,70 +156,33 @@ export const GameCatalog: React.FC = () => {
 
   return (
     <div className="p-4 space-y-4">
-      {/* Featured Banner with Interactive Genre Switcher */}
+      {/* Featured Banner with Single Dedicated Switch Button on Right Edge */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500/15 via-purple-500/10 to-tg-secondaryBg p-4 border border-indigo-500/25 shadow-md">
-        <div className="relative z-10">
-          <div className="flex items-center justify-between mb-2">
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-400/30">
-              <Sparkles className="w-3 h-3" /> {currentCategory.badge} ({currentCategoryIndex + 1}/{categories.length})
+        <div className="relative z-10 flex items-center justify-between gap-3">
+          {/* Left info column */}
+          <div className="flex-1 min-w-0 pr-1">
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-400/30 mb-1.5">
+              <Sparkles className="w-3 h-3" /> {currentCategory.badge}
             </span>
-
-            {/* Arrow switcher buttons */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={handlePrevCategory}
-                className="p-1.5 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint hover:text-tg-text active:scale-90 transition-transform cursor-pointer shadow-sm"
-                title="Предыдущий жанр"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={handleNextCategory}
-                className="p-1.5 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint hover:text-tg-text active:scale-90 transition-transform cursor-pointer shadow-sm"
-                title="Следующий жанр"
-              >
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
+            <h2 className="text-lg font-black text-tg-text tracking-tight truncate">
+              {currentCategory.title}
+            </h2>
+            <p className="text-xs text-tg-hint mt-0.5 leading-relaxed line-clamp-2">
+              {currentCategory.description}
+            </p>
           </div>
 
-          {/* Clickable Header Title */}
+          {/* Single right-edge loop switcher button */}
           <button
             onClick={handleNextCategory}
-            className="flex items-center gap-1.5 text-left group cursor-pointer active:scale-[0.98] transition-transform"
+            className="p-3 rounded-2xl bg-tg-bg/90 hover:bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-text hover:text-indigo-400 shadow-md active:scale-90 transition-all cursor-pointer flex items-center justify-center shrink-0 z-20"
+            title="Сменить жанр"
           >
-            <h2 className="text-lg font-black text-tg-text tracking-tight flex items-center gap-2">
-              <span>{currentCategory.title}</span>
-              <span className="p-1 rounded-full bg-indigo-500/20 text-indigo-400 group-hover:translate-x-0.5 transition-transform">
-                <ChevronRight className="w-4 h-4" />
-              </span>
-            </h2>
+            <ChevronLeft className="w-5 h-5" />
           </button>
-
-          <p className="text-xs text-tg-hint mt-1 max-w-[280px] leading-relaxed">
-            {currentCategory.description}
-          </p>
-
-          {/* Dots Indicator */}
-          <div className="flex items-center gap-1.5 mt-3">
-            {categories.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => {
-                  sound.playUiTap();
-                  haptics.selection();
-                  setSelectedCategory(cat.id);
-                }}
-                className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
-                  cat.id === selectedCategory ? 'w-6 bg-indigo-500 shadow-sm' : 'w-1.5 bg-tg-hint/30 hover:bg-tg-hint/60'
-                }`}
-                title={cat.title}
-              />
-            ))}
-          </div>
         </div>
 
-        <div className="absolute right-2 -bottom-2 opacity-15 pointer-events-none">
+        <div className="absolute right-14 -bottom-2 opacity-10 pointer-events-none">
           {currentCategory.icon}
         </div>
       </div>

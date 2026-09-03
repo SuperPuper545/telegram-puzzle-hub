@@ -44,7 +44,7 @@ export const TowerStackGame: React.FC = () => {
     slicedPieces: [] as SlicedPiece[],
     currentX: 50,
     currentWidth: 160,
-    currentSpeed: 2.2,
+    currentSpeed: 1.8,
     direction: 1,
     score: 0,
     combo: 0,
@@ -83,15 +83,17 @@ export const TowerStackGame: React.FC = () => {
     }
 
     const topBlock = s.blocks[s.blocks.length - 1];
-    const prevX = topBlock.x;
-    const prevW = topBlock.width;
+    const prevLeft = topBlock.x;
+    const prevRight = topBlock.x + topBlock.width;
+    const currLeft = s.currentX;
+    const currRight = s.currentX + s.currentWidth;
 
-    const diff = s.currentX - prevX;
-    const tolerance = 5; // Generous & satisfying perfect placement threshold
+    const diff = currLeft - prevLeft;
+    const tolerance = 6; // Generous & satisfying perfect placement threshold
 
     if (Math.abs(diff) <= tolerance) {
-      // PERFECT MATCH!
-      s.currentX = prevX;
+      // PERFECT MATCH: snap precisely to base
+      s.currentX = prevLeft;
       s.combo += 1;
       setCombo(s.combo);
 
@@ -105,12 +107,13 @@ export const TowerStackGame: React.FC = () => {
         showNotice(`Комбо x${s.combo}! Платформа расширена`);
       }
     } else {
-      // Overhang slicing
       s.combo = 0;
       setCombo(0);
 
-      const overhang = Math.abs(diff);
-      const newWidth = prevW - overhang;
+      // Calculate exact overlap interval
+      const overlapLeft = Math.max(prevLeft, currLeft);
+      const overlapRight = Math.min(prevRight, currRight);
+      const newWidth = overlapRight - overlapLeft;
 
       if (newWidth <= 0) {
         // Complete Miss -> Game Over
@@ -136,28 +139,32 @@ export const TowerStackGame: React.FC = () => {
         return;
       }
 
-      // Spawn falling sliced chunk and correctly position the remaining block
-      let sliceX: number;
-      if (diff > 0) {
-        // Sliced off on the right
-        sliceX = prevX + newWidth;
-        s.currentX = prevX;
+      // Sliced chunk is the overhang portion outside the base interval
+      let sliceX = 0;
+      let sliceW = 0;
+
+      if (currLeft < prevLeft) {
+        // Overshot/stopped on the left: overhang falls off the left edge
+        sliceX = currLeft;
+        sliceW = prevLeft - currLeft;
       } else {
-        // Sliced off on the left
-        sliceX = s.currentX;
-        s.currentX = prevX; // The remaining block starts at the base block's left edge!
+        // Overshot on the right: overhang falls off the right edge
+        sliceX = prevRight;
+        sliceW = currRight - prevRight;
       }
 
       s.slicedPieces.push({
         x: sliceX,
         y: topBlock.y - s.blockHeight,
-        width: overhang,
+        width: sliceW,
         height: s.blockHeight,
         vy: 2,
         color: getBlockColor(s.score + 1),
         alpha: 1,
       });
 
+      // The placed block is strictly inside the overlap interval
+      s.currentX = overlapLeft;
       s.currentWidth = newWidth;
       sound.playPlace();
       haptics.light();
@@ -186,9 +193,10 @@ export const TowerStackGame: React.FC = () => {
     // Move camera up
     s.targetCameraY = Math.max(0, (s.blocks.length - 8) * s.blockHeight);
 
-    // Reset current oscillating block for next floor with smooth, steady speed
+    // Reset current oscillating block for next floor (alternating sides, smooth speed)
+    s.direction = s.score % 2 === 0 ? 1 : -1;
     s.currentX = s.direction > 0 ? -s.currentWidth : s.gameWidth;
-    s.currentSpeed = Math.min(4.5, 2.2 + s.score * 0.04);
+    s.currentSpeed = Math.min(3.8, 1.8 + s.score * 0.03);
   }, [submitScore]);
 
   // Main canvas rendering loop
@@ -327,7 +335,7 @@ export const TowerStackGame: React.FC = () => {
 
     s.currentWidth = initW;
     s.currentX = (s.gameWidth - initW) / 2;
-    s.currentSpeed = 2.2;
+    s.currentSpeed = 1.8;
     s.direction = 1;
     s.score = 0;
     s.combo = 0;

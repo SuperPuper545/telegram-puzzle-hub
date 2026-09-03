@@ -50,11 +50,11 @@ export const FlappyGame: React.FC = () => {
     lastPipeX: 0,
     gameWidth: 360,
     gameHeight: 600,
-    pipeGap: 165,
+    pipeGap: 175,
     pipeWidth: 52,
-    gravity: 0.27,
-    flapStrength: -5.6,
-    speed: 1.85,
+    gravity: 0.16,
+    flapStrength: -4.0,
+    speed: 1.6,
     frameCount: 0,
   });
 
@@ -148,13 +148,13 @@ export const FlappyGame: React.FC = () => {
       }
 
       if (s.isStarted && !s.isGameOver) {
-        // Apply physics to bird
-        s.birdVy += s.gravity;
+        // Apply smooth physics with capped fall speed
+        s.birdVy = Math.min(4.2, s.birdVy + s.gravity);
         s.birdY += s.birdVy;
-        s.birdAngle = Math.min(Math.PI / 3, Math.max(-0.5, s.birdVy * 0.08));
+        s.birdAngle = Math.min(Math.PI / 4, Math.max(-0.4, s.birdVy * 0.08));
 
-        // Pipe spawn
-        if (s.pipes.length === 0 || w - s.lastPipeX >= 200) {
+        // Pipe spawn with wide spacing (requires ~5-6 taps per obstacle point)
+        if (s.pipes.length === 0 || w - s.lastPipeX >= 340) {
           const minPipe = 60;
           const maxPipe = h - s.pipeGap - minPipe;
           const topH = Math.floor(minPipe + Math.random() * (maxPipe - minPipe));
