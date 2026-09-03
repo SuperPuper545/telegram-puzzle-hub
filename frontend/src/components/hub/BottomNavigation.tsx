@@ -30,7 +30,7 @@ export const BottomNavigation: React.FC = () => {
   ];
 
   return (
-    <nav className="sticky bottom-0 left-0 right-0 z-30 bg-tg-secondaryBg/95 backdrop-blur-md border-t border-slate-800/80 px-4 py-2 pb-[max(0.6rem,env(safe-area-inset-bottom))]">
+    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-40 bg-tg-secondaryBg/95 backdrop-blur-md border-t border-slate-800/80 px-4 py-2 pb-[max(0.6rem,env(safe-area-inset-bottom))] shadow-2xl">
       <div className="flex items-center justify-around">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;

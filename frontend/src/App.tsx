@@ -37,17 +37,19 @@ const HubContent: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-start md:py-6 md:px-4">
-      {/* Container with responsive desktop framing */}
-      <div className="w-full max-w-md mx-auto min-h-screen md:min-h-[840px] md:h-[840px] flex flex-col relative bg-tg-bg md:rounded-3xl md:border md:border-slate-800/80 md:shadow-2xl md:shadow-indigo-500/10 overflow-hidden">
-        <HubHeader />
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-start">
+      {/* Centered responsive container */}
+      <div className="w-full max-w-md mx-auto min-h-screen flex flex-col relative bg-tg-bg md:shadow-2xl md:border-x md:border-slate-800/80">
+        {/* Hide header when viewing leaderboard */}
+        {activeTab !== 'leaderboard' && <HubHeader />}
 
-        <main className="flex-1 overflow-y-auto overscroll-contain">
+        <main className="flex-1 pb-24">
           {activeTab === 'catalog' && <GameCatalog />}
           {activeTab === 'leaderboard' && <LeaderboardTab />}
           {activeTab === 'profile' && <ProfileTab />}
         </main>
 
+        {/* Firmly anchored bottom navigation bar */}
         <BottomNavigation />
       </div>
     </div>

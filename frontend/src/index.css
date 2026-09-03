@@ -24,7 +24,6 @@
   --tg-theme-section-separator-color: rgba(255, 255, 255, 0.08);
 }
 
-/* Telegram Light theme overrides */
 .tg-light {
   --tg-theme-bg-color: #f1f5f9;
   --tg-theme-secondary-bg-color: #ffffff;
@@ -39,8 +38,6 @@
 
 * {
   -webkit-tap-highlight-color: transparent;
-  user-select: none;
-  -webkit-user-select: none;
   box-sizing: border-box;
 }
 
@@ -48,26 +45,28 @@ html, body {
   margin: 0;
   padding: 0;
   width: 100%;
-  height: 100%;
-  overscroll-behavior: none;
+  min-height: 100%;
   background-color: var(--tg-theme-bg-color);
   color: var(--tg-theme-text-color);
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  overflow-x: hidden;
 }
 
 #root {
-  min-height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
   display: flex;
   flex-direction: column;
 }
 
-/* Prevent layout jump and overscroll on game screens */
+/* Prevent layout jump and touch gestures ONLY on the active game board */
 .game-viewport-lock {
   height: 100dvh;
   max-height: 100dvh;
   overflow: hidden;
   touch-action: none;
+  overscroll-behavior: none;
   -webkit-touch-callout: none;
 }
 
@@ -89,12 +88,15 @@ html, body {
 
 /* Smooth custom scrollbars */
 ::-webkit-scrollbar {
-  width: 5px;
+  width: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
 }

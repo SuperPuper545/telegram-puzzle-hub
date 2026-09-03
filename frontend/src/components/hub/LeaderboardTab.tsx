@@ -25,28 +25,14 @@ export const LeaderboardTab: React.FC = () => {
 
   return (
     <div className="p-4 space-y-4">
-      {/* Telegram Segmented Control */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1 p-1 bg-tg-secondaryBg rounded-xl border border-slate-800/80 flex-1">
-          {gameNames.map((g) => {
-            const isActive = selectedGame === g.id;
-            return (
-              <button
-                key={g.id}
-                onClick={() => {
-                  haptics.selection();
-                  setSelectedGame(g.id);
-                }}
-                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                  isActive
-                    ? 'tg-btn-primary shadow-sm'
-                    : 'text-tg-hint hover:text-tg-text'
-                }`}
-              >
-                {g.label}
-              </button>
-            );
-          })}
+      {/* Leaderboard Header with title and refresh */}
+      <div className="flex items-center justify-between pt-1">
+        <div>
+          <h2 className="text-lg font-black text-tg-text tracking-tight flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-amber-400 fill-amber-400/20" />
+            Таблица лидеров
+          </h2>
+          <p className="text-xs text-tg-hint mt-0.5">Лучшие игроки игрового сезона</p>
         </div>
 
         <button
@@ -56,9 +42,33 @@ export const LeaderboardTab: React.FC = () => {
           }}
           disabled={isLoadingLeaderboard}
           className="p-2.5 bg-tg-secondaryBg border border-slate-800/80 rounded-xl text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
+          title="Обновить"
         >
           <RefreshCw className={`w-4 h-4 ${isLoadingLeaderboard ? 'animate-spin text-indigo-400' : ''}`} />
         </button>
+      </div>
+
+      {/* Telegram Segmented Control */}
+      <div className="flex items-center gap-1 p-1 bg-tg-secondaryBg rounded-xl border border-slate-800/80">
+        {gameNames.map((g) => {
+          const isActive = selectedGame === g.id;
+          return (
+            <button
+              key={g.id}
+              onClick={() => {
+                haptics.selection();
+                setSelectedGame(g.id);
+              }}
+              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                isActive
+                  ? 'tg-btn-primary shadow-sm'
+                  : 'text-tg-hint hover:text-tg-text'
+              }`}
+            >
+              {g.label}
+            </button>
+          );
+        })}
       </div>
 
       {list.length === 0 && !isLoadingLeaderboard ? (
@@ -73,7 +83,7 @@ export const LeaderboardTab: React.FC = () => {
         <>
           {/* Top 3 Podium */}
           {top1 && (
-            <div className="pt-4 pb-2">
+            <div className="pt-2 pb-2">
               <div className="flex items-end justify-center gap-2">
                 {/* 2nd Place */}
                 <div className="flex-1 flex flex-col items-center">
