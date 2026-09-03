@@ -123,7 +123,7 @@ class SoundManager {
     });
   }
 
-  // Match-3: Crystal swap whoosh/tick
+  // Match-3: Crystal swap whoosh
   public playGemSwap() {
     if (this.muted) return;
     const ctx = this.initContext();
@@ -146,7 +146,7 @@ class SoundManager {
     osc.stop(ctx.currentTime + 0.07);
   }
 
-  // Match-3: Sparkling crystal chime upon match
+  // Match-3: Sparkling crystal chime
   public playGemMatch(combo: number = 1) {
     if (this.muted) return;
     const ctx = this.initContext();
@@ -174,13 +174,12 @@ class SoundManager {
     });
   }
 
-  // Match-3: Bomb / hypercube explosion
+  // Match-3: Bomb explosion
   public playBombExplosion() {
     if (this.muted) return;
     const ctx = this.initContext();
     if (!ctx) return;
 
-    // Deep sub-bass drop
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
 
@@ -196,6 +195,55 @@ class SoundManager {
 
     osc.start();
     osc.stop(ctx.currentTime + 0.3);
+  }
+
+  // 2048: Gentle tile sliding whoosh
+  public playSlide() {
+    if (this.muted) return;
+    const ctx = this.initContext();
+    if (!ctx) return;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(380, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(180, ctx.currentTime + 0.05);
+
+    gain.gain.setValueAtTime(0.06, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.05);
+  }
+
+  // 2048: Tile merge pop (pitch rises with tile value)
+  public playMerge(tileValue: number = 4) {
+    if (this.muted) return;
+    const ctx = this.initContext();
+    if (!ctx) return;
+
+    const power = Math.min(Math.log2(tileValue || 4), 11); // 2..11 (up to 2048)
+    const baseFreq = 260 + power * 45;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = power > 7 ? 'triangle' : 'sine';
+    osc.frequency.setValueAtTime(baseFreq, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.35, ctx.currentTime + 0.07);
+
+    gain.gain.setValueAtTime(0.14, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.12);
   }
 
   // Celebratory fanfare upon record

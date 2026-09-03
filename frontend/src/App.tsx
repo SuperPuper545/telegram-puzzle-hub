@@ -7,6 +7,7 @@ import { LeaderboardTab } from './components/hub/LeaderboardTab';
 import { ProfileTab } from './components/hub/ProfileTab';
 import { BlockudokuGame } from './games/blockudoku/BlockudokuGame';
 import { Match3Game } from './games/match3/Match3Game';
+import { Game2048 } from './games/game2048/Game2048';
 
 const HubContent: React.FC = () => {
   const { currentGame, closeGame, activeTab, setActiveTab } = useGameBridge();
@@ -42,6 +43,16 @@ const HubContent: React.FC = () => {
       <div className="w-full h-[100dvh] max-h-[100dvh] flex items-center justify-center bg-slate-950">
         <div className="w-full h-full max-w-md mx-auto flex flex-col overflow-hidden md:border-x md:border-slate-800/80 md:shadow-2xl">
           <Match3Game />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentGame === '2048') {
+    return (
+      <div className="w-full h-[100dvh] max-h-[100dvh] flex items-center justify-center bg-slate-950">
+        <div className="w-full h-full max-w-md mx-auto flex flex-col overflow-hidden md:border-x md:border-slate-800/80 md:shadow-2xl">
+          <Game2048 />
         </div>
       </div>
     );
