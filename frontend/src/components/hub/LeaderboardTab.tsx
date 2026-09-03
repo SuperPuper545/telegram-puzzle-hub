@@ -23,19 +23,6 @@ export const LeaderboardTab: React.FC = () => {
     { id: '2048', label: '2048' },
   ];
 
-  const getTitleBadge = (titleId?: string) => {
-    switch (titleId) {
-      case 'title_legend':
-        return { icon: '👑', label: 'Легенда' };
-      case 'title_tycoon':
-        return { icon: '🥇', label: 'Магнат' };
-      case 'title_master':
-        return { icon: '🥈', label: 'Мастер' };
-      default:
-        return null;
-    }
-  };
-
   return (
     <div className="p-4 space-y-4">
       {/* Leaderboard Header with title and refresh */}
@@ -223,11 +210,6 @@ export const LeaderboardTab: React.FC = () => {
                           <p className="font-semibold text-xs text-tg-text leading-tight">
                             {entry.firstName} {isCurrentUser && ' (Вы)'}
                           </p>
-                          {entry.equippedTitle && getTitleBadge(entry.equippedTitle) && (
-                            <span className="text-[10px] select-none" title={getTitleBadge(entry.equippedTitle)?.label}>
-                              {getTitleBadge(entry.equippedTitle)?.icon}
-                            </span>
-                          )}
                         </div>
                         {entry.username && (
                           <p className="text-[10px] text-tg-hint">@{entry.username}</p>

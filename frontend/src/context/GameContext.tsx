@@ -57,7 +57,7 @@ export interface ReferralsData {
 
 export interface ShopItem {
   id: string;
-  category: 'block_skin' | 'gem_skin' | 'title';
+  category: 'block_skin' | 'gem_skin' | 'tile_skin';
   name: string;
   description: string;
   price: number;
@@ -70,7 +70,7 @@ export interface ShopItem {
 export interface EquippedState {
   blockSkin: string;
   gemSkin: string;
-  title: string;
+  tileSkin: string;
 }
 
 export interface ShopCatalog {
@@ -96,7 +96,7 @@ interface GameContextType {
   fetchReferrals: () => Promise<void>;
   equippedBlockSkin: string;
   equippedGemSkin: string;
-  equippedTitle: string;
+  equippedTileSkin: string;
   isShopModalOpen: boolean;
   setIsShopModalOpen: (open: boolean) => void;
   shopCatalog: ShopCatalog | null;
@@ -165,8 +165,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [equippedGemSkin, setEquippedGemSkin] = useState<string>(() => {
     return localStorage.getItem('tma_hub_gem_skin') || 'gem_classic';
   });
-  const [equippedTitle, setEquippedTitle] = useState<string>(() => {
-    return localStorage.getItem('tma_hub_title') || 'title_novice';
+  const [equippedTileSkin, setEquippedTileSkin] = useState<string>(() => {
+    return localStorage.getItem('tma_hub_tile_skin') || 'tile_classic';
   });
   const [isShopModalOpen, setIsShopModalOpen] = useState<boolean>(false);
   const [shopCatalog, setShopCatalog] = useState<ShopCatalog | null>(null);
@@ -217,9 +217,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setEquippedGemSkin(data.user.equippedGemSkin);
               localStorage.setItem('tma_hub_gem_skin', data.user.equippedGemSkin);
             }
-            if (data.user.equippedTitle) {
-              setEquippedTitle(data.user.equippedTitle);
-              localStorage.setItem('tma_hub_title', data.user.equippedTitle);
+            if (data.user.equippedTileSkin) {
+              setEquippedTileSkin(data.user.equippedTileSkin);
+              localStorage.setItem('tma_hub_tile_skin', data.user.equippedTileSkin);
             }
           }
           if (data.dailyReward) {
@@ -458,9 +458,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setEquippedGemSkin(data.equipped.gemSkin);
             localStorage.setItem('tma_hub_gem_skin', data.equipped.gemSkin);
           }
-          if (data.equipped.title) {
-            setEquippedTitle(data.equipped.title);
-            localStorage.setItem('tma_hub_title', data.equipped.title);
+          if (data.equipped.tileSkin) {
+            setEquippedTileSkin(data.equipped.tileSkin);
+            localStorage.setItem('tma_hub_tile_skin', data.equipped.tileSkin);
           }
         }
       }
@@ -498,9 +498,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setEquippedGemSkin(data.equipped.gemSkin);
             localStorage.setItem('tma_hub_gem_skin', data.equipped.gemSkin);
           }
-          if (data.equipped.title) {
-            setEquippedTitle(data.equipped.title);
-            localStorage.setItem('tma_hub_title', data.equipped.title);
+          if (data.equipped.tileSkin) {
+            setEquippedTileSkin(data.equipped.tileSkin);
+            localStorage.setItem('tma_hub_tile_skin', data.equipped.tileSkin);
           }
         }
         await fetchShop();
@@ -537,9 +537,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setEquippedGemSkin(data.equipped.gemSkin);
             localStorage.setItem('tma_hub_gem_skin', data.equipped.gemSkin);
           }
-          if (data.equipped.title) {
-            setEquippedTitle(data.equipped.title);
-            localStorage.setItem('tma_hub_title', data.equipped.title);
+          if (data.equipped.tileSkin) {
+            setEquippedTileSkin(data.equipped.tileSkin);
+            localStorage.setItem('tma_hub_tile_skin', data.equipped.tileSkin);
           }
         }
         await fetchShop();
@@ -570,7 +570,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetchReferrals,
         equippedBlockSkin,
         equippedGemSkin,
-        equippedTitle,
+        equippedTileSkin,
         isShopModalOpen,
         setIsShopModalOpen,
         shopCatalog,

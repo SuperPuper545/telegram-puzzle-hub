@@ -1,11 +1,11 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGameBridge } from '../../context/GameContext';
-import { X, Check, Sparkles, Coins, ShoppingBag, Palette, Gem, Crown } from 'lucide-react';
+import { X, Check, Sparkles, Coins, ShoppingBag, Palette, Gem, Layers } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { sound } from '../../utils/sound';
 import { haptics } from '../../telegram/telegram';
 
-type ShopCategory = 'block_skin' | 'gem_skin' | 'title';
+type ShopCategory = 'block_skin' | 'gem_skin' | 'tile_skin';
 
 export const ShopModal: React.FC = () => {
   const {
@@ -18,7 +18,7 @@ export const ShopModal: React.FC = () => {
     equipShopItem,
     equippedBlockSkin,
     equippedGemSkin,
-    equippedTitle,
+    equippedTileSkin,
   } = useGameBridge();
 
   const [activeCategory, setActiveCategory] = useState<ShopCategory>('block_skin');
@@ -155,16 +155,16 @@ export const ShopModal: React.FC = () => {
             onClick={() => {
               sound.playUiTap();
               haptics.selection();
-              setActiveCategory('title');
+              setActiveCategory('tile_skin');
             }}
             className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeCategory === 'title'
+              activeCategory === 'tile_skin'
                 ? 'bg-amber-600 text-white shadow-md'
                 : 'text-tg-hint hover:text-tg-text'
             }`}
           >
-            <Crown className="w-3.5 h-3.5" />
-            <span>Титулы</span>
+            <Layers className="w-3.5 h-3.5" />
+            <span>2048</span>
           </button>
         </div>
 
@@ -174,7 +174,7 @@ export const ShopModal: React.FC = () => {
             const isEquipped =
               item.id === equippedBlockSkin ||
               item.id === equippedGemSkin ||
-              item.id === equippedTitle;
+              item.id === equippedTileSkin;
             const isPurchased = item.isPurchased || item.price === 0;
             const canAfford = coins >= item.price;
             const isLoading = loadingItemId === item.id;
@@ -194,7 +194,7 @@ export const ShopModal: React.FC = () => {
                     style={{ backgroundColor: item.previewColor || '#6366f1' }}
                     className="w-10 h-10 rounded-2xl flex items-center justify-center text-lg shadow-md shrink-0 border border-white/20"
                   >
-                    {item.icon || (item.category === 'block_skin' ? '🧩' : '💎')}
+                    {item.icon || (item.category === 'block_skin' ? '🧩' : item.category === 'gem_skin' ? '💎' : '🔢')}
                   </div>
 
                   <div className="min-w-0">

@@ -14,7 +14,6 @@ import {
   Volume2,
   VolumeX,
   Zap,
-  CheckCircle2,
   Coins,
   Bomb,
   Hourglass,
@@ -36,7 +35,6 @@ export const Match3Game: React.FC = () => {
     lastScorePopup,
     setSelectedGem,
     trySwap,
-    finishGameEarly,
     restartGame,
     addExtraMoves,
     triggerColorBomb,
@@ -100,13 +98,6 @@ export const Match3Game: React.FC = () => {
     setIsNewRecord(false);
     hasSubmittedRef.current = false;
     restartGame();
-  };
-
-  const handleFinishEarly = () => {
-    if (score === 0) return;
-    haptics.medium();
-    sound.playUiTap();
-    finishGameEarly();
   };
 
   // Click on gem
@@ -242,22 +233,12 @@ export const Match3Game: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Header Buttons: Coins, Early Finish, Sound & Restart */}
+        {/* Right Header Buttons: Coins, Sound & Restart */}
         <div className="flex items-center gap-1.5 -mr-1">
           <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-400/25 text-amber-300 text-xs font-black shadow-sm">
             <Coins className="w-3.5 h-3.5" />
             <span>{coins}</span>
           </div>
-
-          {score > 0 && !isGameOver && (
-            <button
-              onClick={handleFinishEarly}
-              className="p-1.5 rounded-xl text-emerald-400 hover:text-emerald-300 active:scale-95 transition-transform cursor-pointer"
-              title="Завершить и сохранить счет"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-            </button>
-          )}
 
           <button
             onClick={toggleSound}
@@ -282,28 +263,19 @@ export const Match3Game: React.FC = () => {
       </header>
 
       {/* 2. Moves & Status Bar (h-8) */}
-      <div className="h-8 shrink-0 flex items-center justify-between px-5">
+      <div className="h-8 shrink-0 flex items-center justify-center px-5">
         {boosterNotice ? (
           <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-[11px] font-black text-amber-300 animate-fade-in shadow-md">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
             {boosterNotice}
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-slate-800/80 border border-slate-700/60">
+          <div className="flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-slate-800/90 border border-slate-700/60 shadow-sm">
             <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
             <span className="text-xs font-extrabold text-tg-text">
-              Ходов: <span className={movesLeft <= 5 ? 'text-rose-400 animate-pulse font-black' : 'text-amber-300'}>{movesLeft}</span>
+              Осталось ходов: <span className={movesLeft <= 5 ? 'text-rose-400 animate-pulse font-black' : 'text-amber-300'}>{movesLeft}</span>
             </span>
           </div>
-        )}
-
-        {score > 0 && !boosterNotice && (
-          <button
-            onClick={handleFinishEarly}
-            className="text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold underline underline-offset-2 cursor-pointer"
-          >
-            Завершить и зафиксировать
-          </button>
         )}
       </div>
 
@@ -400,7 +372,7 @@ export const Match3Game: React.FC = () => {
 
             <h3 className="text-xl font-black text-tg-text">Партия завершена!</h3>
             <p className="text-xs text-tg-hint mt-1">
-              {movesLeft <= 0 ? 'Закончились все доступные ходы' : 'Вы зафиксировали результат'}
+              Закончились все доступные ходы
             </p>
 
             <div className="my-5 p-4 rounded-2xl bg-black/25 border border-white/10">

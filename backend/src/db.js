@@ -85,7 +85,7 @@ addColumnIfNotExists('users', 'last_daily_claim', 'DATETIME DEFAULT NULL');
 addColumnIfNotExists('users', 'referrer_id', 'INTEGER DEFAULT NULL');
 addColumnIfNotExists('users', 'equipped_block_skin', "TEXT DEFAULT 'block_classic'");
 addColumnIfNotExists('users', 'equipped_gem_skin', "TEXT DEFAULT 'gem_classic'");
-addColumnIfNotExists('users', 'equipped_title', "TEXT DEFAULT 'title_novice'");
+addColumnIfNotExists('users', 'equipped_tile_skin', "TEXT DEFAULT 'tile_classic'");
 
 
 export function upsertUser(tgUser) {
@@ -409,11 +409,11 @@ export const SHOP_ITEMS = [
   { id: 'gem_orbs', category: 'gem_skin', name: 'Магические сферы', description: 'Плазменные светящиеся шары', price: 500, previewColor: '#8b5cf6' },
   { id: 'gem_candy', category: 'gem_skin', name: 'Сладкие конфеты', description: 'Яркие леденцы и мармеладки', price: 1000, previewColor: '#f43f5e' },
 
-  // Titles & Profile Badges
-  { id: 'title_novice', category: 'title', name: 'Новичок', description: 'Базовый титул игрока', price: 0, icon: '🥉' },
-  { id: 'title_master', category: 'title', name: 'Мастер головоломок', description: 'Опытный покоритель логики', price: 250, icon: '🥈' },
-  { id: 'title_tycoon', category: 'title', name: 'Магнат хаба', description: 'Владелец солидного капитала монет', price: 750, icon: '🥇' },
-  { id: 'title_legend', category: 'title', name: 'Легенда TapTap', description: 'Королевская золотая анимированная рамка', price: 2000, icon: '👑' },
+  // 2048 Tile Skins
+  { id: 'tile_classic', category: 'tile_skin', name: 'Классик 2048', description: 'Теплые классические оранжевые плитки', price: 0, previewColor: '#edc22e', icon: '🔢' },
+  { id: 'tile_neon', category: 'tile_skin', name: 'Неоновый Драйв', description: 'Яркие киберпанк градиенты и свечение', price: 500, previewColor: '#06b6d4', icon: '⚡' },
+  { id: 'tile_retro', category: 'tile_skin', name: 'Ретро Аркада', description: 'Стиль 8-битной игровой консоли', price: 1000, previewColor: '#8b5cf6', icon: '🕹️' },
+  { id: 'tile_gold', category: 'tile_skin', name: 'Золотой Люкс', description: 'Роскошные золотые слитки с блеском', price: 1500, previewColor: '#f59e0b', icon: '👑' },
 ];
 
 export function spendCoins(userId, amount, reason = 'booster') {
@@ -526,7 +526,7 @@ export function buyShopItem(userId, itemId) {
 
   let colName = 'equipped_block_skin';
   if (item.category === 'gem_skin') colName = 'equipped_gem_skin';
-  if (item.category === 'title') colName = 'equipped_title';
+  if (item.category === 'tile_skin') colName = 'equipped_tile_skin';
 
   const tx = db.transaction(() => {
     if (item.price > 0) {
@@ -539,7 +539,7 @@ export function buyShopItem(userId, itemId) {
   tx();
 
   const updatedUser = db.prepare(`
-    SELECT coins, equipped_block_skin, equipped_gem_skin, equipped_title 
+    SELECT coins, equipped_block_skin, equipped_gem_skin, equipped_tile_skin 
     FROM users 
     WHERE id = ?
   `).get(userId);
@@ -551,7 +551,7 @@ export function buyShopItem(userId, itemId) {
     equipped: {
       blockSkin: updatedUser.equipped_block_skin,
       gemSkin: updatedUser.equipped_gem_skin,
-      title: updatedUser.equipped_title,
+      tileSkin: updatedUser.equipped_tile_skin,
     },
   };
 }
@@ -571,12 +571,12 @@ export function equipShopItem(userId, itemId) {
 
   let colName = 'equipped_block_skin';
   if (item.category === 'gem_skin') colName = 'equipped_gem_skin';
-  if (item.category === 'title') colName = 'equipped_title';
+  if (item.category === 'tile_skin') colName = 'equipped_tile_skin';
 
   db.prepare(`UPDATE users SET ${colName} = ? WHERE id = ?`).run(itemId, userId);
 
   const updatedUser = db.prepare(`
-    SELECT equipped_block_skin, equipped_gem_skin, equipped_title 
+    SELECT equipped_block_skin, equipped_gem_skin, equipped_tile_skin 
     FROM users 
     WHERE id = ?
   `).get(userId);
@@ -586,7 +586,7 @@ export function equipShopItem(userId, itemId) {
     equipped: {
       blockSkin: updatedUser.equipped_block_skin,
       gemSkin: updatedUser.equipped_gem_skin,
-      title: updatedUser.equipped_title,
+      tileSkin: updatedUser.equipped_tile_skin,
     },
   };
 }

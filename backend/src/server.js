@@ -76,7 +76,7 @@ app.get('/api/me', authMiddleware, (req, res) => {
       referrerId: userRecord.referrer_id || null,
       equippedBlockSkin: userRecord.equipped_block_skin || 'block_classic',
       equippedGemSkin: userRecord.equipped_gem_skin || 'gem_classic',
-      equippedTitle: userRecord.equipped_title || 'title_novice',
+      equippedTileSkin: userRecord.equipped_tile_skin || 'tile_classic',
     },
     scores: scoresMap,
     totalGamesPlayed: totalPlayed,

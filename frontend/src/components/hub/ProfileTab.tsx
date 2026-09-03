@@ -13,28 +13,11 @@ export const ProfileTab: React.FC = () => {
     dailyStreak, 
     setIsDailyModalOpen,
     setIsShopModalOpen,
-    equippedTitle,
     setActiveTab, 
     openGame 
   } = useGameBridge();
   const totalScore = Object.values(bestScores).reduce((acc, s) => acc + s, 0);
   const initials = (user.first_name || 'U').slice(0, 2).toUpperCase();
-
-  const getTitleInfo = (titleId: string) => {
-    switch (titleId) {
-      case 'title_legend':
-        return { name: 'Легенда TapTap', icon: '👑', color: 'text-amber-400', bg: 'bg-amber-500/15 border-amber-400/30' };
-      case 'title_tycoon':
-        return { name: 'Монетный Магнат', icon: '🥇', color: 'text-yellow-400', bg: 'bg-yellow-500/15 border-yellow-400/30' };
-      case 'title_master':
-        return { name: 'Мастер Головоломок', icon: '🥈', color: 'text-indigo-400', bg: 'bg-indigo-500/15 border-indigo-400/30' };
-      case 'title_novice':
-      default:
-        return { name: 'Новичок', icon: '🥉', color: 'text-slate-300', bg: 'bg-slate-800/80 border-slate-700/50' };
-    }
-  };
-
-  const titleInfo = getTitleInfo(equippedTitle);
 
   const shareSpecificGame = (gameTitle: string, score: number) => {
     haptics.medium();
@@ -126,9 +109,9 @@ export const ProfileTab: React.FC = () => {
           {user.username ? `@${user.username}` : `ID: ${user.id}`}
         </p>
 
-        <div className={`mt-3.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${titleInfo.bg} ${titleInfo.color}`}>
-          <span>{titleInfo.icon}</span>
-          <span>{titleInfo.name}</span>
+        <div className="mt-3.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border bg-indigo-500/15 border-indigo-400/30 text-indigo-300">
+          <span>🎮</span>
+          <span>Игрок TapTap Hub</span>
         </div>
       </div>
 

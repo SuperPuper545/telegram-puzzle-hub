@@ -3,7 +3,7 @@ import { useGameBridge } from '../../context/GameContext';
 import { useGame2048 } from './useGame2048';
 import { getTileStyle } from './tileStyles';
 import { sound } from '../../utils/sound';
-import { haptics } from '../../telegram/telegram';
+import { haptics, getTelegramWebApp } from '../../telegram/telegram';
 import confetti from 'canvas-confetti';
 import {
   ArrowLeft,
@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 export const Game2048: React.FC = () => {
-  const { closeGame, bestScores, submitScore, coins, spendCoins } = useGameBridge();
+  const { closeGame, bestScores, submitScore, coins, spendCoins, equippedTileSkin } = useGameBridge();
   const currentBest = bestScores['2048'] || 0;
 
   const {
@@ -42,6 +42,8 @@ export const Game2048: React.FC = () => {
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [acknowledgedWin, setAcknowledgedWin] = useState(false);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const swipeHandledRef = useRef(false);
   const hasSubmittedRef = useRef(false);
 
   const toggleSound = () => {
@@ -109,28 +111,82 @@ export const Game2048: React.FC = () => {
     restartGame();
   };
 
-  // Touch Swipe detection
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStartRef.current) return;
-    const touch = e.changedTouches[0];
-    const dx = touch.clientX - touchStartRef.current.x;
-    const dy = touch.clientY - touchStartRef.current.y;
-    touchStartRef.current = null;
-
-    const threshold = 25;
-    if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
-      if (Math.abs(dx) > Math.abs(dy)) {
-        move(dx > 0 ? 'right' : 'left');
-      } else {
-        move(dy > 0 ? 'down' : 'up');
+  // Touch Swipe detection with non-passive event listeners to block Telegram sheet pull-down
+  useEffect(() => {
+    const tg = getTelegramWebApp();
+    if (tg?.disableVerticalSwipe) {
+      try {
+        tg.disableVerticalSwipe();
+      } catch (e) {
+        console.warn('disableVerticalSwipe error:', e);
       }
     }
-  };
+
+    const container = containerRef.current;
+    if (!container) return;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+        swipeHandledRef.current = false;
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      // PREVENT TELEGRAM APP PULL-DOWN-TO-CLOSE & BROWSER OVERSCROLL
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+
+      if (swipeHandledRef.current || !touchStartRef.current || e.touches.length !== 1) return;
+
+      const touch = e.touches[0];
+      const dx = touch.clientX - touchStartRef.current.x;
+      const dy = touch.clientY - touchStartRef.current.y;
+      const threshold = 28;
+
+      if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
+        swipeHandledRef.current = true;
+        if (Math.abs(dx) > Math.abs(dy)) {
+          move(dx > 0 ? 'right' : 'left');
+        } else {
+          move(dy > 0 ? 'down' : 'up');
+        }
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (!swipeHandledRef.current && touchStartRef.current && e.changedTouches.length > 0) {
+        const touch = e.changedTouches[0];
+        const dx = touch.clientX - touchStartRef.current.x;
+        const dy = touch.clientY - touchStartRef.current.y;
+        const threshold = 18;
+
+        if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
+          if (Math.abs(dx) > Math.abs(dy)) {
+            move(dx > 0 ? 'right' : 'left');
+          } else {
+            move(dy > 0 ? 'down' : 'up');
+          }
+        }
+      }
+      touchStartRef.current = null;
+      swipeHandledRef.current = false;
+    };
+
+    container.addEventListener('touchstart', onTouchStart, { passive: false });
+    container.addEventListener('touchmove', onTouchMove, { passive: false });
+    container.addEventListener('touchend', onTouchEnd, { passive: false });
+    container.addEventListener('touchcancel', onTouchEnd, { passive: false });
+
+    return () => {
+      container.removeEventListener('touchstart', onTouchStart);
+      container.removeEventListener('touchmove', onTouchMove);
+      container.removeEventListener('touchend', onTouchEnd);
+      container.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, [move]);
 
   const showBoosterNotice = (msg: string) => {
     setBoosterNotice(msg);
@@ -176,9 +232,8 @@ export const Game2048: React.FC = () => {
 
   return (
     <div
-      className="w-full h-full min-h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col justify-between bg-tg-bg text-tg-text select-none game-viewport-lock"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
+      ref={containerRef}
+      className="w-full h-full min-h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col justify-between bg-tg-bg text-tg-text select-none touch-none overscroll-none game-viewport-lock"
     >
       {/* 1. Fixed Header (h-14) */}
       <header className="h-14 shrink-0 px-4 flex items-center justify-between border-b border-[var(--tg-theme-section-separator-color)] bg-tg-secondaryBg/80 backdrop-blur-md z-10">
@@ -280,11 +335,11 @@ export const Game2048: React.FC = () => {
             width: 'min(88vw, 44vh, 370px)',
             height: 'min(88vw, 44vh, 370px)',
           }}
-          className="aspect-square bg-tg-secondaryBg rounded-3xl p-3 border-2 border-[var(--tg-theme-section-separator-color)] shadow-2xl grid grid-cols-4 grid-rows-4 gap-2.5 relative"
+          className="aspect-square bg-tg-secondaryBg rounded-3xl p-3 border-2 border-[var(--tg-theme-section-separator-color)] shadow-2xl grid grid-cols-4 grid-rows-4 gap-2.5 relative touch-none select-none"
         >
           {board.map((row, r) =>
             row.map((val, c) => {
-              const style = getTileStyle(val);
+              const style = getTileStyle(val, equippedTileSkin);
 
               return (
                 <div
