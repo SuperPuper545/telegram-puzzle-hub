@@ -28,7 +28,7 @@ interface Spark {
 }
 
 export const KnifeGame: React.FC = () => {
-  const { closeGame, submitScore, coins, spendCoins, bestScores } = useGameBridge();
+  const { closeGame, submitScore, coins, spendCoins, bestScores, equippedKnifeSkin } = useGameBridge();
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -300,18 +300,46 @@ export const KnifeGame: React.FC = () => {
       ctx.arc(0, 0, s.targetRadius - 22, 0, Math.PI * 2);
       ctx.fill();
 
+      // Knife style by equipped skin
+      let bladeColor = '#f8fafc';
+      let handleColor = '#0f172a';
+      let glowColor = 'rgba(255, 255, 255, 0.2)';
+      let glowBlur = 6;
+
+      if (equippedKnifeSkin === 'knife_flame') {
+        bladeColor = '#ef4444';
+        handleColor = '#7f1d1d';
+        glowColor = 'rgba(239, 68, 68, 0.7)';
+        glowBlur = 12;
+      } else if (equippedKnifeSkin === 'knife_kunai') {
+        bladeColor = '#06b6d4';
+        handleColor = '#0e7490';
+        glowColor = 'rgba(6, 182, 212, 0.8)';
+        glowBlur = 14;
+      } else if (equippedKnifeSkin === 'knife_dragon') {
+        bladeColor = '#eab308';
+        handleColor = '#713f12';
+        glowColor = 'rgba(234, 179, 8, 0.8)';
+        glowBlur = 14;
+      }
+
       // Embedded Knives
       for (const ek of s.embeddedKnives) {
         ctx.save();
         ctx.rotate(ek.angle);
         ctx.translate(0, s.targetRadius);
 
+        if (glowBlur > 0) {
+          ctx.shadowColor = glowColor;
+          ctx.shadowBlur = glowBlur;
+        }
+
         // Knife blade sticking out
-        ctx.fillStyle = '#e2e8f0';
+        ctx.fillStyle = bladeColor;
         ctx.fillRect(-s.knifeWidth / 2, 0, s.knifeWidth, s.knifeLength - 16);
 
         // Knife handle
-        ctx.fillStyle = '#1e293b';
+        ctx.fillStyle = handleColor;
         ctx.fillRect(-s.knifeWidth / 2 - 1, s.knifeLength - 16, s.knifeWidth + 2, 16);
         ctx.restore();
       }
@@ -341,9 +369,13 @@ export const KnifeGame: React.FC = () => {
       if (s.flyingKnife) {
         ctx.save();
         ctx.translate(cx, s.flyingKnife.y);
-        ctx.fillStyle = '#f8fafc';
+        if (glowBlur > 0) {
+          ctx.shadowColor = glowColor;
+          ctx.shadowBlur = glowBlur;
+        }
+        ctx.fillStyle = bladeColor;
         ctx.fillRect(-s.knifeWidth / 2, 0, s.knifeWidth, s.knifeLength - 16);
-        ctx.fillStyle = '#0f172a';
+        ctx.fillStyle = handleColor;
         ctx.fillRect(-s.knifeWidth / 2 - 1, s.knifeLength - 16, s.knifeWidth + 2, 16);
         ctx.restore();
       } else if (!s.isGameOver && s.knivesLeft > 0) {
@@ -351,11 +383,11 @@ export const KnifeGame: React.FC = () => {
         const readyY = h - 120;
         ctx.save();
         ctx.translate(cx, readyY);
-        ctx.shadowColor = 'rgba(255, 255, 255, 0.2)';
-        ctx.shadowBlur = 10;
-        ctx.fillStyle = '#f8fafc';
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = glowBlur;
+        ctx.fillStyle = bladeColor;
         ctx.fillRect(-s.knifeWidth / 2, 0, s.knifeWidth, s.knifeLength - 16);
-        ctx.fillStyle = '#0f172a';
+        ctx.fillStyle = handleColor;
         ctx.fillRect(-s.knifeWidth / 2 - 1, s.knifeLength - 16, s.knifeWidth + 2, 16);
         ctx.restore();
       }

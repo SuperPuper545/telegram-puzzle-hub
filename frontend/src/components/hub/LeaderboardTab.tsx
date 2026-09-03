@@ -52,7 +52,7 @@ export const LeaderboardTab: React.FC = () => {
       </div>
 
       {/* Horizontally Scrollable Game Filter */}
-      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-1 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] shadow-sm">
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-1 px-1 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] shadow-sm">
         {gameNames.map((g) => {
           const isActive = selectedGame === g.id;
           return (

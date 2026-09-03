@@ -23,7 +23,7 @@ interface SlicedPiece {
 }
 
 export const TowerStackGame: React.FC = () => {
-  const { closeGame, submitScore, coins, spendCoins, bestScores } = useGameBridge();
+  const { closeGame, submitScore, coins, spendCoins, bestScores, equippedStackSkin } = useGameBridge();
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -66,8 +66,20 @@ export const TowerStackGame: React.FC = () => {
     setTimeout(() => setBoosterNotice(null), 2500);
   };
 
-  // Generate color by layer hue
+  // Generate color by layer hue and equipped theme
   const getBlockColor = (layer: number) => {
+    if (equippedStackSkin === 'stack_amethyst') {
+      const h = ((layer * 8) % 70) + 265;
+      return `hsl(${h}, 85%, 62%)`;
+    }
+    if (equippedStackSkin === 'stack_emerald') {
+      const h = ((layer * 7) % 55) + 125;
+      return `hsl(${h}, 80%, 52%)`;
+    }
+    if (equippedStackSkin === 'stack_gold') {
+      const h = ((layer * 6) % 25) + 38;
+      return `hsl(${h}, 95%, 54%)`;
+    }
     const h = (layer * 9 + 210) % 360;
     return `hsl(${h}, 80%, 55%)`;
   };

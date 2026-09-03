@@ -86,6 +86,9 @@ addColumnIfNotExists('users', 'referrer_id', 'INTEGER DEFAULT NULL');
 addColumnIfNotExists('users', 'equipped_block_skin', "TEXT DEFAULT 'block_classic'");
 addColumnIfNotExists('users', 'equipped_gem_skin', "TEXT DEFAULT 'gem_classic'");
 addColumnIfNotExists('users', 'equipped_tile_skin', "TEXT DEFAULT 'tile_classic'");
+addColumnIfNotExists('users', 'equipped_bird_skin', "TEXT DEFAULT 'bird_classic'");
+addColumnIfNotExists('users', 'equipped_stack_skin', "TEXT DEFAULT 'stack_classic'");
+addColumnIfNotExists('users', 'equipped_knife_skin', "TEXT DEFAULT 'knife_classic'");
 
 
 export function upsertUser(tgUser) {
@@ -414,6 +417,24 @@ export const SHOP_ITEMS = [
   { id: 'tile_neon', category: 'tile_skin', name: 'Неоновый Драйв', description: 'Яркие киберпанк градиенты и свечение', price: 500, previewColor: '#06b6d4', icon: '⚡' },
   { id: 'tile_retro', category: 'tile_skin', name: 'Ретро Аркада', description: 'Стиль 8-битной игровой консоли', price: 1000, previewColor: '#8b5cf6', icon: '🕹️' },
   { id: 'tile_gold', category: 'tile_skin', name: 'Золотой Люкс', description: 'Роскошные золотые слитки с блеском', price: 1500, previewColor: '#f59e0b', icon: '👑' },
+
+  // Flappy Hub Bird Skins
+  { id: 'bird_classic', category: 'bird_skin', name: 'Классическая ласточка', description: 'Стандартная птичка Хаба', price: 0, previewColor: '#f59e0b', icon: '🕊️' },
+  { id: 'bird_phoenix', category: 'bird_skin', name: 'Золотой Феникс', description: 'Пылающее огненное оперение', price: 300, previewColor: '#ea580c', icon: '🦅' },
+  { id: 'bird_drone', category: 'bird_skin', name: 'Кибер-Дрон', description: 'Неоновый технологичный дрон', price: 600, previewColor: '#06b6d4', icon: '🛸' },
+  { id: 'bird_cosmic', category: 'bird_skin', name: 'Космическая Сова', description: 'Звездное галактическое сияние', price: 1000, previewColor: '#8b5cf6', icon: '🦉' },
+
+  // Tower Stack Skins
+  { id: 'stack_classic', category: 'stack_skin', name: 'Неоновый Спектр', description: 'Плавная динамическая смена спектра', price: 0, previewColor: '#38bdf8', icon: '🌈' },
+  { id: 'stack_amethyst', category: 'stack_skin', name: 'Аметист и Роза', description: 'Кристаллические сиренево-розовые блоки', price: 400, previewColor: '#c084fc', icon: '💎' },
+  { id: 'stack_emerald', category: 'stack_skin', name: 'Изумрудный Нефрит', description: 'Благородные зеленые нефритовые плиты', price: 700, previewColor: '#10b981', icon: '🟢' },
+  { id: 'stack_gold', category: 'stack_skin', name: 'Золотой Пентхаус', description: 'Премиальные золотые блоки с блеском', price: 1200, previewColor: '#f59e0b', icon: '👑' },
+
+  // Knife Master Skins
+  { id: 'knife_classic', category: 'knife_skin', name: 'Стальной кортик', description: 'Классический закаленный клинок', price: 0, previewColor: '#e2e8f0', icon: '🗡️' },
+  { id: 'knife_flame', category: 'knife_skin', name: 'Пламенный Кукри', description: 'Раскаленное докрасна лезвие', price: 400, previewColor: '#ef4444', icon: '🔥' },
+  { id: 'knife_kunai', category: 'knife_skin', name: 'Неоновый Кунай', description: 'Лазерный клинок кибер-ниндзя', price: 700, previewColor: '#06b6d4', icon: '⚡' },
+  { id: 'knife_dragon', category: 'knife_skin', name: 'Клык Дракона', description: 'Древнее мифическое драконье лезвие', price: 1200, previewColor: '#eab308', icon: '🐉' },
 ];
 
 export function spendCoins(userId, amount, reason = 'booster') {
@@ -457,7 +478,8 @@ export function spendCoins(userId, amount, reason = 'booster') {
 
 export function getShopCatalog(userId) {
   const user = db.prepare(`
-    SELECT id, coins, equipped_block_skin, equipped_gem_skin, equipped_title 
+    SELECT id, coins, equipped_block_skin, equipped_gem_skin, equipped_tile_skin,
+           equipped_bird_skin, equipped_stack_skin, equipped_knife_skin, equipped_title 
     FROM users 
     WHERE id = ?
   `).get(userId);
@@ -468,12 +490,23 @@ export function getShopCatalog(userId) {
 
   const equippedBlock = user.equipped_block_skin || 'block_classic';
   const equippedGem = user.equipped_gem_skin || 'gem_classic';
+  const equippedTile = user.equipped_tile_skin || 'tile_classic';
+  const equippedBird = user.equipped_bird_skin || 'bird_classic';
+  const equippedStack = user.equipped_stack_skin || 'stack_classic';
+  const equippedKnife = user.equipped_knife_skin || 'knife_classic';
   const equippedTitle = user.equipped_title || 'title_novice';
 
   const items = SHOP_ITEMS.map(item => {
     const isFree = item.price === 0;
     const isPurchased = isFree || purchasedSet.has(item.id);
-    const isEquipped = (item.id === equippedBlock) || (item.id === equippedGem) || (item.id === equippedTitle);
+    const isEquipped = 
+      item.id === equippedBlock || 
+      item.id === equippedGem || 
+      item.id === equippedTile ||
+      item.id === equippedBird ||
+      item.id === equippedStack ||
+      item.id === equippedKnife ||
+      item.id === equippedTitle;
 
     return {
       ...item,
@@ -487,6 +520,10 @@ export function getShopCatalog(userId) {
     equipped: {
       blockSkin: equippedBlock,
       gemSkin: equippedGem,
+      tileSkin: equippedTile,
+      birdSkin: equippedBird,
+      stackSkin: equippedStack,
+      knifeSkin: equippedKnife,
       title: equippedTitle,
     },
     items,
@@ -500,7 +537,7 @@ export function buyShopItem(userId, itemId) {
   }
 
   const user = db.prepare(`
-    SELECT id, coins, equipped_block_skin, equipped_gem_skin, equipped_title 
+    SELECT id, coins 
     FROM users 
     WHERE id = ?
   `).get(userId);
@@ -527,6 +564,9 @@ export function buyShopItem(userId, itemId) {
   let colName = 'equipped_block_skin';
   if (item.category === 'gem_skin') colName = 'equipped_gem_skin';
   if (item.category === 'tile_skin') colName = 'equipped_tile_skin';
+  if (item.category === 'bird_skin') colName = 'equipped_bird_skin';
+  if (item.category === 'stack_skin') colName = 'equipped_stack_skin';
+  if (item.category === 'knife_skin') colName = 'equipped_knife_skin';
 
   const tx = db.transaction(() => {
     if (item.price > 0) {
@@ -539,7 +579,8 @@ export function buyShopItem(userId, itemId) {
   tx();
 
   const updatedUser = db.prepare(`
-    SELECT coins, equipped_block_skin, equipped_gem_skin, equipped_tile_skin 
+    SELECT coins, equipped_block_skin, equipped_gem_skin, equipped_tile_skin,
+           equipped_bird_skin, equipped_stack_skin, equipped_knife_skin 
     FROM users 
     WHERE id = ?
   `).get(userId);
@@ -552,6 +593,9 @@ export function buyShopItem(userId, itemId) {
       blockSkin: updatedUser.equipped_block_skin,
       gemSkin: updatedUser.equipped_gem_skin,
       tileSkin: updatedUser.equipped_tile_skin,
+      birdSkin: updatedUser.equipped_bird_skin,
+      stackSkin: updatedUser.equipped_stack_skin,
+      knifeSkin: updatedUser.equipped_knife_skin,
     },
   };
 }
@@ -572,11 +616,15 @@ export function equipShopItem(userId, itemId) {
   let colName = 'equipped_block_skin';
   if (item.category === 'gem_skin') colName = 'equipped_gem_skin';
   if (item.category === 'tile_skin') colName = 'equipped_tile_skin';
+  if (item.category === 'bird_skin') colName = 'equipped_bird_skin';
+  if (item.category === 'stack_skin') colName = 'equipped_stack_skin';
+  if (item.category === 'knife_skin') colName = 'equipped_knife_skin';
 
   db.prepare(`UPDATE users SET ${colName} = ? WHERE id = ?`).run(itemId, userId);
 
   const updatedUser = db.prepare(`
-    SELECT equipped_block_skin, equipped_gem_skin, equipped_tile_skin 
+    SELECT equipped_block_skin, equipped_gem_skin, equipped_tile_skin,
+           equipped_bird_skin, equipped_stack_skin, equipped_knife_skin 
     FROM users 
     WHERE id = ?
   `).get(userId);
@@ -587,6 +635,9 @@ export function equipShopItem(userId, itemId) {
       blockSkin: updatedUser.equipped_block_skin,
       gemSkin: updatedUser.equipped_gem_skin,
       tileSkin: updatedUser.equipped_tile_skin,
+      birdSkin: updatedUser.equipped_bird_skin,
+      stackSkin: updatedUser.equipped_stack_skin,
+      knifeSkin: updatedUser.equipped_knife_skin,
     },
   };
 }

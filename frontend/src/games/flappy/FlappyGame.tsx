@@ -25,7 +25,7 @@ interface Particle {
 }
 
 export const FlappyGame: React.FC = () => {
-  const { closeGame, submitScore, coins, spendCoins, bestScores } = useGameBridge();
+  const { closeGame, submitScore, coins, spendCoins, bestScores, equippedBirdSkin } = useGameBridge();
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -333,17 +333,39 @@ export const FlappyGame: React.FC = () => {
       ctx.translate(birdX, birdY);
       ctx.rotate(s.birdAngle);
 
-      // Bird body
-      ctx.shadowColor = 'rgba(245, 158, 11, 0.4)';
+      // Bird body with equipped skin
+      let bodyColor = '#f59e0b';
+      let wingColor = '#fbbf24';
+      let shadowColor = 'rgba(245, 158, 11, 0.4)';
+      let beakColor = '#ea580c';
+
+      if (equippedBirdSkin === 'bird_phoenix') {
+        bodyColor = '#ea580c';
+        wingColor = '#f97316';
+        shadowColor = 'rgba(234, 88, 12, 0.6)';
+        beakColor = '#facc15';
+      } else if (equippedBirdSkin === 'bird_drone') {
+        bodyColor = '#06b6d4';
+        wingColor = '#22d3ee';
+        shadowColor = 'rgba(6, 182, 212, 0.6)';
+        beakColor = '#0891b2';
+      } else if (equippedBirdSkin === 'bird_cosmic') {
+        bodyColor = '#8b5cf6';
+        wingColor = '#a855f7';
+        shadowColor = 'rgba(139, 92, 246, 0.6)';
+        beakColor = '#ec4899';
+      }
+
+      ctx.shadowColor = shadowColor;
       ctx.shadowBlur = 12;
-      ctx.fillStyle = '#f59e0b';
+      ctx.fillStyle = bodyColor;
       ctx.beginPath();
       ctx.ellipse(0, 0, 16, 13, 0, 0, Math.PI * 2);
       ctx.fill();
 
       // Wing animation
       const wingY = Math.sin(s.frameCount * 0.4) * 4;
-      ctx.fillStyle = '#fbbf24';
+      ctx.fillStyle = wingColor;
       ctx.beginPath();
       ctx.ellipse(-4, wingY, 8, 5, 0.2, 0, Math.PI * 2);
       ctx.fill();
@@ -360,7 +382,7 @@ export const FlappyGame: React.FC = () => {
       ctx.fill();
 
       // Beak
-      ctx.fillStyle = '#ea580c';
+      ctx.fillStyle = beakColor;
       ctx.beginPath();
       ctx.moveTo(13, -1);
       ctx.lineTo(21, 2);

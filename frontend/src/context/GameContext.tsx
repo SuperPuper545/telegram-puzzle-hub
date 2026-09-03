@@ -57,7 +57,7 @@ export interface ReferralsData {
 
 export interface ShopItem {
   id: string;
-  category: 'block_skin' | 'gem_skin' | 'tile_skin';
+  category: 'block_skin' | 'gem_skin' | 'tile_skin' | 'bird_skin' | 'stack_skin' | 'knife_skin';
   name: string;
   description: string;
   price: number;
@@ -68,9 +68,12 @@ export interface ShopItem {
 }
 
 export interface EquippedState {
-  blockSkin: string;
-  gemSkin: string;
-  tileSkin: string;
+  blockSkin?: string;
+  gemSkin?: string;
+  tileSkin?: string;
+  birdSkin?: string;
+  stackSkin?: string;
+  knifeSkin?: string;
 }
 
 export interface ShopCatalog {
@@ -97,6 +100,9 @@ interface GameContextType {
   equippedBlockSkin: string;
   equippedGemSkin: string;
   equippedTileSkin: string;
+  equippedBirdSkin: string;
+  equippedStackSkin: string;
+  equippedKnifeSkin: string;
   isShopModalOpen: boolean;
   setIsShopModalOpen: (open: boolean) => void;
   shopCatalog: ShopCatalog | null;
@@ -168,6 +174,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [equippedTileSkin, setEquippedTileSkin] = useState<string>(() => {
     return localStorage.getItem('tma_hub_tile_skin') || 'tile_classic';
   });
+  const [equippedBirdSkin, setEquippedBirdSkin] = useState<string>(() => {
+    return localStorage.getItem('tma_hub_bird_skin') || 'bird_classic';
+  });
+  const [equippedStackSkin, setEquippedStackSkin] = useState<string>(() => {
+    return localStorage.getItem('tma_hub_stack_skin') || 'stack_classic';
+  });
+  const [equippedKnifeSkin, setEquippedKnifeSkin] = useState<string>(() => {
+    return localStorage.getItem('tma_hub_knife_skin') || 'knife_classic';
+  });
   const [isShopModalOpen, setIsShopModalOpen] = useState<boolean>(false);
   const [shopCatalog, setShopCatalog] = useState<ShopCatalog | null>(null);
 
@@ -220,6 +235,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (data.user.equippedTileSkin) {
               setEquippedTileSkin(data.user.equippedTileSkin);
               localStorage.setItem('tma_hub_tile_skin', data.user.equippedTileSkin);
+            }
+            if (data.user.equippedBirdSkin) {
+              setEquippedBirdSkin(data.user.equippedBirdSkin);
+              localStorage.setItem('tma_hub_bird_skin', data.user.equippedBirdSkin);
+            }
+            if (data.user.equippedStackSkin) {
+              setEquippedStackSkin(data.user.equippedStackSkin);
+              localStorage.setItem('tma_hub_stack_skin', data.user.equippedStackSkin);
+            }
+            if (data.user.equippedKnifeSkin) {
+              setEquippedKnifeSkin(data.user.equippedKnifeSkin);
+              localStorage.setItem('tma_hub_knife_skin', data.user.equippedKnifeSkin);
             }
           }
           if (data.dailyReward) {
@@ -502,6 +529,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setEquippedTileSkin(data.equipped.tileSkin);
             localStorage.setItem('tma_hub_tile_skin', data.equipped.tileSkin);
           }
+          if (data.equipped.birdSkin) {
+            setEquippedBirdSkin(data.equipped.birdSkin);
+            localStorage.setItem('tma_hub_bird_skin', data.equipped.birdSkin);
+          }
+          if (data.equipped.stackSkin) {
+            setEquippedStackSkin(data.equipped.stackSkin);
+            localStorage.setItem('tma_hub_stack_skin', data.equipped.stackSkin);
+          }
+          if (data.equipped.knifeSkin) {
+            setEquippedKnifeSkin(data.equipped.knifeSkin);
+            localStorage.setItem('tma_hub_knife_skin', data.equipped.knifeSkin);
+          }
         }
         await fetchShop();
         return { success: true };
@@ -541,6 +580,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setEquippedTileSkin(data.equipped.tileSkin);
             localStorage.setItem('tma_hub_tile_skin', data.equipped.tileSkin);
           }
+          if (data.equipped.birdSkin) {
+            setEquippedBirdSkin(data.equipped.birdSkin);
+            localStorage.setItem('tma_hub_bird_skin', data.equipped.birdSkin);
+          }
+          if (data.equipped.stackSkin) {
+            setEquippedStackSkin(data.equipped.stackSkin);
+            localStorage.setItem('tma_hub_stack_skin', data.equipped.stackSkin);
+          }
+          if (data.equipped.knifeSkin) {
+            setEquippedKnifeSkin(data.equipped.knifeSkin);
+            localStorage.setItem('tma_hub_knife_skin', data.equipped.knifeSkin);
+          }
         }
         await fetchShop();
         return { success: true };
@@ -571,6 +622,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         equippedBlockSkin,
         equippedGemSkin,
         equippedTileSkin,
+        equippedBirdSkin,
+        equippedStackSkin,
+        equippedKnifeSkin,
         isShopModalOpen,
         setIsShopModalOpen,
         shopCatalog,

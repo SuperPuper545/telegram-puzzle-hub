@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useGameBridge } from '../../context/GameContext';
-import { X, Check, Sparkles, Coins, ShoppingBag, Palette, Gem, Layers } from 'lucide-react';
+import { X, Check, Sparkles, Coins, ShoppingBag, Palette, Gem, Layers, Zap, Target } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { sound } from '../../utils/sound';
 import { haptics } from '../../telegram/telegram';
 
-type ShopCategory = 'block_skin' | 'gem_skin' | 'tile_skin';
+type ShopCategory = 'block_skin' | 'gem_skin' | 'tile_skin' | 'bird_skin' | 'stack_skin' | 'knife_skin';
 
 export const ShopModal: React.FC = () => {
   const {
@@ -19,6 +19,9 @@ export const ShopModal: React.FC = () => {
     equippedBlockSkin,
     equippedGemSkin,
     equippedTileSkin,
+    equippedBirdSkin,
+    equippedStackSkin,
+    equippedKnifeSkin,
   } = useGameBridge();
 
   const [activeCategory, setActiveCategory] = useState<ShopCategory>('block_skin');
@@ -33,6 +36,15 @@ export const ShopModal: React.FC = () => {
   if (!isShopModalOpen) return null;
 
   const items = shopCatalog?.items.filter((item) => item.category === activeCategory) || [];
+
+  const categoriesList: { id: ShopCategory; label: string; icon: React.ReactNode; activeColor: string }[] = [
+    { id: 'block_skin', label: 'Блоки', icon: <Palette className="w-3.5 h-3.5" />, activeColor: 'bg-indigo-600' },
+    { id: 'gem_skin', label: 'Кристаллы', icon: <Gem className="w-3.5 h-3.5" />, activeColor: 'bg-purple-600' },
+    { id: 'tile_skin', label: '2048', icon: <Layers className="w-3.5 h-3.5" />, activeColor: 'bg-amber-600' },
+    { id: 'bird_skin', label: 'Птица', icon: <Zap className="w-3.5 h-3.5" />, activeColor: 'bg-emerald-600' },
+    { id: 'stack_skin', label: 'Башня', icon: <Sparkles className="w-3.5 h-3.5" />, activeColor: 'bg-cyan-600' },
+    { id: 'knife_skin', label: 'Ножи', icon: <Target className="w-3.5 h-3.5" />, activeColor: 'bg-rose-600' },
+  ];
 
   const handleBuy = async (itemId: string, price: number) => {
     if (coins < price) {
@@ -118,54 +130,28 @@ export const ShopModal: React.FC = () => {
         </div>
 
         {/* Categories Tab Bar */}
-        <div className="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-black/[0.04] dark:bg-tg-bg border border-[var(--tg-theme-section-separator-color)] mb-3.5 shrink-0">
-          <button
-            onClick={() => {
-              sound.playUiTap();
-              haptics.selection();
-              setActiveCategory('block_skin');
-            }}
-            className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeCategory === 'block_skin'
-                ? 'bg-indigo-600 text-white shadow-md'
-                : 'text-tg-hint hover:text-tg-text'
-            }`}
-          >
-            <Palette className="w-3.5 h-3.5" />
-            <span>Блоки</span>
-          </button>
-
-          <button
-            onClick={() => {
-              sound.playUiTap();
-              haptics.selection();
-              setActiveCategory('gem_skin');
-            }}
-            className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeCategory === 'gem_skin'
-                ? 'bg-purple-600 text-white shadow-md'
-                : 'text-tg-hint hover:text-tg-text'
-            }`}
-          >
-            <Gem className="w-3.5 h-3.5" />
-            <span>Кристаллы</span>
-          </button>
-
-          <button
-            onClick={() => {
-              sound.playUiTap();
-              haptics.selection();
-              setActiveCategory('tile_skin');
-            }}
-            className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeCategory === 'tile_skin'
-                ? 'bg-amber-600 text-white shadow-md'
-                : 'text-tg-hint hover:text-tg-text'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>2048</span>
-          </button>
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden p-1 rounded-2xl bg-black/[0.04] dark:bg-tg-bg border border-[var(--tg-theme-section-separator-color)] mb-3.5 shrink-0">
+          {categoriesList.map((cat) => {
+            const isActive = activeCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => {
+                  sound.playUiTap();
+                  haptics.selection();
+                  setActiveCategory(cat.id);
+                }}
+                className={`shrink-0 flex items-center justify-center gap-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  isActive
+                    ? `${cat.activeColor} text-white shadow-md scale-105`
+                    : 'text-tg-hint hover:text-tg-text'
+                }`}
+              >
+                {cat.icon}
+                <span>{cat.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Items List */}
@@ -174,7 +160,10 @@ export const ShopModal: React.FC = () => {
             const isEquipped =
               item.id === equippedBlockSkin ||
               item.id === equippedGemSkin ||
-              item.id === equippedTileSkin;
+              item.id === equippedTileSkin ||
+              item.id === equippedBirdSkin ||
+              item.id === equippedStackSkin ||
+              item.id === equippedKnifeSkin;
             const isPurchased = item.isPurchased || item.price === 0;
             const canAfford = coins >= item.price;
             const isLoading = loadingItemId === item.id;
