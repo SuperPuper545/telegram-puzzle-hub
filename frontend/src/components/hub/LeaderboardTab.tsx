@@ -51,8 +51,8 @@ export const LeaderboardTab: React.FC = () => {
         </button>
       </div>
 
-      {/* Telegram Segmented Control (2x3 Grid for 6 games) */}
-      <div className="grid grid-cols-3 gap-1 p-1 bg-tg-secondaryBg rounded-2xl border border-[var(--tg-theme-section-separator-color)]">
+      {/* Horizontally Scrollable Game Filter */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-1 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] shadow-sm">
         {gameNames.map((g) => {
           const isActive = selectedGame === g.id;
           return (
@@ -62,10 +62,10 @@ export const LeaderboardTab: React.FC = () => {
                 haptics.selection();
                 setSelectedGame(g.id);
               }}
-              className={`py-1.5 px-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer truncate ${
+              className={`shrink-0 py-2 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap active:scale-95 ${
                 isActive
-                  ? 'tg-btn-primary shadow-sm'
-                  : 'text-tg-hint hover:text-tg-text'
+                  ? 'tg-btn-primary shadow-sm scale-105'
+                  : 'text-tg-hint hover:text-tg-text bg-black/[0.03] dark:bg-white/[0.03]'
               }`}
             >
               {g.label}

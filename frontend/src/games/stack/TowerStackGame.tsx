@@ -44,7 +44,7 @@ export const TowerStackGame: React.FC = () => {
     slicedPieces: [] as SlicedPiece[],
     currentX: 50,
     currentWidth: 160,
-    currentSpeed: 3.2,
+    currentSpeed: 2.2,
     direction: 1,
     score: 0,
     combo: 0,
@@ -87,7 +87,7 @@ export const TowerStackGame: React.FC = () => {
     const prevW = topBlock.width;
 
     const diff = s.currentX - prevX;
-    const tolerance = 4; // Perfect placement threshold
+    const tolerance = 5; // Generous & satisfying perfect placement threshold
 
     if (Math.abs(diff) <= tolerance) {
       // PERFECT MATCH!
@@ -99,9 +99,9 @@ export const TowerStackGame: React.FC = () => {
       sound.playSlice(s.combo);
       haptics.medium();
 
-      // Bonus expansion every 5 combos
-      if (s.combo % 5 === 0) {
-        s.currentWidth = Math.min(s.gameWidth * 0.75, s.currentWidth + 15);
+      // Bonus expansion every 4 combos
+      if (s.combo % 4 === 0) {
+        s.currentWidth = Math.min(s.gameWidth * 0.7, s.currentWidth + 12);
         showNotice(`Комбо x${s.combo}! Платформа расширена`);
       }
     } else {
@@ -136,8 +136,18 @@ export const TowerStackGame: React.FC = () => {
         return;
       }
 
-      // Spawn falling sliced chunk
-      const sliceX = diff > 0 ? prevX + newWidth : s.currentX;
+      // Spawn falling sliced chunk and correctly position the remaining block
+      let sliceX: number;
+      if (diff > 0) {
+        // Sliced off on the right
+        sliceX = prevX + newWidth;
+        s.currentX = prevX;
+      } else {
+        // Sliced off on the left
+        sliceX = s.currentX;
+        s.currentX = prevX; // The remaining block starts at the base block's left edge!
+      }
+
       s.slicedPieces.push({
         x: sliceX,
         y: topBlock.y - s.blockHeight,
@@ -148,10 +158,6 @@ export const TowerStackGame: React.FC = () => {
         alpha: 1,
       });
 
-      // Update block geometry
-      if (diff > 0) {
-        s.currentX = prevX;
-      }
       s.currentWidth = newWidth;
       sound.playPlace();
       haptics.light();
@@ -180,9 +186,9 @@ export const TowerStackGame: React.FC = () => {
     // Move camera up
     s.targetCameraY = Math.max(0, (s.blocks.length - 8) * s.blockHeight);
 
-    // Reset current oscillating block for next floor
+    // Reset current oscillating block for next floor with smooth, steady speed
     s.currentX = s.direction > 0 ? -s.currentWidth : s.gameWidth;
-    s.currentSpeed = Math.min(6.5, 3.2 + s.score * 0.08);
+    s.currentSpeed = Math.min(4.5, 2.2 + s.score * 0.04);
   }, [submitScore]);
 
   // Main canvas rendering loop
@@ -321,7 +327,7 @@ export const TowerStackGame: React.FC = () => {
 
     s.currentWidth = initW;
     s.currentX = (s.gameWidth - initW) / 2;
-    s.currentSpeed = 3.2;
+    s.currentSpeed = 2.2;
     s.direction = 1;
     s.score = 0;
     s.combo = 0;

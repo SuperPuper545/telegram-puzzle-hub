@@ -1,14 +1,63 @@
 import React, { useState } from 'react';
 import { useGameBridge, type GameId } from '../../context/GameContext';
-import { Play, Sparkles, Grid, Gem, Layers, Zap, Target, Flame } from 'lucide-react';
+import { Play, Sparkles, Grid, Gem, Layers, Zap, Target, Flame, ChevronRight, ChevronLeft } from 'lucide-react';
 import { haptics } from '../../telegram/telegram';
 import { sound } from '../../utils/sound';
 
-type CategoryFilter = 'all' | 'puzzles' | 'arcade' | 'pvp';
+type CategoryFilter = 'puzzles' | 'arcade' | 'pvp';
+
+interface CategoryMeta {
+  id: CategoryFilter;
+  title: string;
+  badge: string;
+  description: string;
+  icon: React.ReactNode;
+}
 
 export const GameCatalog: React.FC = () => {
   const { openGame, bestScores } = useGameBridge();
-  const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>('all');
+  const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>('puzzles');
+
+  const categories: CategoryMeta[] = [
+    {
+      id: 'puzzles',
+      title: '🧩 Головоломки',
+      badge: 'Логика и комбо',
+      description: 'Тренируй логику, очищай поле, собирай кристаллы и ставь рекорды!',
+      icon: <Grid className="w-24 h-24 text-indigo-400" />,
+    },
+    {
+      id: 'arcade',
+      title: '⚡ Одиночные Аркады',
+      badge: 'Скорость и драйв',
+      description: 'Быстрые раунды на реакцию, полет птицы, строитель башни и метание клинков!',
+      icon: <Zap className="w-24 h-24 text-emerald-400" />,
+    },
+    {
+      id: 'pvp',
+      title: '⚔️ Сетевые Дуэли (PvP)',
+      badge: 'Битва со ставками',
+      description: 'Шахматы онлайн, Подкидной дурак и Морской бой на ставки в реальном времени!',
+      icon: <Flame className="w-24 h-24 text-rose-400" />,
+    },
+  ];
+
+  const currentCategoryIndex = categories.findIndex((c) => c.id === selectedCategory);
+  const currentCategory = categories[currentCategoryIndex] || categories[0];
+
+  const handleNextCategory = () => {
+    sound.playUiTap();
+    haptics.selection();
+    const nextIdx = (currentCategoryIndex + 1) % categories.length;
+    setSelectedCategory(categories[nextIdx].id);
+  };
+
+  const handlePrevCategory = () => {
+    sound.playUiTap();
+    haptics.selection();
+    const prevIdx = (currentCategoryIndex - 1 + categories.length) % categories.length;
+    setSelectedCategory(categories[prevIdx].id);
+  };
 
   const games: {
     id: GameId;
@@ -22,7 +71,7 @@ export const GameCatalog: React.FC = () => {
     available: boolean;
     bestScore: number;
     tags: string[];
-    category: 'puzzles' | 'arcade' | 'pvp';
+    category: CategoryFilter;
   }[] = [
     {
       id: 'blockudoku',
@@ -110,89 +159,76 @@ export const GameCatalog: React.FC = () => {
     },
   ];
 
-  const filteredGames = games.filter((g) => {
-    if (selectedCategory === 'all') return true;
-    return g.category === selectedCategory;
-  });
+  const filteredGames = games.filter((g) => g.category === selectedCategory);
 
   return (
     <div className="p-4 space-y-4">
-      {/* Featured Banner */}
+      {/* Featured Banner with Interactive Genre Switcher */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500/15 via-purple-500/10 to-tg-secondaryBg p-4 border border-indigo-500/25 shadow-md">
         <div className="relative z-10">
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-400/30 mb-2">
-            <Sparkles className="w-3 h-3 text-indigo-400" /> Игровой Каталог #1
-          </span>
-          <h2 className="text-lg font-black text-tg-text tracking-tight">
-            Каталог Игр TapTap Hub
-          </h2>
-          <p className="text-xs text-tg-hint mt-1 max-w-[260px] leading-relaxed">
-            Головоломки, скоростные аркады и сетевые дуэли за монеты в одном месте!
-          </p>
-        </div>
-        <div className="absolute right-2 -bottom-2 opacity-15 pointer-events-none">
-          <Flame className="w-28 h-28 text-indigo-400" />
-        </div>
-      </div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-400/30">
+              <Sparkles className="w-3 h-3" /> {currentCategory.badge} ({currentCategoryIndex + 1}/{categories.length})
+            </span>
 
-      {/* Category Segmented Filter */}
-      <div className="flex items-center gap-1 p-1 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] shadow-sm">
-        <button
-          onClick={() => {
-            sound.playUiTap();
-            haptics.selection();
-            setSelectedCategory('all');
-          }}
-          className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            selectedCategory === 'all'
-              ? 'tg-btn-primary shadow-sm'
-              : 'text-tg-hint hover:text-tg-text'
-          }`}
-        >
-          Все ({games.length})
-        </button>
-        <button
-          onClick={() => {
-            sound.playUiTap();
-            haptics.selection();
-            setSelectedCategory('puzzles');
-          }}
-          className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            selectedCategory === 'puzzles'
-              ? 'tg-btn-primary shadow-sm'
-              : 'text-tg-hint hover:text-tg-text'
-          }`}
-        >
-          🧩 Логика
-        </button>
-        <button
-          onClick={() => {
-            sound.playUiTap();
-            haptics.selection();
-            setSelectedCategory('arcade');
-          }}
-          className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            selectedCategory === 'arcade'
-              ? 'tg-btn-primary shadow-sm'
-              : 'text-tg-hint hover:text-tg-text'
-          }`}
-        >
-          ⚡ Аркады
-        </button>
-        <button
-          onClick={() => {
-            sound.playUiTap();
-            haptics.selection();
-            setSelectedCategory('pvp');
-          }}
-          className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            selectedCategory === 'pvp'
-              ? 'tg-btn-primary shadow-sm'
-              : 'text-tg-hint hover:text-tg-text'
-          }`}
-        >
-          ⚔️ PvP
-        </button>
+            {/* Arrow switcher buttons */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handlePrevCategory}
+                className="p-1.5 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint hover:text-tg-text active:scale-90 transition-transform cursor-pointer shadow-sm"
+                title="Предыдущий жанр"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={handleNextCategory}
+                className="p-1.5 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint hover:text-tg-text active:scale-90 transition-transform cursor-pointer shadow-sm"
+                title="Следующий жанр"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Clickable Header Title */}
+          <button
+            onClick={handleNextCategory}
+            className="flex items-center gap-1.5 text-left group cursor-pointer active:scale-[0.98] transition-transform"
+          >
+            <h2 className="text-lg font-black text-tg-text tracking-tight flex items-center gap-2">
+              <span>{currentCategory.title}</span>
+              <span className="p-1 rounded-full bg-indigo-500/20 text-indigo-400 group-hover:translate-x-0.5 transition-transform">
+                <ChevronRight className="w-4 h-4" />
+              </span>
+            </h2>
+          </button>
+
+          <p className="text-xs text-tg-hint mt-1 max-w-[280px] leading-relaxed">
+            {currentCategory.description}
+          </p>
+
+          {/* Dots Indicator */}
+          <div className="flex items-center gap-1.5 mt-3">
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => {
+                  sound.playUiTap();
+                  haptics.selection();
+                  setSelectedCategory(cat.id);
+                }}
+                className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+                  cat.id === selectedCategory ? 'w-6 bg-indigo-500 shadow-sm' : 'w-1.5 bg-tg-hint/30 hover:bg-tg-hint/60'
+                }`}
+                title={cat.title}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="absolute right-2 -bottom-2 opacity-15 pointer-events-none">
+          {currentCategory.icon}
+        </div>
       </div>
 
       {/* Grouped Game Cards */}

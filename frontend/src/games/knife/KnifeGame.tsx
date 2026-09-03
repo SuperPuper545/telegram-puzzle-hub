@@ -105,14 +105,14 @@ export const KnifeGame: React.FC = () => {
       });
     }
 
-    // Speed / pattern adjustment
-    s.targetRotationSpeed = (stageNum % 2 === 0 ? -1 : 1) * (0.03 + Math.min(0.04, stageNum * 0.005));
+    // Steady, smooth rotation speed
+    s.targetRotationSpeed = (stageNum % 2 === 0 ? -1 : 1) * (0.018 + Math.min(0.012, stageNum * 0.002));
     if (isBoss) {
       showNotice(`БОСС УРОВНЯ ${stageNum}! Приготовься`);
     }
   }, []);
 
-  // Throw knife handler
+  // Throw knife handler - fast, instant throw
   const handleThrow = useCallback(() => {
     const s = gameStateRef.current;
     if (s.isGameOver || s.flyingKnife !== null || s.knivesLeft <= 0) return;
@@ -122,7 +122,7 @@ export const KnifeGame: React.FC = () => {
 
     s.flyingKnife = {
       y: s.gameHeight - 120,
-      speed: 28,
+      speed: 42,
     };
   }, []);
 
@@ -165,11 +165,8 @@ export const KnifeGame: React.FC = () => {
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, w, h);
 
-      // Rotate target wheel
-      s.rotationTimer += 0.02;
-      // Periodic speed fluctuations / reversals
-      const speedMod = 1 + 0.5 * Math.sin(s.rotationTimer * 1.5);
-      s.targetRotation += s.targetRotationSpeed * speedMod;
+      // Smooth, steady target rotation (predictable and fair)
+      s.targetRotation += s.targetRotationSpeed;
 
       // Handle flying knife
       if (s.flyingKnife && !s.isGameOver) {
@@ -178,14 +175,14 @@ export const KnifeGame: React.FC = () => {
         // Check impact with target radius
         const targetImpactY = cy + s.targetRadius;
         if (s.flyingKnife.y <= targetImpactY) {
-          // Calculate hit angle on rotating target
-          // Bottom of wheel corresponds to angle = Math.PI / 2
-          const impactAngle = (Math.PI / 2) - s.targetRotation;
+          // Bottom of wheel (6 o'clock) is at angle 0 in wheel local space.
+          // Since wheel is rotated by targetRotation, local impact angle is: -targetRotation
+          const impactAngle = -s.targetRotation;
           const normalizedImpact = ((impactAngle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
 
           // Check collision with already embedded knives
           let hitOtherKnife = false;
-          const collisionAngleTolerance = 0.26; // ~15 degrees
+          const collisionAngleTolerance = 0.22; // ~12.5 degrees
 
           for (const ek of s.embeddedKnives) {
             const normEk = ((ek.angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);

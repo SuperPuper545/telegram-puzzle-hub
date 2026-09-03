@@ -50,11 +50,11 @@ export const FlappyGame: React.FC = () => {
     lastPipeX: 0,
     gameWidth: 360,
     gameHeight: 600,
-    pipeGap: 140,
-    pipeWidth: 54,
-    gravity: 0.38,
-    flapStrength: -7.2,
-    speed: 2.5,
+    pipeGap: 165,
+    pipeWidth: 52,
+    gravity: 0.27,
+    flapStrength: -5.6,
+    speed: 1.85,
     frameCount: 0,
   });
 
@@ -154,7 +154,7 @@ export const FlappyGame: React.FC = () => {
         s.birdAngle = Math.min(Math.PI / 3, Math.max(-0.5, s.birdVy * 0.08));
 
         // Pipe spawn
-        if (s.pipes.length === 0 || w - s.lastPipeX >= 180) {
+        if (s.pipes.length === 0 || w - s.lastPipeX >= 200) {
           const minPipe = 60;
           const maxPipe = h - s.pipeGap - minPipe;
           const topH = Math.floor(minPipe + Math.random() * (maxPipe - minPipe));
@@ -172,7 +172,7 @@ export const FlappyGame: React.FC = () => {
         }
 
         // Move pipes
-        const birdRadius = 14;
+        const birdRadius = 11;
         const birdX = w * 0.25;
 
         for (let i = s.pipes.length - 1; i >= 0; i--) {
