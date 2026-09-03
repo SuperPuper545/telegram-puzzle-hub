@@ -1,4 +1,4 @@
-﻿import express from 'express';
+import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -192,7 +192,7 @@ function onCreateRoom(ws,user,d) {
   const u=getUserById(user.id);
   rooms.set(roomId,{id:roomId,gameType,betAmount,timerMode,durakMode,host:{userId:user.id,firstName:user.firstName,username:user.username,ws,connected:true},guest:null,status:'waiting',gameState:null,hostReconnectTimer:null,guestReconnectTimer:null});
   const bot=process.env.BOT_USERNAME||'taptaphub_bot';
-  sendWs(ws,{type:'room_created',roomId,gameType,betAmount,deepLink:`https://t.me/${bot}/app?startapp=duel_${roomId}`});
+  sendWs(ws,{type:'room_created',roomId,gameType,betAmount,deepLink:`https://t.me/${bot}?start=duel_${roomId}`,directLink:`https://t.me/${bot}/app?startapp=duel_${roomId}`});
 }
 function onJoinRoom(ws,user,d) {
   const room=rooms.get(d.roomId);

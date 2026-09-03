@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { haptics } from '../../../telegram/telegram';
+import { haptics, setupBackButton, removeBackButton } from '../../../telegram/telegram';
 import { sound } from '../../../utils/sound';
 import confetti from 'canvas-confetti';
-import { Flag, Trophy, Frown, Sparkles, Shield, Swords, Layers } from 'lucide-react';
+import { ArrowLeft, Flag, Trophy, Frown, Sparkles, Shield, Swords, Layers } from 'lucide-react';
 import type { Card, TableSlot, GameOverPayload, DuelOpponent } from '../types';
 
 interface Props {
@@ -104,6 +104,14 @@ export const DurakGame: React.FC<Props> = ({
   const isAttacker = gs?.attackerId === myUserId;
   const isDefender = gs?.defenderId === myUserId;
 
+  // Telegram BackButton integration
+  useEffect(() => {
+    setupBackButton(() => {
+      setShowSurrender(true);
+    });
+    return () => removeBackButton();
+  }, []);
+
   useEffect(() => {
     if (gameOverData) {
       const won = gameOverData.winnerUserId === myUserId;
@@ -178,14 +186,27 @@ export const DurakGame: React.FC<Props> = ({
 
   return (
     <div className="flex flex-col h-full bg-tg-bg select-none touch-none overflow-hidden">
-      {/* Top Header: Opponent Hand & Status */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-tg-secondaryBg border-b border-[var(--tg-theme-section-separator-color)] shadow-sm">
+      {/* Top Header: Back/Exit + Opponent Info + Status + Bank */}
+      <div className="flex items-center justify-between px-3 py-2.5 bg-tg-secondaryBg border-b border-[var(--tg-theme-section-separator-color)] shadow-sm">
         <div className="flex items-center gap-2">
+          {/* Dedicated Exit / Surrender Back Button */}
+          <button
+            onClick={() => {
+              sound.playUiTap();
+              haptics.selection();
+              setShowSurrender(true);
+            }}
+            className="p-2 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint hover:text-rose-400 active:scale-90 transition-all cursor-pointer"
+            title="Покинуть матч"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+
           <div className="w-8 h-8 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center font-bold text-xs text-rose-400">
             {opponent.firstName[0]}
           </div>
           <div>
-            <div className="text-xs font-bold text-tg-text truncate max-w-[120px]">
+            <div className="text-xs font-bold text-tg-text truncate max-w-[90px]">
               {opponent.firstName}
             </div>
             <div className="text-[10px] font-medium text-tg-hint flex items-center gap-1">
@@ -202,26 +223,25 @@ export const DurakGame: React.FC<Props> = ({
           </div>
         </div>
 
+        {/* Bank badge in center */}
+        {betAmount > 0 && (
+          <div className="flex items-center gap-1 text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+            <span>🪙</span>
+            <span>Банк: {Math.floor(betAmount * 1.8)}</span>
+          </div>
+        )}
+
         {/* Opponent Cards in Hand */}
-        <div className="flex items-center gap-1 overflow-x-auto max-w-[140px] px-1">
-          {Array(Math.min(gs.opponentCardCount, 8))
+        <div className="flex items-center gap-1 overflow-x-auto max-w-[120px] px-1">
+          {Array(Math.min(gs.opponentCardCount, 6))
             .fill(null)
             .map((_, i) => (
               <CardBack key={i} small />
             ))}
-          {gs.opponentCardCount > 8 && (
-            <span className="text-[10px] font-bold text-tg-hint">+{gs.opponentCardCount - 8}</span>
+          {gs.opponentCardCount > 6 && (
+            <span className="text-[10px] font-bold text-tg-hint">+{gs.opponentCardCount - 6}</span>
           )}
         </div>
-
-        {/* Surrender Button */}
-        <button
-          onClick={() => setShowSurrender(true)}
-          title="Сдаться"
-          className="p-2 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-rose-400 hover:border-rose-400/50 active:scale-90 transition-all cursor-pointer"
-        >
-          <Flag className="w-4 h-4" />
-        </button>
       </div>
 
       {/* Deck & Trump Info Bar */}
@@ -336,9 +356,12 @@ export const DurakGame: React.FC<Props> = ({
 
       {/* Surrender Confirmation Modal */}
       {showSurrender && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] rounded-3xl p-5 shadow-2xl max-w-xs w-full text-center space-y-3 animate-scale-up">
-            <h4 className="font-extrabold text-base text-tg-text">Сдаться в партии?</h4>
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
+              <Flag className="w-6 h-6" />
+            </div>
+            <h4 className="font-extrabold text-base text-tg-text">Покинуть матч?</h4>
             <p className="text-xs text-tg-hint leading-relaxed">
               Вы уверены? Победа и банк будут присуждены сопернику.
             </p>
@@ -347,16 +370,17 @@ export const DurakGame: React.FC<Props> = ({
                 onClick={() => setShowSurrender(false)}
                 className="flex-1 py-2.5 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint text-xs font-bold active:scale-95 transition-all cursor-pointer"
               >
-                Отмена
+                Остаться
               </button>
               <button
                 onClick={() => {
                   setShowSurrender(false);
                   onSurrender();
+                  onExit();
                 }}
                 className="flex-1 py-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 text-xs font-bold active:scale-95 transition-all cursor-pointer"
               >
-                Сдаться
+                Сдаться и выйти
               </button>
             </div>
           </div>

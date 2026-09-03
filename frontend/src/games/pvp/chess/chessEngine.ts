@@ -1,8 +1,8 @@
-﻿// Pure TypeScript chess engine — no external deps
-// Board: 0=empty, pieces coded as strings like 'wK','bQ','wp','bR' etc.
+// Pure TypeScript chess engine — no external deps
+// Board: 0=empty, pieces coded as strings like 'wK','bQ','wP','bR' etc.
 
 export type PieceColor = 'w' | 'b';
-export type PieceType = 'K' | 'Q' | 'R' | 'B' | 'N' | 'p';
+export type PieceType = 'K' | 'Q' | 'R' | 'B' | 'N' | 'P';
 export type Square = string; // e.g. 'e4'
 export interface Piece { color: PieceColor; type: PieceType }
 export interface Move { from: Square; to: Square; promotion?: PieceType; isCapture?: boolean; isCastle?: boolean; isEnPassant?: boolean }
@@ -47,7 +47,12 @@ export function parseFen(fen: string): GameState {
   return {
     board,
     turn: turn as PieceColor,
-    castling: { wK: castling.includes('K'), wQ: castling.includes('Q'), bK: castling.includes('k'), bQ: castling.includes('q') },
+    castling: {
+      wK: castling.includes('K'),
+      wQ: castling.includes('Q'),
+      bK: castling.includes('k'),
+      bQ: castling.includes('q'),
+    },
     enPassant: ep === '-' ? null : ep,
     halfMove: parseInt(hm) || 0,
     fullMove: parseInt(fm) || 1,
@@ -69,7 +74,12 @@ export function boardToFen(state: GameState): string {
     if (empty) pos += empty;
     if (r < 7) pos += '/';
   }
-  const cast = [state.castling.wK ? 'K' : '', state.castling.wQ ? 'Q' : '', state.castling.bK ? 'k' : '', state.castling.bQ ? 'q' : ''].join('') || '-';
+  const cast = [
+    state.castling.wK ? 'K' : '',
+    state.castling.wQ ? 'Q' : '',
+    state.castling.bK ? 'k' : '',
+    state.castling.bQ ? 'q' : '',
+  ].join('') || '-';
   return `${pos} ${state.turn} ${cast} ${state.enPassant || '-'} ${state.halfMove} ${state.fullMove}`;
 }
 
@@ -80,20 +90,24 @@ function pseudoMoves(state: GameState, r: number, c: number): Array<[number, num
   if (!p) return [];
   const moves: Array<[number, number]> = [];
   const { color, type } = p;
-  const dirs: Record<string, [number,number][]> = {
-    R: [[0,1],[0,-1],[1,0],[-1,0]],
-    B: [[1,1],[1,-1],[-1,1],[-1,-1]],
-    Q: [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]],
-    K: [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]],
-    N: [[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[1,-2],[-1,2],[-1,-2]],
+  const dirs: Record<string, [number, number][]> = {
+    R: [[0, 1], [0, -1], [1, 0], [-1, 0]],
+    B: [[1, 1], [1, -1], [-1, 1], [-1, -1]],
+    Q: [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [1, -1], [-1, 1], [-1, -1]],
+    K: [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [1, -1], [-1, 1], [-1, -1]],
+    N: [[2, 1], [2, -1], [-2, 1], [-2, -1], [1, 2], [1, -2], [-1, 2], [-1, -2]],
   };
-  if (type === 'p') {
+
+  if (type === 'P') {
     const dir = color === 'w' ? -1 : 1;
     const startRow = color === 'w' ? 6 : 1;
-    // Forward
+    // 1 step forward
     if (inBounds(r + dir, c) && !state.board[r + dir][c]) {
       moves.push([r + dir, c]);
-      if (r === startRow && !state.board[r + 2 * dir][c]) moves.push([r + 2 * dir, c]);
+      // 2 steps forward from initial rank
+      if (r === startRow && !state.board[r + 2 * dir][c]) {
+        moves.push([r + 2 * dir, c]);
+      }
     }
     // Captures
     for (const dc of [-1, 1]) {
@@ -165,7 +179,7 @@ function applyMove(state: GameState, from: Square, to: Square, promotion?: Piece
   let newHm = state.halfMove + 1;
 
   // En passant capture
-  if (piece.type === 'p' && state.enPassant === to) {
+  if (piece.type === 'P' && state.enPassant === to) {
     const [epr] = sqToRC(to);
     const epCaptureRow = piece.color === 'w' ? epr + 1 : epr - 1;
     newBoard[epCaptureRow][tc] = null;
@@ -189,7 +203,7 @@ function applyMove(state: GameState, from: Square, to: Square, promotion?: Piece
   }
 
   if (newBoard[tr][tc]) newHm = 0;
-  if (piece.type === 'p') {
+  if (piece.type === 'P') {
     newHm = 0;
     if (Math.abs(tr - fr) === 2) newEp = rcToSq(fr + (piece.color === 'w' ? -1 : 1), fc);
   }
@@ -221,15 +235,17 @@ export function getLegalMoves(state: GameState, fromSq: Square): Move[] {
   const legal: Move[] = [];
   for (const [tr, tc] of pseudo) {
     const toSq = rcToSq(tr, tc);
-    const promotions: (PieceType | undefined)[] = piece.type === 'p' && (tr === 0 || tr === 7) ? ['Q','R','B','N'] : [undefined];
+    const promotions: (PieceType | undefined)[] = piece.type === 'P' && (tr === 0 || tr === 7) ? ['Q', 'R', 'B', 'N'] : [undefined];
     for (const promo of promotions) {
       const next = applyMove(state, fromSq, toSq, promo);
       if (!isInCheck(next, piece.color)) {
         legal.push({
-          from: fromSq, to: toSq, promotion: promo,
-          isCapture: !!state.board[tr][tc] || (piece.type === 'p' && state.enPassant === toSq),
+          from: fromSq,
+          to: toSq,
+          promotion: promo,
+          isCapture: !!state.board[tr][tc] || (piece.type === 'P' && state.enPassant === toSq),
           isCastle: piece.type === 'K' && Math.abs(tc - fc) === 2,
-          isEnPassant: piece.type === 'p' && state.enPassant === toSq,
+          isEnPassant: piece.type === 'P' && state.enPassant === toSq,
         });
       }
     }

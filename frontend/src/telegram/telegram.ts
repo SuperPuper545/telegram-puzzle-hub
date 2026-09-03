@@ -291,9 +291,18 @@ export function getTelegramStartParam(): string | null {
     return tg.initDataUnsafe.start_param;
   }
   if (typeof window !== 'undefined') {
+    // 1. Check URL query params
     const urlParams = new URLSearchParams(window.location.search);
-    const param = urlParams.get('tgWebAppStartParam') || urlParams.get('startapp') || urlParams.get('start_param');
+    let param = urlParams.get('tgWebAppStartParam') || urlParams.get('startapp') || urlParams.get('start_param');
     if (param) return param;
+
+    // 2. Check URL hash params (standard Telegram WebApp startapp format)
+    const hash = window.location.hash ? window.location.hash.substring(1) : '';
+    if (hash) {
+      const hashParams = new URLSearchParams(hash);
+      param = hashParams.get('tgWebAppStartParam') || hashParams.get('startapp') || hashParams.get('start_param');
+      if (param) return param;
+    }
   }
   return null;
 }

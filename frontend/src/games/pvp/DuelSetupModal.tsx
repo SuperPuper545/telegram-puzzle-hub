@@ -178,29 +178,50 @@ export const DuelSetupModal: React.FC<Props> = ({
           </div>
         ) : inviteDeepLink ? (
           /* Invite Link Created View */
-          <div className="py-6 flex flex-col items-center text-center space-y-4">
+          <div className="py-4 flex flex-col items-center text-center space-y-3">
             <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-2xl shadow-inner text-emerald-400">
               <Share2 className="w-7 h-7" />
             </div>
 
             <div>
-              <h4 className="font-extrabold text-base text-tg-text">Комната готова!</h4>
+              <h4 className="font-extrabold text-base text-tg-text">Приглашение готово!</h4>
               <p className="text-xs text-tg-hint mt-1">
-                Отправь ссылку другу в Telegram, чтобы начать дуэль
+                Отправьте ссылку другу. Как только он перейдет — битва начнется!
               </p>
             </div>
 
-            <div className="w-full p-2.5 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-[11px] font-mono text-indigo-400 break-all select-all">
+            {/* Link Preview Box */}
+            <div className="w-full p-2.5 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-[11px] font-mono text-indigo-400 break-all select-all text-left">
               {inviteDeepLink}
             </div>
 
-            <div className="w-full flex flex-col gap-2 pt-2">
+            {/* Waiting status pill */}
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-400 font-semibold">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span>Ожидаем подключения соперника...</span>
+            </div>
+
+            <div className="w-full flex flex-col gap-2 pt-1">
               <button
                 onClick={handleShareLink}
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-xl tg-btn-primary font-bold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
               >
                 <Share2 className="w-4 h-4" />
-                Отправить в Telegram
+                Отправить в чат Telegram
+              </button>
+
+              <button
+                onClick={() => {
+                  sound.playUiTap();
+                  haptics.selection();
+                  if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                    navigator.clipboard.writeText(inviteDeepLink);
+                  }
+                  alert('Ссылка скопирована в буфер обмена!');
+                }}
+                className="w-full py-2.5 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-text text-xs font-bold hover:border-indigo-400/40 active:scale-95 transition-all cursor-pointer"
+              >
+                📋 Скопировать ссылку
               </button>
 
               <button
@@ -208,9 +229,9 @@ export const DuelSetupModal: React.FC<Props> = ({
                   sound.playUiTap();
                   onClose();
                 }}
-                className="w-full py-2.5 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint text-xs font-semibold hover:text-tg-text active:scale-95 transition-all"
+                className="w-full py-2 rounded-xl text-tg-hint text-xs font-semibold hover:text-tg-text active:scale-95 transition-all cursor-pointer"
               >
-                Назад в лобби
+                Отменить и выйти
               </button>
             </div>
           </div>

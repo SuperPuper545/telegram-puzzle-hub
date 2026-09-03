@@ -110,6 +110,27 @@ async function handleMessage(msg) {
       }
     }
 
+    if (startArg && startArg.startsWith('duel_')) {
+      const roomId = startArg.replace('duel_', '');
+      const duelAppUrl = `${WEBAPP_URL}?startapp=duel_${roomId}`;
+      const duelMsg = `⚔️ <b>Вас вызвали на онлайн дуэль в TapTap Hub!</b>\n\n` +
+        `Ваш друг создал приватную комнату и ожидает вашего подключения.\n` +
+        `Нажмите кнопку ниже, чтобы принять вызов и начать бой! 👇`;
+
+      await tgCall('sendMessage', {
+        chat_id: chatId,
+        text: duelMsg,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '⚔️ Принять вызов и начать бой!', web_app: { url: duelAppUrl } }],
+            [{ text: '🎮 Открыть TapTap Hub', web_app: { url: WEBAPP_URL } }],
+          ],
+        },
+      });
+      return;
+    }
+
     const welcome = `👋 <b>Привет, ${tgUser?.first_name || 'Игрок'}!</b>\n\n` +
       referralNotice +
       `Добро пожаловать в <b>TapTap Hub</b> — каталог быстрых и увлекательных головоломок в Telegram Mini App!\n\n` +

@@ -12,10 +12,10 @@ import {
   type PieceType,
   type PieceColor,
 } from './chessEngine';
-import { haptics } from '../../../telegram/telegram';
+import { haptics, setupBackButton, removeBackButton } from '../../../telegram/telegram';
 import { sound } from '../../../utils/sound';
 import confetti from 'canvas-confetti';
-import { Flag, Handshake, Trophy, Frown, Sparkles } from 'lucide-react';
+import { ArrowLeft, Flag, Handshake, Trophy, Frown, Sparkles } from 'lucide-react';
 import type { GameOverPayload, DuelOpponent } from '../types';
 
 interface Props {
@@ -53,12 +53,14 @@ const PIECE_SYMBOLS: Record<string, string> = {
   wR: '♖',
   wB: '♗',
   wN: '♘',
+  wP: '♙',
   wp: '♙',
   bK: '♚',
   bQ: '♛',
   bR: '♜',
   bB: '♝',
   bN: '♞',
+  bP: '♟',
   bp: '♟',
 };
 
@@ -100,6 +102,14 @@ export const ChessGame: React.FC<Props> = ({
   const myEngineColor: PieceColor = myColor === 'white' ? 'w' : 'b';
   const isMyTurn = gameState.turn === myEngineColor;
   const flipped = myColor === 'black';
+
+  // Telegram BackButton integration
+  useEffect(() => {
+    setupBackButton(() => {
+      setShowSurrenderConfirm(true);
+    });
+    return () => removeBackButton();
+  }, []);
 
   useEffect(() => {
     if (!opponentMove) return;
@@ -211,9 +221,22 @@ export const ChessGame: React.FC<Props> = ({
 
   return (
     <div className="flex flex-col h-full bg-tg-bg select-none touch-none overflow-hidden">
-      {/* Top Bar: Opponent Info */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-tg-secondaryBg border-b border-[var(--tg-theme-section-separator-color)] shadow-sm">
-        <div className="flex items-center gap-2.5">
+      {/* Top Bar: Back/Surrender button + Opponent Info + Bank + Opponent Timer */}
+      <div className="flex items-center justify-between px-3 py-2.5 bg-tg-secondaryBg border-b border-[var(--tg-theme-section-separator-color)] shadow-sm">
+        <div className="flex items-center gap-2">
+          {/* Dedicated Exit / Surrender Back Button */}
+          <button
+            onClick={() => {
+              sound.playUiTap();
+              haptics.selection();
+              setShowSurrenderConfirm(true);
+            }}
+            className="p-2 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint hover:text-rose-400 active:scale-90 transition-all cursor-pointer"
+            title="Покинуть матч"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+
           <div className="relative">
             <div className="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center font-bold text-sm text-indigo-400">
               {opponent.firstName[0]}
@@ -223,7 +246,7 @@ export const ChessGame: React.FC<Props> = ({
             )}
           </div>
           <div>
-            <div className="text-xs font-bold text-tg-text truncate max-w-[120px]">
+            <div className="text-xs font-bold text-tg-text truncate max-w-[100px]">
               {opponent.firstName}
             </div>
             <div className="text-[10px] text-tg-hint font-medium">
@@ -234,7 +257,7 @@ export const ChessGame: React.FC<Props> = ({
 
         {/* Bank badge in center */}
         {betAmount > 0 && (
-          <div className="flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+          <div className="flex items-center gap-1 text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
             <span>🪙</span>
             <span>Банк: {Math.floor(betAmount * 1.8)}</span>
           </div>
@@ -317,7 +340,7 @@ export const ChessGame: React.FC<Props> = ({
                         className={`absolute rounded-full ${
                           piece
                             ? 'inset-0 border-[3px] border-indigo-600/80 rounded-none z-20'
-                            : 'w-3 h-3 bg-indigo-600/70 z-20 shadow-sm'
+                            : 'w-3.5 h-3.5 bg-indigo-600/70 z-20 shadow-sm'
                         }`}
                       />
                     )}
@@ -419,7 +442,7 @@ export const ChessGame: React.FC<Props> = ({
               haptics.selection();
               setShowSurrenderConfirm(true);
             }}
-            title="Сдаться"
+            title="Сдаться и выйти"
             className="p-2 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-rose-400 hover:border-rose-400/50 active:scale-90 transition-all cursor-pointer"
           >
             <Flag className="w-4 h-4" />
@@ -429,27 +452,31 @@ export const ChessGame: React.FC<Props> = ({
 
       {/* Surrender Confirmation Modal */}
       {showSurrenderConfirm && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] rounded-3xl p-5 shadow-2xl max-w-xs w-full text-center space-y-3 animate-scale-up">
-            <h4 className="font-extrabold text-base text-tg-text">Сдаться в партии?</h4>
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
+              <Flag className="w-6 h-6" />
+            </div>
+            <h4 className="font-extrabold text-base text-tg-text">Покинуть матч?</h4>
             <p className="text-xs text-tg-hint leading-relaxed">
-              Победа и банк будут присуждены сопернику. Вы уверены?
+              Вам будет засчитано поражение, а выигрыш перейдет сопернику. Вы уверены?
             </p>
             <div className="flex gap-2 pt-2">
               <button
                 onClick={() => setShowSurrenderConfirm(false)}
                 className="flex-1 py-2.5 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint text-xs font-bold active:scale-95 transition-all cursor-pointer"
               >
-                Отмена
+                Остаться
               </button>
               <button
                 onClick={() => {
                   setShowSurrenderConfirm(false);
                   onSurrender();
+                  onExit();
                 }}
                 className="flex-1 py-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 text-xs font-bold active:scale-95 transition-all cursor-pointer"
               >
-                Сдаться
+                Сдаться и выйти
               </button>
             </div>
           </div>

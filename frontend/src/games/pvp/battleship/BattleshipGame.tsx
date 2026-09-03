@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { haptics } from '../../../telegram/telegram';
+import { haptics, setupBackButton, removeBackButton } from '../../../telegram/telegram';
 import { sound } from '../../../utils/sound';
 import confetti from 'canvas-confetti';
-import { Flag, Trophy, Frown, Sparkles, Crosshair, Anchor, Compass } from 'lucide-react';
+import { ArrowLeft, Flag, Trophy, Frown, Sparkles, Crosshair, Anchor, Compass } from 'lucide-react';
 import type { Ship, ShipCell, ShotCell, GameOverPayload, DuelOpponent } from '../types';
 
 interface Props {
@@ -100,8 +100,29 @@ export const BattleshipGame: React.FC<Props> = ({
   const [horizontal, setHorizontal] = useState(true);
   const [ready, setReady] = useState(false);
   const [showSurrender, setShowSurrender] = useState(false);
+  const [waitOpponentSeconds, setWaitOpponentSeconds] = useState(0);
 
   const isMyTurn = currentAttackerId === myUserId;
+
+  // Telegram BackButton integration
+  useEffect(() => {
+    setupBackButton(() => {
+      setShowSurrender(true);
+    });
+    return () => removeBackButton();
+  }, []);
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+    if (phase === 'placement' && ready) {
+      interval = setInterval(() => {
+        setWaitOpponentSeconds((s) => s + 1);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [phase, ready]);
 
   useEffect(() => {
     if (gameOverData) {
@@ -168,33 +189,42 @@ export const BattleshipGame: React.FC<Props> = ({
   // ─── Placement Phase UI ───────────────────────────────────────────────
   if (phase === 'placement' && !ready) {
     return (
-      <div className="flex flex-col h-full bg-tg-bg select-none touch-none p-4 overflow-y-auto">
+      <div className="flex flex-col h-full bg-tg-bg select-none touch-none p-3 overflow-y-auto">
         <div className="flex items-center justify-between pb-3 border-b border-[var(--tg-theme-section-separator-color)]">
-          <div>
-            <h3 className="font-extrabold text-base text-tg-text flex items-center gap-1.5">
-              <Anchor className="w-4 h-4 text-cyan-400" /> Расстановка флота
-            </h3>
-            <p className="text-xs text-tg-hint mt-0.5">
-              {placedShips.length < SHIP_RULES.length
-                ? `Корабль ${placedShips.length + 1}/${SHIP_RULES.length} (${SHIP_RULES[currentShipIdx]} палуб)`
-                : 'Все 10 кораблей готовы к бою!'}
-            </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowSurrender(true)}
+              className="p-2 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint hover:text-rose-400 active:scale-90 transition-all cursor-pointer"
+              title="Покинуть матч"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div>
+              <h3 className="font-extrabold text-sm text-tg-text flex items-center gap-1.5">
+                <Anchor className="w-4 h-4 text-cyan-400" /> Расстановка флота
+              </h3>
+              <p className="text-[11px] text-tg-hint mt-0.5">
+                {placedShips.length < SHIP_RULES.length
+                  ? `Корабль ${placedShips.length + 1}/${SHIP_RULES.length} (${SHIP_RULES[currentShipIdx]} палуб)`
+                  : 'Все 10 кораблей готовы к бою!'}
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => {
                 sound.playUiTap();
                 setHorizontal((h) => !h);
               }}
-              className="px-3 py-1.5 rounded-xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] text-xs font-bold text-tg-text active:scale-95 transition-all cursor-pointer"
+              className="px-2.5 py-1.5 rounded-xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] text-xs font-bold text-tg-text active:scale-95 transition-all cursor-pointer"
             >
-              {horizontal ? '↔️ Гориз.' : '↕️ Верт.'}
+              {horizontal ? '↔️ Гор.' : '↕️ Верт.'}
             </button>
 
             <button
               onClick={handleRandomize}
-              className="px-3 py-1.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-xs font-bold text-indigo-400 active:scale-95 transition-all cursor-pointer"
+              className="px-2.5 py-1.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-xs font-bold text-indigo-400 active:scale-95 transition-all cursor-pointer"
             >
               🎲 Авто
             </button>
@@ -202,8 +232,11 @@ export const BattleshipGame: React.FC<Props> = ({
         </div>
 
         {/* 10x10 Placement Grid */}
-        <div className="flex-1 flex items-center justify-center py-4">
-          <div className="w-full max-w-[320px] aspect-square grid grid-cols-10 gap-0.5 p-1 rounded-2xl bg-cyan-950/20 border border-cyan-500/30 shadow-xl">
+        <div className="flex-1 flex items-center justify-center py-3">
+          <div
+            className="w-full max-w-[320px] aspect-square gap-0.5 p-1 rounded-2xl bg-cyan-950/20 border border-cyan-500/30 shadow-xl"
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(10, minmax(0, 1fr))' }}
+          >
             {Array(10)
               .fill(null)
               .map((_, r) =>
@@ -237,6 +270,39 @@ export const BattleshipGame: React.FC<Props> = ({
             Готов к бою! ⚓
           </button>
         </div>
+
+        {/* Surrender Confirmation Modal */}
+        {showSurrender && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] rounded-3xl p-5 shadow-2xl max-w-xs w-full text-center space-y-3 animate-scale-up">
+              <div className="w-12 h-12 mx-auto rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                <Flag className="w-6 h-6" />
+              </div>
+              <h4 className="font-extrabold text-base text-tg-text">Покинуть бой?</h4>
+              <p className="text-xs text-tg-hint leading-relaxed">
+                Вы уверены? Победа и банк будут присуждены сопернику.
+              </p>
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => setShowSurrender(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint text-xs font-bold active:scale-95 transition-all cursor-pointer"
+                >
+                  Остаться
+                </button>
+                <button
+                  onClick={() => {
+                    setShowSurrender(false);
+                    onSurrender();
+                    onExit();
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 text-xs font-bold active:scale-95 transition-all cursor-pointer"
+                >
+                  Сдаться и выйти
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -244,14 +310,72 @@ export const BattleshipGame: React.FC<Props> = ({
   // ─── Waiting Opponent Ready UI ───────────────────────────────────────
   if (phase === 'placement' && ready) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-6 text-tg-hint">
-        <div className="w-16 h-16 rounded-3xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-3xl shadow-inner text-cyan-400 animate-pulse">
-          <Compass className="w-8 h-8 animate-spin" />
+      <div className="flex flex-col h-full bg-tg-bg select-none touch-none p-4 justify-between">
+        {/* Top Header */}
+        <div className="flex items-center justify-between pb-3 border-b border-[var(--tg-theme-section-separator-color)]">
+          <button
+            onClick={() => setShowSurrender(true)}
+            className="p-2 rounded-xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] text-tg-hint hover:text-rose-400 active:scale-90 transition-all cursor-pointer"
+            title="Покинуть матч"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <span className="text-xs font-bold text-tg-hint">Ожидание готовности</span>
+          <div className="w-8" />
         </div>
-        <div>
-          <h4 className="font-extrabold text-base text-tg-text">Флот развернут!</h4>
-          <p className="text-xs text-tg-hint mt-1">Ожидаем готовности эскадры соперника...</p>
+
+        {/* Waiting Body */}
+        <div className="flex flex-col items-center justify-center gap-4 text-center p-6 text-tg-hint">
+          <div className="w-16 h-16 rounded-3xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-3xl shadow-inner text-cyan-400 animate-pulse">
+            <Compass className="w-8 h-8 animate-spin" />
+          </div>
+          <div>
+            <h4 className="font-extrabold text-base text-tg-text">Ваш флот развернут!</h4>
+            <p className="text-xs text-tg-hint mt-1">Ожидаем, пока {opponent.firstName} расставит корабли...</p>
+            <p className="text-xs font-mono font-bold text-cyan-400 mt-2">Время ожидания: {waitOpponentSeconds} сек</p>
+          </div>
         </div>
+
+        {/* Exit Button in Waiting */}
+        <button
+          onClick={() => setShowSurrender(true)}
+          className="w-full py-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-400 font-bold text-xs active:scale-95 transition-all cursor-pointer"
+        >
+          Сдаться и выйти в хаб
+        </button>
+
+        {/* Surrender Confirmation Modal */}
+        {showSurrender && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] rounded-3xl p-5 shadow-2xl max-w-xs w-full text-center space-y-3 animate-scale-up">
+              <div className="w-12 h-12 mx-auto rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                <Flag className="w-6 h-6" />
+              </div>
+              <h4 className="font-extrabold text-base text-tg-text">Покинуть бой?</h4>
+              <p className="text-xs text-tg-hint leading-relaxed">
+                Вы уверены? Победа и банк будут присуждены сопернику.
+              </p>
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => setShowSurrender(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint text-xs font-bold active:scale-95 transition-all cursor-pointer"
+                >
+                  Остаться
+                </button>
+                <button
+                  onClick={() => {
+                    setShowSurrender(false);
+                    onSurrender();
+                    onExit();
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 text-xs font-bold active:scale-95 transition-all cursor-pointer"
+                >
+                  Сдаться и выйти
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -259,19 +383,39 @@ export const BattleshipGame: React.FC<Props> = ({
   // ─── Battle Phase UI ──────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full bg-tg-bg select-none touch-none overflow-hidden">
-      {/* Top Bar: Opponent Info & Turn Status */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-tg-secondaryBg border-b border-[var(--tg-theme-section-separator-color)] shadow-sm">
+      {/* Top Bar: Back Button + Opponent Info + Turn Status + Surrender */}
+      <div className="flex items-center justify-between px-3 py-2.5 bg-tg-secondaryBg border-b border-[var(--tg-theme-section-separator-color)] shadow-sm">
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              sound.playUiTap();
+              haptics.selection();
+              setShowSurrender(true);
+            }}
+            className="p-2 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint hover:text-rose-400 active:scale-90 transition-all cursor-pointer"
+            title="Покинуть матч"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+
           <div className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center font-bold text-xs text-cyan-400">
             {opponent.firstName[0]}
           </div>
           <div>
-            <div className="text-xs font-bold text-tg-text truncate max-w-[120px]">
+            <div className="text-xs font-bold text-tg-text truncate max-w-[90px]">
               {opponent.firstName}
             </div>
             <div className="text-[10px] text-tg-hint">Флот врага</div>
           </div>
         </div>
+
+        {/* Bank badge in center */}
+        {betAmount > 0 && (
+          <div className="flex items-center gap-1 text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+            <span>🪙</span>
+            <span>Банк: {Math.floor(betAmount * 1.8)}</span>
+          </div>
+        )}
 
         {/* Turn Status Badge */}
         <div
@@ -282,17 +426,8 @@ export const BattleshipGame: React.FC<Props> = ({
           }`}
         >
           <Crosshair className="w-3.5 h-3.5" />
-          <span>{isMyTurn ? 'Ваш залп!' : 'Залп соперника...'}</span>
+          <span>{isMyTurn ? 'Ваш залп!' : 'Залп врага'}</span>
         </div>
-
-        {/* Surrender Button */}
-        <button
-          onClick={() => setShowSurrender(true)}
-          title="Сдаться"
-          className="p-2 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-rose-400 hover:border-rose-400/50 active:scale-90 transition-all cursor-pointer"
-        >
-          <Flag className="w-4 h-4" />
-        </button>
       </div>
 
       {/* Battle Boards Area */}
@@ -303,7 +438,10 @@ export const BattleshipGame: React.FC<Props> = ({
             <Crosshair className="w-3 h-3" /> Поле врага (Стрелять сюда)
           </div>
 
-          <div className="w-full max-w-[280px] mx-auto aspect-square grid grid-cols-10 gap-0.5 p-1 rounded-xl bg-cyan-950/30 border border-cyan-500/40 shadow-md">
+          <div
+            className="w-full max-w-[280px] mx-auto aspect-square gap-0.5 p-1 rounded-xl bg-cyan-950/30 border border-cyan-500/40 shadow-md"
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(10, minmax(0, 1fr))' }}
+          >
             {Array(10)
               .fill(null)
               .map((_, r) =>
@@ -342,7 +480,10 @@ export const BattleshipGame: React.FC<Props> = ({
             <Anchor className="w-3 h-3 text-indigo-400" /> Ваша эскадра
           </div>
 
-          <div className="w-full max-w-[210px] mx-auto aspect-square grid grid-cols-10 gap-0.5 p-1 rounded-xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] shadow-sm">
+          <div
+            className="w-full max-w-[210px] mx-auto aspect-square gap-0.5 p-1 rounded-xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] shadow-sm"
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(10, minmax(0, 1fr))' }}
+          >
             {Array(10)
               .fill(null)
               .map((_, r) =>
@@ -375,9 +516,12 @@ export const BattleshipGame: React.FC<Props> = ({
 
       {/* Surrender Confirmation Modal */}
       {showSurrender && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] rounded-3xl p-5 shadow-2xl max-w-xs w-full text-center space-y-3 animate-scale-up">
-            <h4 className="font-extrabold text-base text-tg-text">Сдаться в битве?</h4>
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
+              <Flag className="w-6 h-6" />
+            </div>
+            <h4 className="font-extrabold text-base text-tg-text">Покинуть бой?</h4>
             <p className="text-xs text-tg-hint leading-relaxed">
               Вы уверены? Победа и банк будут присуждены сопернику.
             </p>
@@ -386,16 +530,17 @@ export const BattleshipGame: React.FC<Props> = ({
                 onClick={() => setShowSurrender(false)}
                 className="flex-1 py-2.5 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint text-xs font-bold active:scale-95 transition-all cursor-pointer"
               >
-                Отмена
+                Остаться
               </button>
               <button
                 onClick={() => {
                   setShowSurrender(false);
                   onSurrender();
+                  onExit();
                 }}
                 className="flex-1 py-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 text-xs font-bold active:scale-95 transition-all cursor-pointer"
               >
-                Сдаться
+                Сдаться и выйти
               </button>
             </div>
           </div>

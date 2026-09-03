@@ -5,8 +5,9 @@ import { DurakGame } from './durak/DurakGame';
 import { BattleshipGame } from './battleship/BattleshipGame';
 import { DuelSetupModal } from './DuelSetupModal';
 import { useGameBridge } from '../../context/GameContext';
-import { setupBackButton, removeBackButton, haptics } from '../../telegram/telegram';
+import { haptics, removeBackButton } from '../../telegram/telegram';
 import { sound } from '../../utils/sound';
+import { Swords, Loader2 } from 'lucide-react';
 import type { DuelGameType, GameOverPayload, DuelOpponent } from './types';
 
 interface Props {
@@ -24,6 +25,7 @@ export const DuelLobby: React.FC<Props> = ({
 
   const [isInGame, setIsInGame] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [isJoiningRoom, setIsJoiningRoom] = useState<string | null>(null);
   const [inviteDeepLink, setInviteDeepLink] = useState<string | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [opponentDisconnectCountdown, setOpponentDisconnectCountdown] = useState<number | null>(null);
@@ -68,6 +70,7 @@ export const DuelLobby: React.FC<Props> = ({
       if (pendingRoom) {
         localStorage.removeItem('hub_pending_duel_room');
         setRoomId(pendingRoom);
+        setIsJoiningRoom(pendingRoom);
         send({ type: 'join_room', roomId: pendingRoom });
         haptics.medium();
       }
@@ -91,6 +94,7 @@ export const DuelLobby: React.FC<Props> = ({
       }),
       on('game_start', (d) => {
         setIsSearching(false);
+        setIsJoiningRoom(null);
         setInviteDeepLink(null);
         setRoomId(d.roomId);
         setGameStartData({
@@ -163,24 +167,16 @@ export const DuelLobby: React.FC<Props> = ({
         if (disconnectTimerRef.current) clearInterval(disconnectTimerRef.current);
       }),
       on('error', (d) => {
+        setIsJoiningRoom(null);
+        setIsSearching(false);
         setErrorToast(d.message);
         haptics.error();
-        setTimeout(() => setErrorToast(null), 3500);
+        setTimeout(() => setErrorToast(null), 4000);
       }),
     ];
 
     return () => unsub.forEach((fn) => fn());
   }, [on, onCloseSetupModal, refreshProfile]);
-
-  // Back Button Navigation
-  useEffect(() => {
-    if (isInGame) {
-      setupBackButton(() => {});
-    } else {
-      removeBackButton();
-    }
-    return () => removeBackButton();
-  }, [isInGame]);
 
   const handleStartQueue = (game: DuelGameType, bet: number, timer: string, durak: string) => {
     send({ type: 'join_queue', gameType: game, betAmount: bet, timerMode: timer, durakMode: durak });
@@ -201,6 +197,9 @@ export const DuelLobby: React.FC<Props> = ({
     setGameOverData(null);
     setRoomId(null);
     setInviteDeepLink(null);
+    setIsJoiningRoom(null);
+    setIsSearching(false);
+    removeBackButton();
     refreshProfile();
   };
 
@@ -290,13 +289,37 @@ export const DuelLobby: React.FC<Props> = ({
     );
   }
 
-  // ─── Setup Modal Render ───────────────────────────────────────────────────
+  // ─── Setup Modal & Deep Link Joining View ─────────────────────────────────
   return (
     <>
       {/* Floating Error Toast */}
       {errorToast && (
         <div className="fixed top-16 left-4 right-4 z-50 bg-rose-500/95 text-white text-xs font-extrabold text-center py-2.5 px-4 rounded-2xl shadow-xl animate-fade-in">
           ⚠️ {errorToast}
+        </div>
+      )}
+
+      {/* Joining Room Deep Link Overlay */}
+      {isJoiningRoom && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] rounded-3xl p-6 shadow-2xl max-w-xs w-full text-center space-y-4 animate-scale-up">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+              <Swords className="w-7 h-7 animate-bounce" />
+            </div>
+            <div>
+              <h4 className="font-extrabold text-base text-tg-text">Присоединение к дуэли!</h4>
+              <p className="text-xs text-tg-hint mt-1">Подключаемся к приватной комнате друга...</p>
+              <div className="flex items-center justify-center gap-1.5 text-xs text-indigo-400 font-mono font-bold mt-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> #{isJoiningRoom}
+              </div>
+            </div>
+            <button
+              onClick={() => setIsJoiningRoom(null)}
+              className="w-full py-2.5 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint text-xs font-bold active:scale-95 transition-all cursor-pointer"
+            >
+              Отмена
+            </button>
+          </div>
         </div>
       )}
 
