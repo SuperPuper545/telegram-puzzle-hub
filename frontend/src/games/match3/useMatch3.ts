@@ -209,10 +209,12 @@ export function useMatch3(initialBestScore: number = 0) {
     setIsBusy(true);
 
     const counts: Record<number, number> = {};
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
-        const t = board[r][c].type;
-        counts[t] = (counts[t] || 0) + 1;
+    for (let r = 0; r < MATCH3_SIZE; r++) {
+      for (let c = 0; c < MATCH3_SIZE; c++) {
+        const t = board[r]?.[c]?.type;
+        if (t !== undefined) {
+          counts[t] = (counts[t] || 0) + 1;
+        }
       }
     }
     let targetType = 0;
@@ -225,9 +227,9 @@ export function useMatch3(initialBestScore: number = 0) {
     });
 
     const clearing = new Set<string>();
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
-        if (board[r][c].type === targetType) {
+    for (let r = 0; r < MATCH3_SIZE; r++) {
+      for (let c = 0; c < MATCH3_SIZE; c++) {
+        if (board[r]?.[c]?.type === targetType) {
           clearing.add(`${r},${c}`);
         }
       }

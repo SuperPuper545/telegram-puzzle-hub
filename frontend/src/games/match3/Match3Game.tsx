@@ -310,25 +310,25 @@ export const Match3Game: React.FC = () => {
         </button>
       </div>
 
-      {/* 3. Moves & Status Bar (placed strictly below the boosters) */}
-      <div className="h-7 shrink-0 flex items-center justify-center px-4">
-        {boosterNotice ? (
-          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-[11px] font-black text-amber-500 animate-fade-in shadow-md">
-            <Sparkles className="w-3 h-3 text-amber-500" />
-            {boosterNotice}
-          </div>
-        ) : (
-          <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] shadow-sm">
-            <Zap className="w-3 h-3 text-amber-500 fill-amber-500" />
-            <span className="text-xs font-extrabold text-tg-text">
-              Осталось ходов: <span className={movesLeft <= 5 ? 'text-rose-400 animate-pulse font-black' : 'text-amber-500'}>{movesLeft}</span>
-            </span>
+      {/* 3. Moves & Status Bar (Always visible moves count, non-blocking floating booster toast) */}
+      <div className="h-7 shrink-0 flex items-center justify-center px-4 relative">
+        <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] shadow-sm">
+          <Zap className="w-3 h-3 text-amber-500 fill-amber-500" />
+          <span className="text-xs font-extrabold text-tg-text">
+            Осталось ходов: <span className={movesLeft <= 5 ? 'text-rose-400 animate-pulse font-black' : 'text-amber-500'}>{movesLeft}</span>
+          </span>
+        </div>
+
+        {boosterNotice && (
+          <div className="absolute top-8 z-30 inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500 border border-amber-300/80 text-white text-[11px] font-black shadow-lg shadow-amber-500/40 animate-fade-in pointer-events-none">
+            <Sparkles className="w-3 h-3 fill-white text-white" />
+            <span>{boosterNotice}</span>
           </div>
         )}
       </div>
 
-      {/* 4. Enlarged Responsive 7x7 Board with spacious, comfortable touch targets */}
-      <div className="flex-1 flex items-center justify-center p-2 min-h-0">
+      {/* 4. Enlarged Responsive 7x7 Board - Centered higher with bottom breathing room */}
+      <div className="flex-1 flex flex-col items-center justify-center p-2 pb-8 sm:pb-12 min-h-0">
         <div
           style={{
             width: 'min(94vw, 55vh, 420px)',
@@ -351,11 +351,11 @@ export const Match3Game: React.FC = () => {
                   onPointerMove={handleGemPointerMove}
                   onPointerUp={(e) => handleGemPointerUp(r, c, e)}
                   onPointerCancel={() => { pointerStartRef.current = null; }}
-                  className={`relative flex items-center justify-center cursor-pointer transition-all duration-150 aspect-square select-none touch-none ${
+                  className={`relative flex items-center justify-center cursor-pointer transition-all duration-200 aspect-square select-none touch-none ${
                     isKnopachki ? 'rounded-full' : 'rounded-2xl'
                   } ${
                     isClearing
-                      ? 'scale-125 bg-amber-300 shadow-xl shadow-amber-400/80 z-20 animate-ping opacity-80'
+                      ? 'scale-0 opacity-0 rotate-12 transition-all duration-200 ease-in brightness-125 z-20'
                       : isSelected
                       ? 'ring-4 ring-white/90 scale-105 shadow-xl shadow-white/40 z-10'
                       : 'hover:scale-105 active:scale-95'
