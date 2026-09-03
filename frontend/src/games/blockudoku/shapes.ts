@@ -1,4 +1,4 @@
-﻿import type { Shape } from './types';
+import type { Shape } from './types';
 
 export const SHAPES: Shape[] = [
   // 1x1 Dot
@@ -90,19 +90,6 @@ export const SHAPES: Shape[] = [
     glowClass: 'shadow-amber-500/50',
     accentColor: '#f59e0b',
   },
-  // 3x3 Square
-  {
-    id: 'square-3',
-    name: '3x3 Square',
-    matrix: [
-      [1, 1, 1],
-      [1, 1, 1],
-      [1, 1, 1],
-    ],
-    colorClass: 'bg-rose-500 border-rose-400 text-rose-100',
-    glowClass: 'shadow-rose-500/50',
-    accentColor: '#f43f5e',
-  },
   // 2x2 Corners
   {
     id: 'corner-2-tl',
@@ -173,7 +160,7 @@ export const SHAPES: Shape[] = [
     glowClass: 'shadow-orange-500/50',
     accentColor: '#f97316',
   },
-  // T-Shapes
+  // T-Shapes (All 4 Directions)
   {
     id: 't-shape-up',
     name: 'T-Shape Up',
@@ -191,6 +178,30 @@ export const SHAPES: Shape[] = [
     matrix: [
       [0, 1, 0],
       [1, 1, 1],
+    ],
+    colorClass: 'bg-purple-500 border-purple-400 text-purple-100',
+    glowClass: 'shadow-purple-500/50',
+    accentColor: '#a855f7',
+  },
+  {
+    id: 't-shape-left',
+    name: 'T-Shape Left',
+    matrix: [
+      [1, 0],
+      [1, 1],
+      [1, 0],
+    ],
+    colorClass: 'bg-purple-500 border-purple-400 text-purple-100',
+    glowClass: 'shadow-purple-500/50',
+    accentColor: '#a855f7',
+  },
+  {
+    id: 't-shape-right',
+    name: 'T-Shape Right',
+    matrix: [
+      [0, 1],
+      [1, 1],
+      [0, 1],
     ],
     colorClass: 'bg-purple-500 border-purple-400 text-purple-100',
     glowClass: 'shadow-purple-500/50',
@@ -246,11 +257,40 @@ export const SHAPES: Shape[] = [
   },
 ];
 
-export function getRandomShape(): Shape {
-  const index = Math.floor(Math.random() * SHAPES.length);
-  return SHAPES[index];
+// Difficulty Categories for Balanced Tray Generation
+const SMALL_SHAPES = SHAPES.filter((s) => ['dot-1', 'line-2-h', 'line-2-v', 'line-3-h', 'line-3-v', 'corner-2-tl', 'corner-2-tr', 'corner-2-bl', 'corner-2-br'].includes(s.id));
+const MEDIUM_SHAPES = SHAPES.filter((s) => ['square-2', 'line-4-h', 'line-4-v', 't-shape-up', 't-shape-down', 't-shape-left', 't-shape-right', 'l-shape-1', 'l-shape-2'].includes(s.id));
+const LARGE_SHAPES = SHAPES.filter((s) => ['line-5-h', 'line-5-v', 'corner-3-tl', 'corner-3-br', 'z-shape', 's-shape'].includes(s.id));
+
+function pickRandom(arr: Shape[]): Shape {
+  return arr[Math.floor(Math.random() * arr.length)];
 }
 
+export function getRandomShape(): Shape {
+  const rand = Math.random();
+  if (rand < 0.45) return pickRandom(SMALL_SHAPES);
+  if (rand < 0.85) return pickRandom(MEDIUM_SHAPES);
+  return pickRandom(LARGE_SHAPES);
+}
+
+/**
+ * Balanced Tray Generation:
+ * Always delivers at least 1-2 playable/convenient shapes, and at most 1 large shape,
+ * preventing unfair deadlocks while keeping the puzzle dynamic and rewarding.
+ */
 export function generateTrayShapes(): (Shape | null)[] {
-  return [getRandomShape(), getRandomShape(), getRandomShape()];
+  const hasLarge = Math.random() < 0.35;
+  if (hasLarge) {
+    return [
+      pickRandom(SMALL_SHAPES),
+      pickRandom(MEDIUM_SHAPES),
+      pickRandom(LARGE_SHAPES),
+    ].sort(() => Math.random() - 0.5);
+  }
+
+  return [
+    pickRandom(SMALL_SHAPES),
+    Math.random() < 0.5 ? pickRandom(SMALL_SHAPES) : pickRandom(MEDIUM_SHAPES),
+    pickRandom(MEDIUM_SHAPES),
+  ].sort(() => Math.random() - 0.5);
 }

@@ -34,17 +34,44 @@ const getPointerOffsetY = (e: React.PointerEvent) => {
   return isTouch ? FINGER_OFFSET_TOUCH : 40;
 };
 
-function getBlockSkinClass(skinId: string): string {
+// 4 Exact Block Styles requested by user:
+// 1. Classic Blue: strictly pure blue everywhere
+const CLASSIC_BLUE = 'bg-gradient-to-b from-blue-500 to-blue-600 border border-blue-400/80 shadow-sm shadow-blue-950/20 text-blue-100';
+
+// 2. Colorful: vibrant diverse colors across the board and tray
+const COLORFUL_CLASSES = [
+  'bg-emerald-500 border-emerald-400 text-emerald-100 shadow-sm shadow-emerald-500/20',
+  'bg-cyan-500 border-cyan-400 text-cyan-100 shadow-sm shadow-cyan-500/20',
+  'bg-blue-500 border-blue-400 text-blue-100 shadow-sm shadow-blue-500/20',
+  'bg-indigo-500 border-indigo-400 text-indigo-100 shadow-sm shadow-indigo-500/20',
+  'bg-purple-500 border-purple-400 text-purple-100 shadow-sm shadow-purple-500/20',
+  'bg-pink-500 border-pink-400 text-pink-100 shadow-sm shadow-pink-500/20',
+  'bg-amber-500 border-amber-400 text-amber-100 shadow-sm shadow-amber-500/20',
+  'bg-teal-500 border-teal-400 text-teal-100 shadow-sm shadow-teal-500/20',
+];
+
+// 3. Smooth Gradient: elegant shimmering gradient without eye strain
+const GRADIENT_BLOCK = 'bg-gradient-to-br from-indigo-500 via-purple-500 to-sky-500 border border-indigo-300/60 shadow-sm text-indigo-100';
+
+// 4. Soft Pink Neon: delicate, non-glaring soft pink glow
+const NEON_ROSE_BLOCK = 'bg-gradient-to-b from-rose-500 to-pink-600 border border-rose-300 shadow-[0_0_8px_rgba(244,63,94,0.35)] text-rose-100';
+
+function getBlockSkinClass(skinId: string, row?: number, col?: number, pieceColorClass?: string): string {
   switch (skinId) {
-    case 'block_neon':
-      return 'bg-gradient-to-br from-cyan-400 to-fuchsia-500 border border-cyan-300 shadow-md shadow-cyan-500/30';
-    case 'block_gold':
-      return 'bg-gradient-to-br from-amber-300 via-yellow-400 to-amber-600 border border-yellow-200 shadow-md shadow-amber-500/40';
-    case 'block_crystal':
-      return 'bg-gradient-to-br from-sky-300 via-blue-400 to-indigo-500 border border-sky-200 shadow-md shadow-sky-400/40';
     case 'block_classic':
+      return CLASSIC_BLUE;
+    case 'block_colorful':
+      if (pieceColorClass) return pieceColorClass;
+      if (row !== undefined && col !== undefined) {
+        return COLORFUL_CLASSES[(row * 3 + col) % COLORFUL_CLASSES.length];
+      }
+      return COLORFUL_CLASSES[0];
+    case 'block_gradient':
+      return GRADIENT_BLOCK;
+    case 'block_neon':
+      return NEON_ROSE_BLOCK;
     default:
-      return 'bg-gradient-to-br from-indigo-500 to-indigo-600 border border-indigo-400/50 shadow-sm shadow-indigo-500/20';
+      return CLASSIC_BLUE;
   }
 }
 
@@ -505,15 +532,15 @@ export const BlockudokuGame: React.FC = () => {
         ) : null}
       </div>
 
-      {/* 3. Responsive 9x9 Board */}
-      <div className="flex-1 flex items-center justify-center p-2 min-h-0">
+      {/* 3. Responsive 9x9 Board with tighter gaps and enlarged viewport */}
+      <div className="flex-1 flex items-center justify-center p-1.5 min-h-0">
         <div
           ref={boardRef}
           style={{
-            width: 'min(86vw, 44vh, 370px)',
-            height: 'min(86vw, 44vh, 370px)',
+            width: 'min(94vw, 53vh, 410px)',
+            height: 'min(94vw, 53vh, 410px)',
           }}
-          className="aspect-square bg-tg-secondaryBg rounded-2xl p-2 border-2 border-[var(--tg-theme-section-separator-color)] shadow-xl grid grid-cols-9 gap-1"
+          className="aspect-square bg-tg-secondaryBg/90 backdrop-blur-sm rounded-3xl p-1.5 border-2 border-[var(--tg-theme-section-separator-color)] shadow-2xl grid grid-cols-9 gap-[2px] sm:gap-[2.5px]"
         >
           {grid.map((row, r) =>
             row.map((cell, c) => {
@@ -529,22 +556,22 @@ export const BlockudokuGame: React.FC = () => {
                 <div
                   key={`${r}-${c}`}
                   onClick={() => handleBoardClick(r, c)}
-                  className={`relative rounded-md transition-all duration-100 flex items-center justify-center aspect-square cursor-pointer ${
+                  className={`relative rounded-[3.5px] transition-all duration-100 flex items-center justify-center aspect-square cursor-pointer ${
                     isClear
                       ? 'bg-amber-300 scale-105 shadow-lg shadow-amber-400/60 z-10'
                       : isPredicted
-                      ? 'bg-amber-400/80 ring-2 ring-amber-300 shadow-md shadow-amber-400/50 scale-95 animate-pulse z-10'
+                      ? 'bg-amber-400/85 ring-2 ring-amber-300 shadow-md shadow-amber-400/50 scale-95 animate-pulse z-10'
                       : cell > 0
-                      ? getBlockSkinClass(equippedBlockSkin)
+                      ? getBlockSkinClass(equippedBlockSkin, r, c)
                       : isGhost
                       ? 'bg-indigo-400/50 border-2 border-indigo-300 scale-95 animate-pulse'
                       : isSubgridEven
-                      ? 'bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.05] dark:border-white/[0.05]'
-                      : 'bg-black/[0.08] dark:bg-white/[0.08] border border-black/[0.09] dark:border-white/[0.09]'
+                      ? 'bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.04] dark:border-white/[0.04]'
+                      : 'bg-black/[0.07] dark:bg-white/[0.07] border border-black/[0.07] dark:border-white/[0.07]'
                   }`}
                 >
                   {cell > 0 && !isClear && !isPredicted && (
-                    <div className="w-full h-full rounded-[4px] bg-white/10 border-t border-l border-white/20" />
+                    <div className="w-full h-full rounded-[2.5px] bg-white/10 border-t border-l border-white/25" />
                   )}
                   {isPredicted && (
                     <div className="w-2 h-2 rounded-full bg-white animate-ping" />
@@ -557,7 +584,7 @@ export const BlockudokuGame: React.FC = () => {
       </div>
 
       {/* Booster Action Bar */}
-      <div className="shrink-0 px-4 py-1.5 flex items-center justify-between gap-3 max-w-md mx-auto w-full">
+      <div className="shrink-0 px-4 py-1 flex items-center justify-between gap-3 max-w-md mx-auto w-full">
         {/* Reroll */}
         <button
           onClick={handleReroll}
@@ -581,9 +608,9 @@ export const BlockudokuGame: React.FC = () => {
         </button>
       </div>
 
-      {/* 4. Tray of 3 Pieces (h-28) */}
-      <div className="h-28 shrink-0 pb-3 px-3 bg-tg-secondaryBg border-t border-[var(--tg-theme-section-separator-color)]">
-        <div className="max-w-md mx-auto grid grid-cols-3 gap-2.5 h-full">
+      {/* 4. Tray of 3 Pieces: Open Airy Podium without separate ugly box containers */}
+      <div className="shrink-0 pb-3 pt-1 px-3">
+        <div className="max-w-md mx-auto h-24 sm:h-28 rounded-3xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--tg-theme-section-separator-color)] flex items-center justify-around px-2 relative shadow-inner">
           {trayPieces.map((piece, index) => {
             const isBeingDragged = dragState?.pieceIndex === index;
             const isSelected = selectedTrayIndex === index;
@@ -598,25 +625,28 @@ export const BlockudokuGame: React.FC = () => {
                     sound.playPickup();
                   }
                 }}
-                className={`relative rounded-2xl border transition-all duration-200 flex items-center justify-center overflow-hidden touch-none ${
+                className={`flex-1 h-full flex flex-col items-center justify-center relative select-none touch-none transition-transform duration-150 ${
                   !piece
-                    ? 'bg-black/[0.04] dark:bg-white/[0.04] border-[var(--tg-theme-section-separator-color)]'
+                    ? 'opacity-0 pointer-events-none'
                     : !canPlace
-                    ? 'bg-black/[0.05] dark:bg-white/[0.05] border-dashed border-[var(--tg-theme-section-separator-color)] opacity-40 grayscale cursor-not-allowed'
+                    ? 'opacity-35 grayscale cursor-not-allowed'
                     : isSelected
-                    ? 'border-indigo-500 ring-2 ring-indigo-500/40 bg-indigo-500/15 cursor-grab active:cursor-grabbing'
-                    : 'bg-tg-bg border border-[var(--tg-theme-section-separator-color)] hover:border-indigo-500/40 cursor-grab active:cursor-grabbing shadow-sm'
+                    ? 'scale-110 cursor-grab active:cursor-grabbing'
+                    : 'hover:scale-105 cursor-grab active:cursor-grabbing'
                 }`}
               >
+                {/* Delicately glowing pedestal for selected piece */}
+                {isSelected && (
+                  <div className="absolute inset-2 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 animate-pulse -z-10" />
+                )}
+
                 {piece && !isBeingDragged && (
                   <div
                     onPointerDown={(e) => canPlace && handlePiecePointerDown(e, piece, index)}
-                    className={`p-2 transition-transform ${
-                      canPlace ? 'hover:scale-105 active:scale-95' : ''
-                    } ${isSelected ? 'scale-105' : ''}`}
+                    className="p-2 flex flex-col items-center justify-center"
                   >
                     <div
-                      className="grid gap-1"
+                      className="grid gap-[2px]"
                       style={{
                         gridTemplateColumns: `repeat(${piece.matrix[0].length}, minmax(0, 1fr))`,
                       }}
@@ -625,10 +655,10 @@ export const BlockudokuGame: React.FC = () => {
                         row.map((val, c) => (
                           <div
                             key={`${r}-${c}`}
-                            className={`w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-sm transition-all ${
+                            className={`w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-[2.5px] transition-all ${
                               val === 1
                                 ? canPlace
-                                  ? `${piece.colorClass} shadow-sm ${piece.glowClass}`
+                                  ? `${getBlockSkinClass(equippedBlockSkin, undefined, undefined, piece.colorClass)}`
                                   : 'bg-black/30 dark:bg-white/20'
                                 : 'opacity-0'
                             }`}
@@ -662,7 +692,7 @@ export const BlockudokuGame: React.FC = () => {
           }}
         >
           <div
-            className="grid gap-1.5 p-1 rounded-lg"
+            className="grid gap-[2.5px] p-1 rounded-xl"
             style={{
               gridTemplateColumns: `repeat(${dragState.piece.matrix[0].length}, minmax(0, 1fr))`,
             }}
@@ -671,9 +701,9 @@ export const BlockudokuGame: React.FC = () => {
               row.map((val, c) => (
                 <div
                   key={`${r}-${c}`}
-                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md transition-all ${
+                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-[4px] transition-all ${
                     val === 1
-                      ? `${dragState.piece.colorClass} shadow-xl ${dragState.piece.glowClass} scale-105`
+                      ? `${getBlockSkinClass(equippedBlockSkin, undefined, undefined, dragState.piece.colorClass)} shadow-xl scale-105`
                       : 'opacity-0'
                   }`}
                 />

@@ -435,10 +435,10 @@ export function getReferralsInfo(userId) {
 
 export const SHOP_ITEMS = [
   // Blockudoku Skins
-  { id: 'block_classic', category: 'block_skin', name: 'Классик Индиго', description: 'Стандартный неоново-синий стиль блоков', price: 0, previewColor: '#6366f1' },
-  { id: 'block_neon', category: 'block_skin', name: 'Неоновый Киберпанк', description: 'Яркие бирюзово-розовые неоновые грани', price: 500, previewColor: '#06b6d4' },
-  { id: 'block_gold', category: 'block_skin', name: 'Золотой VIP', description: 'Металлический блеск золотых слитков', price: 1000, previewColor: '#f59e0b' },
-  { id: 'block_crystal', category: 'block_skin', name: 'Кристальный Лед', description: 'Ледяное сапфировое сияние граней', price: 1500, previewColor: '#38bdf8' },
+  { id: 'block_classic', category: 'block_skin', name: 'Классический Синий', description: 'Строгие лаконичные блоки чистого синего цвета', price: 0, previewColor: '#2563eb' },
+  { id: 'block_colorful', category: 'block_skin', name: 'Красочный Микс', description: 'Сочные разноцветные блоки для каждой фигуры', price: 400, previewColor: '#10b981' },
+  { id: 'block_gradient', category: 'block_skin', name: 'Мягкий Градиент', description: 'Аккуратный переливающийся градиент без лишних свечений', price: 800, previewColor: '#6366f1' },
+  { id: 'block_neon', category: 'block_skin', name: 'Розовый Неон', description: 'Деликатный розоватый неон с мягким неслепящим ореолом', price: 1200, previewColor: '#f43f5e' },
 
   // Match-3 Gem Skins
   { id: 'gem_classic', category: 'gem_skin', name: 'Ограненные самоцветы', description: 'Классические драгоценные камни', price: 0, previewColor: '#ec4899' },
