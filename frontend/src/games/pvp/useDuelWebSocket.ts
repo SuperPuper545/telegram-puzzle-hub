@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { getTelegramInitData } from '../../telegram/telegram';
+import { getTelegramInitData, getTelegramUser } from '../../telegram/telegram';
 import type { Card, TableSlot, ShipCell, ShotCell, DuelGameType, GameOverPayload } from './types';
 
 const WS_BASE = (() => {
@@ -117,7 +117,10 @@ export function useDuelWebSocket() {
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
     const initData = getTelegramInitData();
-    const url = `${WS_BASE}?initData=${encodeURIComponent(initData)}`;
+    const user = getTelegramUser();
+    const uid = encodeURIComponent(String(user.id || ''));
+    const uname = encodeURIComponent(user.first_name || 'Player');
+    const url = `${WS_BASE}?initData=${encodeURIComponent(initData)}&devUserId=${uid}&devUserName=${uname}`;
     const ws = new WebSocket(url);
     wsRef.current = ws;
 

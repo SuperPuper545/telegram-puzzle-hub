@@ -183,20 +183,6 @@ function onJoinQueue(ws,user,d) {
   } else {
     matchmakingQueues[key].push({userId:user.id,ws,user,timerMode,durakMode});
     sendWs(ws,{type:'queued',gameType,betAmount});
-
-    // Auto-match training opponent if queue is empty for 3 seconds!
-    setTimeout(()=>{
-      if(!matchmakingQueues[key])return;
-      const idx=matchmakingQueues[key].findIndex(e=>e.userId===user.id&&e.ws===ws);
-      if(idx!==-1&&ws.readyState===WebSocket.OPEN){
-        matchmakingQueues[key].splice(idx,1);
-        const botNames=['Александр 🇷🇺','Елена ⚡','Дмитрий ♟️','Максим 🎮','Артем 🃏','Виктор ⚓'];
-        const bName=botNames[Math.floor(Math.random()*botNames.length)];
-        const botId=800000+Math.floor(Math.random()*10000);
-        upsertUser({id:botId,first_name:bName,username:'taptap_bot'});
-        startRoom(gameType,betAmount,{userId:user.id,firstName:user.firstName,username:user.username,ws},{userId:botId,firstName:bName,username:'taptap_bot',ws:null,isBot:true},null,timerMode,durakMode);
-      }
-    },2800);
   }
 }
 function onLeaveQueue(ws,user,d) {
@@ -551,11 +537,18 @@ server.on('upgrade',(request,socket,head)=>{
       user.firstName=tgU.first_name||'Игрок';
       user.username=tgU.username||null;
     } else {
-      const devId=url.searchParams.get('devUserId')||'1';
-      const uid=parseInt(devId,10)||1;
-      user=getUserById(uid)||upsertUser({id:uid,first_name:'Super_Puper545',username:'Super_Puper545'});
-      user.firstName=user.first_name||'Super_Puper545';
-      user.username=user.username||'Super_Puper545';
+      const devId=url.searchParams.get('devUserId');
+      const devName=url.searchParams.get('devUserName')||'Игрок';
+      if(devId){
+        const uid=parseInt(devId,10);
+        user=getUserById(uid)||upsertUser({id:uid,first_name:devName,username:devName});
+        user.firstName=user.first_name||devName;
+        user.username=user.username||devName;
+      } else {
+        const randId=Math.floor(10000+Math.random()*90000);
+        user=upsertUser({id:randId,first_name:`Игрок_${randId}`,username:`player_${randId}`});
+        user.firstName=user.first_name;
+      }
     }
     console.log(`[WS] + ${user.firstName}(${user.id})`);
     onReconnect(ws,user);
