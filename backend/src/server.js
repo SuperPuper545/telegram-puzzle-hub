@@ -174,19 +174,39 @@ function startRoom(gameType,betAmount,hostEnt,guestEnt,existId,timerMode,durakMo
 function onJoinQueue(ws,user,d) {
   const {gameType,betAmount=0,timerMode,durakMode}=d,key=`${gameType}:${betAmount}`;
   if(!matchmakingQueues[key])matchmakingQueues[key]=[];
-  matchmakingQueues[key]=matchmakingQueues[key].filter(e=>e.userId!==user.id&&e.ws.readyState===WebSocket.OPEN);
-  const w=matchmakingQueues[key][0];
-  if(w){
-    matchmakingQueues[key]=matchmakingQueues[key].filter(e=>e.userId!==w.userId);
-    if(betAmount>0){const f1=freezeCoins(w.userId,betAmount),f2=freezeCoins(user.id,betAmount);if(!f1.success){sendWs(w.ws,{type:'error',message:'Недостаточно монет'});matchmakingQueues[key].push({userId:user.id,ws,user,timerMode,durakMode});sendWs(ws,{type:'queued',gameType,betAmount});return;}if(!f2.success){sendWs(ws,{type:'error',message:'Недостаточно монет'});matchmakingQueues[key].unshift(w);return;}}
-    startRoom(gameType,betAmount,{userId:w.userId,firstName:w.user.firstName,username:w.user.username,ws:w.ws},{userId:user.id,firstName:user.firstName,username:user.username,ws},null,timerMode||w.timerMode,durakMode||w.durakMode);
+  matchmakingQueues[key]=matchmakingQueues[key].filter(e=>e.ws!==ws&&e.ws.readyState===WebSocket.OPEN);
+  const waitingIdx=matchmakingQueues[key].findIndex(e=>e.ws!==ws);
+  if(waitingIdx!==-1){
+    const w=matchmakingQueues[key].splice(waitingIdx,1)[0];
+    let guestUser=user;
+    if(w.userId===user.id){
+      guestUser={id:user.id+900000,firstName:`${user.firstName} (2)`,username:user.username};
+    }
+    if(betAmount>0){
+      const f1=freezeCoins(w.userId,betAmount);
+      if(!f1.success){
+        sendWs(w.ws,{type:'error',message:'Недостаточно монет'});
+        matchmakingQueues[key].push({userId:user.id,ws,user,timerMode,durakMode});
+        sendWs(ws,{type:'queued',gameType,betAmount});
+        return;
+      }
+    }
+    startRoom(
+      gameType,
+      betAmount,
+      {userId:w.userId,firstName:w.user.firstName,username:w.user.username,ws:w.ws},
+      {userId:guestUser.id,firstName:guestUser.firstName,username:guestUser.username,ws},
+      null,
+      timerMode||w.timerMode,
+      durakMode||w.durakMode
+    );
   } else {
     matchmakingQueues[key].push({userId:user.id,ws,user,timerMode,durakMode});
     sendWs(ws,{type:'queued',gameType,betAmount});
   }
 }
 function onLeaveQueue(ws,user,d) {
-  for(const k of Object.keys(matchmakingQueues))matchmakingQueues[k]=matchmakingQueues[k].filter(e=>e.userId!==user.id);
+  for(const k of Object.keys(matchmakingQueues))matchmakingQueues[k]=matchmakingQueues[k].filter(e=>e.ws!==ws);
   sendWs(ws,{type:'queue_left'});
 }
 function onCreateRoom(ws,user,d) {
@@ -463,9 +483,9 @@ function onSurrender(ws,user,d,game){
   else if(game==='durak')finishDurak(room,op.userId,'surrender');
   else if(game==='battleship')finishBattle(room,op.userId,'surrender');
 }
-function onDisconnect(user){
+function onDisconnect(ws,user){
   for(const [rid,room] of rooms){
-    const isH=room.host?.userId===user.id,isG=room.guest?.userId===user.id;
+    const isH=room.host?.ws===ws,isG=room.guest?.ws===ws;
     if(!isH&&!isG)continue;
     if(room.status==='waiting'&&isH){cleanup(rid);continue;}
     if(room.status==='active'){
@@ -481,7 +501,7 @@ function onDisconnect(user){
       },45000);
     }
   }
-  for(const k of Object.keys(matchmakingQueues))matchmakingQueues[k]=matchmakingQueues[k].filter(e=>e.userId!==user.id);
+  for(const k of Object.keys(matchmakingQueues))matchmakingQueues[k]=matchmakingQueues[k].filter(e=>e.ws!==ws);
 }
 function onReconnect(ws,user){
   for(const [,room] of rooms){
@@ -527,6 +547,7 @@ function dispatch(ws,user,msg){
 // ─── WS UPGRADE ───────────────────────────────────────────────────────────────
 server.on('upgrade',(request,socket,head)=>{
   const url=new URL(request.url,'http://localhost');
+  console.log('[UPGRADE RAW URL]', request.url);
   if(!url.pathname.startsWith('/api/ws')){socket.destroy();return;}
   wss.handleUpgrade(request,socket,head,(ws)=>{
     const initData=url.searchParams.get('initData')||'';
@@ -553,7 +574,7 @@ server.on('upgrade',(request,socket,head)=>{
     console.log(`[WS] + ${user.firstName}(${user.id})`);
     onReconnect(ws,user);
     ws.on('message',(msg)=>dispatch(ws,user,msg));
-    ws.on('close',()=>{console.log(`[WS] - ${user.firstName}(${user.id})`);onDisconnect(user);});
+    ws.on('close',()=>{console.log(`[WS] - ${user.firstName}(${user.id})`);onDisconnect(ws,user);});
     ws.on('error',(e)=>console.error(`[WS] err ${user.id}:`,e.message));
   });
 });
