@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 
 @theme {
   --color-tg-bg: var(--tg-theme-bg-color, #0e1621);
@@ -74,7 +74,7 @@ html, body {
   background-color: var(--tg-theme-bg-color);
   color: var(--tg-theme-text-color);
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 #root {

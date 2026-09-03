@@ -16,8 +16,8 @@ export const HubHeader: React.FC = () => {
   };
 
   return (
-    <header className="px-4 py-2.5 bg-tg-bg/95 backdrop-blur-md border-b border-[var(--tg-theme-section-separator-color)] sticky top-0 z-20 shrink-0">
-      <div className="flex items-center justify-between">
+    <header className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-md z-30 h-[56px] px-4 bg-tg-bg/95 backdrop-blur-md border-b border-[var(--tg-theme-section-separator-color)] shadow-sm flex items-center">
+      <div className="w-full flex items-center justify-between">
         {/* User profile avatar & name */}
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 p-[2px] shadow-md shadow-indigo-500/20 shrink-0">

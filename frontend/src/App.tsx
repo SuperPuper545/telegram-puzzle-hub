@@ -68,7 +68,7 @@ const HubContent: React.FC = () => {
         {/* HubHeader shown in Catalog, Leaderboard and Friends, hidden in Profile */}
         {activeTab !== 'profile' && <HubHeader />}
 
-        <main className="flex-1 pb-24">
+        <main className={`flex-1 pb-24 ${activeTab !== 'profile' ? 'pt-[56px]' : ''}`}>
           {activeTab === 'catalog' && <GameCatalog />}
           {activeTab === 'leaderboard' && <LeaderboardTab />}
           {activeTab === 'friends' && <FriendsTab />}
