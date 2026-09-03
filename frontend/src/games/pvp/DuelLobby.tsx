@@ -215,10 +215,22 @@ export const DuelLobby: React.FC<Props> = ({
     refreshProfile();
   };
 
+  // Toggle duel-active class on body so navigation and headers hide
+  useEffect(() => {
+    if (isInGame) {
+      document.body.classList.add('duel-active');
+    } else {
+      document.body.classList.remove('duel-active');
+    }
+    return () => {
+      document.body.classList.remove('duel-active');
+    };
+  }, [isInGame]);
+
   // ─── Render Active Game Screen ────────────────────────────────────────────
   if (isInGame && gameStartData) {
     return (
-      <div className="fixed inset-0 z-40 bg-tg-bg flex flex-col overflow-hidden max-w-md mx-auto md:border-x md:border-[var(--tg-theme-section-separator-color)] md:shadow-2xl">
+      <div className="fixed inset-0 z-[100] bg-tg-bg flex flex-col overflow-hidden max-w-md mx-auto md:border-x md:border-[var(--tg-theme-section-separator-color)] md:shadow-2xl">
         {/* Opponent Disconnect Countdown Bar */}
         {opponentDisconnectCountdown !== null && (
           <div className="bg-amber-500 text-black text-xs font-black text-center py-1.5 px-3 z-50 animate-pulse">

@@ -6,6 +6,7 @@ import {
   boardToFen,
   sqToRC,
   rcToSq,
+  isInCheck,
   type GameState,
   type GameStatus,
   type Move,
@@ -310,10 +311,9 @@ export const ChessGame: React.FC<Props> = ({
                 const sel = isSelected(sq);
                 const legal = isLegal(sq);
                 const last = isLast(sq);
-                const inCheckSq =
+                const isKingInCheck =
                   piece?.type === 'K' &&
-                  piece.color === gameState.turn &&
-                  (status === 'check' || status === 'checkmate');
+                  isInCheck(gameState, piece.color);
 
                 return (
                   <div
@@ -321,8 +321,8 @@ export const ChessGame: React.FC<Props> = ({
                     onClick={() => handleSquareTap(sq)}
                     className="relative flex items-center justify-center cursor-pointer select-none transition-colors"
                     style={{
-                      backgroundColor: inCheckSq
-                        ? 'rgba(239, 68, 68, 0.75)'
+                      backgroundColor: isKingInCheck
+                        ? 'rgba(239, 68, 68, 0.85)'
                         : sel
                         ? 'rgba(99, 102, 241, 0.65)'
                         : last

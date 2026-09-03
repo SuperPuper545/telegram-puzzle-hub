@@ -36,6 +36,10 @@ export const BottomNavigation: React.FC = () => {
     },
   ];
 
+  if (typeof document !== 'undefined' && document.body.classList.contains('duel-active')) {
+    return null;
+  }
+
   return (
     <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-40 bg-tg-secondaryBg/95 backdrop-blur-xl border-t border-[var(--tg-theme-section-separator-color)] px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-lg">
       <div className="flex items-center justify-around">

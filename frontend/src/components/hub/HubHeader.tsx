@@ -21,6 +21,10 @@ export const HubHeader: React.FC = () => {
     setIsShopModalOpen(true);
   };
 
+  if (typeof document !== 'undefined' && document.body.classList.contains('duel-active')) {
+    return null;
+  }
+
   return (
     <header className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-md z-30 h-[56px] px-4 bg-tg-bg/95 backdrop-blur-md border-b border-[var(--tg-theme-section-separator-color)] shadow-sm flex items-center">
       <div className="w-full flex items-center justify-between">

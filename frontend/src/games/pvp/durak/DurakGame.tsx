@@ -31,54 +31,111 @@ interface Props {
   onExit: () => void;
 }
 
-const SUIT_SYMBOLS = { s: '♠', h: '♥', d: '♦', c: '♣' };
-const SUIT_COLORS = {
-  s: 'text-tg-text',
-  c: 'text-tg-text',
-  h: 'text-rose-500',
-  d: 'text-rose-500',
+const RANK_RU: Record<string, string> = {
+  '6': '6',
+  '7': '7',
+  '8': '8',
+  '9': '9',
+  '10': '10',
+  'J': 'В',
+  'Q': 'Д',
+  'K': 'К',
+  'A': 'Т',
+  'В': 'В',
+  'Д': 'Д',
+  'К': 'К',
+  'Т': 'Т',
 };
+
+const SUIT_SYMBOLS: Record<string, string> = { s: '♠', h: '♥', d: '♦', c: '♣' };
+const SUIT_IS_RED: Record<string, boolean> = { s: false, c: false, h: true, d: true };
 
 function CardItem({
   card,
   selected,
   onClick,
   small,
+  style,
 }: {
   card: Card;
   selected?: boolean;
   onClick?: () => void;
   small?: boolean;
+  style?: React.CSSProperties;
 }) {
-  const sym = SUIT_SYMBOLS[card.suit];
-  const col = SUIT_COLORS[card.suit];
+  const rank = RANK_RU[card.rank] || card.rank;
+  const sym = SUIT_SYMBOLS[card.suit] || card.suit;
+  const isRed = SUIT_IS_RED[card.suit] || false;
+  const textColor = isRed ? '#dc2626' : '#0f172a';
+
+  if (small) {
+    return (
+      <div
+        onClick={onClick}
+        style={style}
+        className="w-[42px] h-[64px] rounded-lg bg-gradient-to-b from-white via-[#fcfdfe] to-[#f1f5f9] border border-slate-300 shadow-md flex flex-col justify-between p-1 select-none cursor-pointer transition-all shrink-0"
+      >
+        <div className="flex items-center gap-0.5" style={{ color: textColor }}>
+          <span className="font-black text-[11px] leading-none">{rank}</span>
+          <span className="text-[10px] leading-none">{sym}</span>
+        </div>
+        <div className="text-center text-lg font-black leading-none" style={{ color: textColor }}>
+          {sym}
+        </div>
+        <div className="flex items-center justify-end gap-0.5 rotate-180" style={{ color: textColor }}>
+          <span className="font-black text-[11px] leading-none">{rank}</span>
+          <span className="text-[10px] leading-none">{sym}</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <button
       onClick={onClick}
-      className={`rounded-xl border-2 flex flex-col justify-between select-none transition-all active:scale-95 cursor-pointer shadow-md ${
-        small ? 'w-9 h-14 p-1 text-[10px]' : 'w-12 h-18 p-1.5 text-xs'
-      } ${
+      style={{
+        ...style,
+        color: textColor,
+      }}
+      className={`relative w-[52px] h-[78px] rounded-xl bg-gradient-to-b from-white via-[#fdfefe] to-[#edf2f7] border select-none transition-all duration-200 cursor-pointer shrink-0 flex flex-col justify-between p-1.5 ${
         selected
-          ? 'border-indigo-400 bg-indigo-500/20 -translate-y-3 shadow-indigo-500/30'
-          : 'border-[var(--tg-theme-section-separator-color)] bg-tg-secondaryBg hover:border-indigo-400/40'
+          ? 'ring-[2.5px] ring-amber-400 shadow-2xl shadow-amber-500/50 -translate-y-5 z-40 border-amber-300'
+          : 'border-slate-300/90 shadow-lg shadow-black/25 hover:-translate-y-2'
       }`}
     >
-      <div className={`font-black leading-none ${col}`}>{card.rank}</div>
-      <div className={`text-center font-bold text-base leading-none ${col}`}>{sym}</div>
-      <div className={`font-black leading-none text-right ${col}`}>{card.rank}</div>
+      {/* Top Left Rank & Suit */}
+      <div className="flex flex-col items-start leading-none text-left">
+        <span className="font-black text-xs tracking-tighter">{rank}</span>
+        <span className="text-[11px] mt-0.5 leading-none">{sym}</span>
+      </div>
+
+      {/* Center Large Suit Symbol */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <span className="text-2xl font-black opacity-90">{sym}</span>
+      </div>
+
+      {/* Bottom Right Rank & Suit (Inverted) */}
+      <div className="flex flex-col items-start leading-none rotate-180 self-end text-left">
+        <span className="font-black text-xs tracking-tighter">{rank}</span>
+        <span className="text-[11px] mt-0.5 leading-none">{sym}</span>
+      </div>
     </button>
   );
 }
 
-function CardBack({ small }: { small?: boolean }) {
+function CardBack({ small, style }: { small?: boolean; style?: React.CSSProperties }) {
   return (
     <div
-      className={`rounded-xl border-2 border-indigo-500/30 bg-gradient-to-br from-indigo-900/40 to-purple-900/40 flex items-center justify-center shadow-inner ${
-        small ? 'w-8 h-12 text-xs' : 'w-10 h-15 text-sm'
+      style={style}
+      className={`rounded-xl border border-indigo-300/40 bg-gradient-to-br from-indigo-900 via-blue-950 to-indigo-950 shadow-md flex items-center justify-center select-none shrink-0 overflow-hidden relative ${
+        small ? 'w-[36px] h-[52px]' : 'w-[46px] h-[70px]'
       }`}
     >
-      <span className="opacity-50">🂠</span>
+      {/* Pattern on Card Back */}
+      <div className="absolute inset-1 rounded-lg border border-indigo-400/30 bg-[radial-gradient(#6366f1_1px,transparent_1px)] [background-size:6px_6px] opacity-60" />
+      <div className="w-5 h-5 rounded-full border border-amber-400/40 flex items-center justify-center text-amber-300/70 text-[10px] font-bold z-10">
+        ⚔️
+      </div>
     </div>
   );
 }
@@ -178,16 +235,20 @@ export const DurakGame: React.FC<Props> = ({
     );
   }
 
-  const trumpSym = SUIT_SYMBOLS[gs.trump];
-  const trumpCol = SUIT_COLORS[gs.trump];
+  const trumpSym = SUIT_SYMBOLS[gs.trump] || gs.trump;
+  const isTrumpRed = SUIT_IS_RED[gs.trump];
+  const trumpCol = isTrumpRed ? 'text-rose-500' : 'text-slate-900';
   const canDone = isAttacker && gs.phase === 'additional';
   const canTake = isDefender && (gs.phase === 'defense' || gs.phase === 'additional');
   const canPass = isDefender && gs.phase === 'defense' && gs.table.length === 1 && !gs.table[0].defense;
 
+  const handCount = gs.hand.length;
+  const midIndex = (handCount - 1) / 2;
+
   return (
-    <div className="flex flex-col h-full bg-tg-bg select-none touch-none overflow-hidden">
+    <div className="flex flex-col h-full bg-tg-bg select-none overflow-hidden">
       {/* Top Header: Back/Exit + Opponent Info + Status + Bank */}
-      <div className="flex items-center justify-between px-3 py-2.5 bg-tg-secondaryBg border-b border-[var(--tg-theme-section-separator-color)] shadow-sm">
+      <div className="flex items-center justify-between px-3 py-2.5 bg-tg-secondaryBg border-b border-[var(--tg-theme-section-separator-color)] shadow-sm shrink-0">
         <div className="flex items-center gap-2">
           {/* Dedicated Exit / Surrender Back Button */}
           <button
@@ -231,29 +292,35 @@ export const DurakGame: React.FC<Props> = ({
           </div>
         )}
 
-        {/* Opponent Cards in Hand */}
-        <div className="flex items-center gap-1 overflow-x-auto max-w-[120px] px-1">
+        {/* Opponent Cards Fan (compact) */}
+        <div className="flex items-center -space-x-4 px-1 py-1">
           {Array(Math.min(gs.opponentCardCount, 6))
             .fill(null)
             .map((_, i) => (
-              <CardBack key={i} small />
+              <CardBack
+                key={i}
+                small
+                style={{
+                  transform: `rotate(${(i - 2.5) * 4}deg)`,
+                }}
+              />
             ))}
           {gs.opponentCardCount > 6 && (
-            <span className="text-[10px] font-bold text-tg-hint">+{gs.opponentCardCount - 6}</span>
+            <span className="text-[10px] font-bold text-tg-hint pl-2">+{gs.opponentCardCount - 6}</span>
           )}
         </div>
       </div>
 
       {/* Deck & Trump Info Bar */}
-      <div className="flex items-center justify-between px-4 py-1.5 text-xs bg-tg-bg border-b border-[var(--tg-theme-section-separator-color)]">
+      <div className="flex items-center justify-between px-4 py-1.5 text-xs bg-tg-bg border-b border-[var(--tg-theme-section-separator-color)] shrink-0">
         <div className="flex items-center gap-1.5">
           <Layers className="w-3.5 h-3.5 text-indigo-400" />
           <span className="text-tg-hint">В колоде:</span>
           <span className="font-extrabold text-tg-text">{gs.deckCount}</span>
         </div>
 
-        <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30">
-          <span className="text-tg-hint text-[11px]">Козырь:</span>
+        <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30">
+          <span className="text-tg-hint text-[11px] font-medium">Козырь:</span>
           <span className={`text-base font-black leading-none ${trumpCol}`}>{trumpSym}</span>
         </div>
 
@@ -262,11 +329,11 @@ export const DurakGame: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Center Table (Playing Area) */}
-      <div className="flex-1 flex flex-wrap items-center justify-center gap-3 p-4 overflow-y-auto min-h-0 bg-radial from-indigo-950/20 via-transparent to-transparent">
+      {/* Center Table (Playing Field) */}
+      <div className="flex-1 flex flex-wrap items-center justify-center gap-4 p-4 overflow-y-auto min-h-0 bg-radial from-emerald-950/20 via-transparent to-transparent">
         {gs.table.length === 0 ? (
           <div className="text-center py-6 space-y-2 opacity-80">
-            <div className="w-12 h-12 mx-auto rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] flex items-center justify-center text-2xl">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] flex items-center justify-center text-3xl shadow-sm">
               🃏
             </div>
             <p className="text-xs font-bold text-tg-text">
@@ -282,12 +349,12 @@ export const DurakGame: React.FC<Props> = ({
             >
               <CardItem card={slot.attack} />
               {slot.defense ? (
-                <div className="-mt-8 ml-5 shadow-lg">
+                <div className="-mt-10 ml-6 shadow-2xl transition-transform">
                   <CardItem card={slot.defense} />
                 </div>
               ) : (
                 isDefender && (
-                  <div className="w-12 h-18 rounded-xl border-2 border-dashed border-indigo-400/60 bg-indigo-500/10 flex items-center justify-center text-indigo-400 text-base -mt-8 ml-5 shadow-sm animate-pulse">
+                  <div className="w-[52px] h-[78px] rounded-xl border-2 border-dashed border-indigo-400/80 bg-indigo-500/15 flex items-center justify-center text-indigo-300 text-xs font-black -mt-10 ml-6 shadow-md animate-pulse">
                     Крыть
                   </div>
                 )
@@ -298,60 +365,81 @@ export const DurakGame: React.FC<Props> = ({
       </div>
 
       {/* Action Controls Bar */}
-      <div className="flex gap-2 px-4 py-2 bg-tg-secondaryBg/70 border-t border-[var(--tg-theme-section-separator-color)]">
-        {canDone && (
-          <button
-            onClick={() => {
-              sound.playUiTap();
-              haptics.medium();
-              onDoneAttacking();
-            }}
-            className="flex-1 py-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-extrabold text-xs active:scale-95 transition-all cursor-pointer shadow-sm"
-          >
-            Бито ✅
-          </button>
-        )}
-
-        {canTake && (
-          <button
-            onClick={() => {
-              sound.playUiTap();
-              haptics.medium();
-              onTake();
-            }}
-            className="flex-1 py-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 font-extrabold text-xs active:scale-95 transition-all cursor-pointer shadow-sm"
-          >
-            Взять карты 📥
-          </button>
-        )}
-
-        {canPass && (
-          <button
-            onClick={() => {
-              if (selectedCard) {
-                sound.playPickup();
+      {(canDone || canTake || canPass) && (
+        <div className="flex gap-2 px-4 py-2 bg-tg-secondaryBg/90 border-t border-[var(--tg-theme-section-separator-color)] shrink-0">
+          {canDone && (
+            <button
+              onClick={() => {
+                sound.playUiTap();
                 haptics.medium();
-                onPass(selectedCard);
-              }
-            }}
-            disabled={!selectedCard}
-            className="flex-1 py-2.5 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-400 font-extrabold text-xs active:scale-95 transition-all disabled:opacity-40 cursor-pointer shadow-sm"
-          >
-            Перевести 🔄
-          </button>
-        )}
-      </div>
+                onDoneAttacking();
+              }}
+              className="flex-1 py-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-extrabold text-xs active:scale-95 transition-all cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
+            >
+              <span>Бито</span>
+              <span>✅</span>
+            </button>
+          )}
 
-      {/* Player Hand */}
-      <div className="px-3 py-3 bg-tg-secondaryBg border-t border-[var(--tg-theme-section-separator-color)] shadow-lg overflow-x-auto flex items-end justify-center gap-1.5 min-h-[95px]">
-        {gs.hand.map((card, i) => (
-          <CardItem
-            key={`${card.rank}${card.suit}${i}`}
-            card={card}
-            selected={selectedCard?.rank === card.rank && selectedCard.suit === card.suit}
-            onClick={() => handleCardClick(card)}
-          />
-        ))}
+          {canTake && (
+            <button
+              onClick={() => {
+                sound.playUiTap();
+                haptics.medium();
+                onTake();
+              }}
+              className="flex-1 py-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 font-extrabold text-xs active:scale-95 transition-all cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
+            >
+              <span>Взять карты</span>
+              <span>📥</span>
+            </button>
+          )}
+
+          {canPass && (
+            <button
+              onClick={() => {
+                if (selectedCard) {
+                  sound.playPickup();
+                  haptics.medium();
+                  onPass(selectedCard);
+                }
+              }}
+              disabled={!selectedCard}
+              className="flex-1 py-2.5 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-400 font-extrabold text-xs active:scale-95 transition-all disabled:opacity-40 cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
+            >
+              <span>Перевести</span>
+              <span>🔄</span>
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Player Hand (Realistic Hand Fan Layout) */}
+      <div className="pt-6 pb-4 px-2 bg-gradient-to-t from-tg-secondaryBg via-tg-secondaryBg/90 to-transparent border-t border-[var(--tg-theme-section-separator-color)] shadow-2xl shrink-0">
+        <div className="flex items-end justify-center -space-x-3 sm:-space-x-4 overflow-x-visible max-w-full px-4 min-h-[92px]">
+          {gs.hand.map((card, i) => {
+            const isSel = selectedCard?.rank === card.rank && selectedCard.suit === card.suit;
+            const deg = (i - midIndex) * Math.min(5, 36 / handCount);
+            const translateY = Math.abs(i - midIndex) * 2.5;
+
+            return (
+              <div
+                key={`${card.rank}${card.suit}${i}`}
+                style={{
+                  transform: isSel ? 'translateY(-20px) scale(1.08)' : `translateY(${translateY}px) rotate(${deg}deg)`,
+                  zIndex: isSel ? 35 : i + 1,
+                }}
+                className="transition-transform duration-150 ease-out shrink-0"
+              >
+                <CardItem
+                  card={card}
+                  selected={isSel}
+                  onClick={() => handleCardClick(card)}
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Surrender Confirmation Modal */}
