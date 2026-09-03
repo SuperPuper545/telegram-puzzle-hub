@@ -247,7 +247,7 @@ export function useBlockudoku(initialBestScore: number = 0) {
       for (let r = 0; r < piece.matrix.length; r++) {
         for (let c = 0; c < piece.matrix[r].length; c++) {
           if (piece.matrix[r][c] === 1) {
-            newGrid[startRow + r][startCol + c] = 1;
+            newGrid[startRow + r][startCol + c] = piece.colorId || 1;
             placedBlocksCount++;
           }
         }

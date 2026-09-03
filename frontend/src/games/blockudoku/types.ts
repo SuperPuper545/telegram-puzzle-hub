@@ -1,4 +1,4 @@
-﻿export type GridCell = number; // 0 = empty, >0 = color index
+export type GridCell = number; // 0 = empty, >0 = color index
 
 export interface Shape {
   id: string;
@@ -7,6 +7,7 @@ export interface Shape {
   colorClass: string;
   glowClass: string;
   accentColor: string;
+  colorId: number;
 }
 
 export interface DragState {

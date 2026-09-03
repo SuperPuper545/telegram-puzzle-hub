@@ -24,31 +24,27 @@ import {
   RotateCw,
 } from 'lucide-react';
 
-// Ergonomic vertical lift so the piece floats above thumb and top row is easy to reach
-const FINGER_OFFSET_TOUCH = 95;
-const getPointerOffsetY = (e: React.PointerEvent) => {
+import { COLOR_ID_CLASSES } from './shapes';
+
+// Progressive one-handed ergonomic vertical lift:
+// At the bottom near the tray, lift is 80px so thumb doesn't cover the piece.
+// As the thumb moves up towards the board, the lift progressively increases up to 155px,
+// allowing effortless placement at the very top of the board with a single hand without straining!
+const getPointerOffsetY = (e: React.PointerEvent, boardRect?: DOMRect | null) => {
   const isTouch =
     e.pointerType === 'touch' ||
     (typeof window !== 'undefined' &&
       ('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth < 768));
-  return isTouch ? FINGER_OFFSET_TOUCH : 40;
+  if (!isTouch) return 40;
+  if (!boardRect) return 80;
+
+  const progress = Math.max(0, Math.min(1, (boardRect.bottom - e.clientY) / Math.max(1, boardRect.bottom - boardRect.top)));
+  return 80 + progress * 75;
 };
 
 // 4 Exact Block Styles requested by user:
 // 1. Classic Blue: strictly pure blue everywhere
 const CLASSIC_BLUE = 'bg-gradient-to-b from-blue-500 to-blue-600 border border-blue-400/80 shadow-sm shadow-blue-950/20 text-blue-100';
-
-// 2. Colorful: vibrant diverse colors across the board and tray
-const COLORFUL_CLASSES = [
-  'bg-emerald-500 border-emerald-400 text-emerald-100 shadow-sm shadow-emerald-500/20',
-  'bg-cyan-500 border-cyan-400 text-cyan-100 shadow-sm shadow-cyan-500/20',
-  'bg-blue-500 border-blue-400 text-blue-100 shadow-sm shadow-blue-500/20',
-  'bg-indigo-500 border-indigo-400 text-indigo-100 shadow-sm shadow-indigo-500/20',
-  'bg-purple-500 border-purple-400 text-purple-100 shadow-sm shadow-purple-500/20',
-  'bg-pink-500 border-pink-400 text-pink-100 shadow-sm shadow-pink-500/20',
-  'bg-amber-500 border-amber-400 text-amber-100 shadow-sm shadow-amber-500/20',
-  'bg-teal-500 border-teal-400 text-teal-100 shadow-sm shadow-teal-500/20',
-];
 
 // 3. Smooth Gradient: elegant shimmering gradient without eye strain
 const GRADIENT_BLOCK = 'bg-gradient-to-br from-indigo-500 via-purple-500 to-sky-500 border border-indigo-300/60 shadow-sm text-indigo-100';
@@ -56,16 +52,16 @@ const GRADIENT_BLOCK = 'bg-gradient-to-br from-indigo-500 via-purple-500 to-sky-
 // 4. Soft Pink Neon: delicate, non-glaring soft pink glow
 const NEON_ROSE_BLOCK = 'bg-gradient-to-b from-rose-500 to-pink-600 border border-rose-300 shadow-[0_0_8px_rgba(244,63,94,0.35)] text-rose-100';
 
-function getBlockSkinClass(skinId: string, row?: number, col?: number, pieceColorClass?: string): string {
+function getBlockSkinClass(skinId: string, cellVal?: number, pieceColorClass?: string): string {
   switch (skinId) {
     case 'block_classic':
       return CLASSIC_BLUE;
     case 'block_colorful':
       if (pieceColorClass) return pieceColorClass;
-      if (row !== undefined && col !== undefined) {
-        return COLORFUL_CLASSES[(row * 3 + col) % COLORFUL_CLASSES.length];
+      if (cellVal && COLOR_ID_CLASSES[cellVal]) {
+        return COLOR_ID_CLASSES[cellVal];
       }
-      return COLORFUL_CLASSES[0];
+      return COLOR_ID_CLASSES[1];
     case 'block_gradient':
       return GRADIENT_BLOCK;
     case 'block_neon':
@@ -180,7 +176,8 @@ export const BlockudokuGame: React.FC = () => {
     haptics.selection();
     sound.playPickup();
 
-    const offsetY = getPointerOffsetY(e);
+    const boardRect = boardRef.current?.getBoundingClientRect() || null;
+    const offsetY = getPointerOffsetY(e, boardRect);
     const clientX = e.clientX;
     const clientY = e.clientY - offsetY;
 
@@ -197,15 +194,14 @@ export const BlockudokuGame: React.FC = () => {
     });
   };
 
-  // Handle pointer move during drag
+  // Handle pointer move during drag with progressive lift
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
-      const offsetY = getPointerOffsetY(e);
-      const clientX = e.clientX;
-      const clientY = e.clientY - offsetY;
-
       if (!boardRef.current) return;
       const boardRect = boardRef.current.getBoundingClientRect();
+      const offsetY = getPointerOffsetY(e, boardRect);
+      const clientX = e.clientX;
+      const clientY = e.clientY - offsetY;
       const cellSize = boardRect.width / GRID_SIZE;
 
       const activePiece =
@@ -503,26 +499,51 @@ export const BlockudokuGame: React.FC = () => {
         </div>
       </header>
 
-      {/* 2. Fixed Status & Combo Banner (h-7) */}
-      <div className="h-7 shrink-0 flex items-center justify-center px-4">
+      {/* 2. Top Booster Action Bar (Reroll & Rotate in Top area) */}
+      <div className="shrink-0 px-4 pt-1.5 pb-0.5 flex items-center justify-between gap-3 max-w-md mx-auto w-full">
+        {/* Reroll */}
+        <button
+          onClick={handleReroll}
+          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-indigo-500/50 cursor-pointer shadow-sm"
+          title="Смена фигур за 50 монет"
+        >
+          <Dices className="w-3.5 h-3.5 text-indigo-400" />
+          <span>Смена фигур</span>
+          <span className="text-[10px] text-amber-500 font-black">50🪙</span>
+        </button>
+
+        {/* Rotate */}
+        <button
+          onClick={handleRotate}
+          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-purple-500/50 cursor-pointer shadow-sm"
+          title="Поворот фигуры за 75 монет"
+        >
+          <RotateCw className="w-3.5 h-3.5 text-purple-400" />
+          <span>Поворот</span>
+          <span className="text-[10px] text-amber-500 font-black">75🪙</span>
+        </button>
+      </div>
+
+      {/* 3. Status & Combo Banner (placed strictly below the boosters) */}
+      <div className="h-6 shrink-0 flex items-center justify-center px-4">
         {boosterNotice ? (
           <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-[11px] font-black text-amber-500 animate-fade-in shadow-md">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <Sparkles className="w-3 h-3 text-amber-500" />
             {boosterNotice}
           </div>
         ) : isStuck ? (
           <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-rose-500/20 border border-rose-400/40 text-[11px] font-bold text-rose-400 animate-pulse">
-            <Ban className="w-3.5 h-3.5 text-rose-400" />
+            <Ban className="w-3 h-3 text-rose-400" />
             Нет места! Используйте Смену или Поворот!
           </div>
         ) : comboBanner ? (
           <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-[11px] font-bold text-indigo-400 animate-fade-in">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+            <Sparkles className="w-3 h-3 text-indigo-400" />
             {comboBanner.text}
           </div>
         ) : streak > 1 ? (
           <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/30 text-[11px] font-extrabold text-amber-500 animate-pulse">
-            <Flame className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+            <Flame className="w-3 h-3 fill-amber-500 text-amber-500" />
             Серия ходов: x{streak}!
           </div>
         ) : selectedTrayIndex !== null ? (
@@ -532,7 +553,7 @@ export const BlockudokuGame: React.FC = () => {
         ) : null}
       </div>
 
-      {/* 3. Responsive 9x9 Board with tighter gaps and enlarged viewport */}
+      {/* 4. Responsive 9x9 Board with sleek rounded-xl frame, tighter gaps and enlarged viewport */}
       <div className="flex-1 flex items-center justify-center p-1.5 min-h-0">
         <div
           ref={boardRef}
@@ -540,7 +561,7 @@ export const BlockudokuGame: React.FC = () => {
             width: 'min(94vw, 53vh, 410px)',
             height: 'min(94vw, 53vh, 410px)',
           }}
-          className="aspect-square bg-tg-secondaryBg/90 backdrop-blur-sm rounded-3xl p-1.5 border-2 border-[var(--tg-theme-section-separator-color)] shadow-2xl grid grid-cols-9 gap-[2px] sm:gap-[2.5px]"
+          className="aspect-square bg-tg-secondaryBg/90 backdrop-blur-sm rounded-xl p-1.5 border-[1.5px] border-[var(--tg-theme-section-separator-color)] shadow-2xl grid grid-cols-9 gap-[2px] sm:gap-[2.5px]"
         >
           {grid.map((row, r) =>
             row.map((cell, c) => {
@@ -556,13 +577,13 @@ export const BlockudokuGame: React.FC = () => {
                 <div
                   key={`${r}-${c}`}
                   onClick={() => handleBoardClick(r, c)}
-                  className={`relative rounded-[3.5px] transition-all duration-100 flex items-center justify-center aspect-square cursor-pointer ${
+                  className={`relative rounded-[3px] transition-all duration-100 flex items-center justify-center aspect-square cursor-pointer ${
                     isClear
                       ? 'bg-amber-300 scale-105 shadow-lg shadow-amber-400/60 z-10'
                       : isPredicted
                       ? 'bg-amber-400/85 ring-2 ring-amber-300 shadow-md shadow-amber-400/50 scale-95 animate-pulse z-10'
                       : cell > 0
-                      ? getBlockSkinClass(equippedBlockSkin, r, c)
+                      ? getBlockSkinClass(equippedBlockSkin, cell)
                       : isGhost
                       ? 'bg-indigo-400/50 border-2 border-indigo-300 scale-95 animate-pulse'
                       : isSubgridEven
@@ -571,7 +592,7 @@ export const BlockudokuGame: React.FC = () => {
                   }`}
                 >
                   {cell > 0 && !isClear && !isPredicted && (
-                    <div className="w-full h-full rounded-[2.5px] bg-white/10 border-t border-l border-white/25" />
+                    <div className="w-full h-full rounded-[2px] bg-white/10 border-t border-l border-white/25" />
                   )}
                   {isPredicted && (
                     <div className="w-2 h-2 rounded-full bg-white animate-ping" />
@@ -583,34 +604,9 @@ export const BlockudokuGame: React.FC = () => {
         </div>
       </div>
 
-      {/* Booster Action Bar */}
-      <div className="shrink-0 px-4 py-1 flex items-center justify-between gap-3 max-w-md mx-auto w-full">
-        {/* Reroll */}
-        <button
-          onClick={handleReroll}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-indigo-500/50 cursor-pointer shadow-sm"
-          title="Смена фигур за 50 монет"
-        >
-          <Dices className="w-4 h-4 text-indigo-400" />
-          <span>Смена фигур</span>
-          <span className="text-[10px] text-amber-500 font-black">50🪙</span>
-        </button>
-
-        {/* Rotate */}
-        <button
-          onClick={handleRotate}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-purple-500/50 cursor-pointer shadow-sm"
-          title="Поворот фигуры за 75 монет"
-        >
-          <RotateCw className="w-4 h-4 text-purple-400" />
-          <span>Поворот</span>
-          <span className="text-[10px] text-amber-500 font-black">75🪙</span>
-        </button>
-      </div>
-
-      {/* 4. Tray of 3 Pieces: Open Airy Podium without separate ugly box containers */}
+      {/* 5. Tray of 3 Pieces: Welcoming, spacious hit areas across the entire column */}
       <div className="shrink-0 pb-3 pt-1 px-3">
-        <div className="max-w-md mx-auto h-24 sm:h-28 rounded-3xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--tg-theme-section-separator-color)] flex items-center justify-around px-2 relative shadow-inner">
+        <div className="max-w-md mx-auto h-24 sm:h-28 rounded-2xl bg-black/[0.03] dark:bg-white/[0.04] border border-[var(--tg-theme-section-separator-color)] flex items-center justify-around px-1 relative shadow-inner">
           {trayPieces.map((piece, index) => {
             const isBeingDragged = dragState?.pieceIndex === index;
             const isSelected = selectedTrayIndex === index;
@@ -619,32 +615,35 @@ export const BlockudokuGame: React.FC = () => {
             return (
               <div
                 key={index}
+                onPointerDown={(e) => {
+                  if (piece && canPlace) {
+                    handlePiecePointerDown(e, piece, index);
+                  }
+                }}
                 onClick={() => {
                   if (piece && canPlace) {
                     setSelectedTrayIndex((prev) => (prev === index ? null : index));
                     sound.playPickup();
+                    haptics.selection();
                   }
                 }}
-                className={`flex-1 h-full flex flex-col items-center justify-center relative select-none touch-none transition-transform duration-150 ${
+                className={`flex-1 h-full flex flex-col items-center justify-center relative select-none touch-none cursor-pointer transition-all duration-150 ${
                   !piece
                     ? 'opacity-0 pointer-events-none'
                     : !canPlace
                     ? 'opacity-35 grayscale cursor-not-allowed'
                     : isSelected
-                    ? 'scale-110 cursor-grab active:cursor-grabbing'
-                    : 'hover:scale-105 cursor-grab active:cursor-grabbing'
+                    ? 'scale-105'
+                    : 'hover:scale-105 active:scale-95'
                 }`}
               >
-                {/* Delicately glowing pedestal for selected piece */}
+                {/* Welcoming soft ambient highlight for selected piece */}
                 {isSelected && (
-                  <div className="absolute inset-2 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 animate-pulse -z-10" />
+                  <div className="absolute inset-1.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 animate-pulse -z-10" />
                 )}
 
                 {piece && !isBeingDragged && (
-                  <div
-                    onPointerDown={(e) => canPlace && handlePiecePointerDown(e, piece, index)}
-                    className="p-2 flex flex-col items-center justify-center"
-                  >
+                  <div className="p-2 flex flex-col items-center justify-center pointer-events-none">
                     <div
                       className="grid gap-[2px]"
                       style={{
@@ -658,7 +657,7 @@ export const BlockudokuGame: React.FC = () => {
                             className={`w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-[2.5px] transition-all ${
                               val === 1
                                 ? canPlace
-                                  ? `${getBlockSkinClass(equippedBlockSkin, undefined, undefined, piece.colorClass)}`
+                                  ? `${getBlockSkinClass(equippedBlockSkin, undefined, piece.colorClass)}`
                                   : 'bg-black/30 dark:bg-white/20'
                                 : 'opacity-0'
                             }`}
@@ -671,7 +670,7 @@ export const BlockudokuGame: React.FC = () => {
 
                 {/* Subtitle if unplaceable */}
                 {piece && !canPlace && (
-                  <span className="absolute bottom-1 text-[9px] font-semibold text-tg-hint tracking-tight">
+                  <span className="absolute bottom-1 text-[9px] font-semibold text-tg-hint tracking-tight pointer-events-none">
                     нет места
                   </span>
                 )}
@@ -703,7 +702,7 @@ export const BlockudokuGame: React.FC = () => {
                   key={`${r}-${c}`}
                   className={`w-7 h-7 sm:w-8 sm:h-8 rounded-[4px] transition-all ${
                     val === 1
-                      ? `${getBlockSkinClass(equippedBlockSkin, undefined, undefined, dragState.piece.colorClass)} shadow-xl scale-105`
+                      ? `${getBlockSkinClass(equippedBlockSkin, undefined, dragState.piece.colorClass)} shadow-xl scale-105`
                       : 'opacity-0'
                   }`}
                 />

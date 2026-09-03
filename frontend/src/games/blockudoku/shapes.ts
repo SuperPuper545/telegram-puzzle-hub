@@ -9,6 +9,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-emerald-500 border-emerald-400 text-emerald-100',
     glowClass: 'shadow-emerald-500/50',
     accentColor: '#10b981',
+    colorId: 1,
   },
   // 1x2 and 2x1
   {
@@ -18,6 +19,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-cyan-500 border-cyan-400 text-cyan-100',
     glowClass: 'shadow-cyan-500/50',
     accentColor: '#06b6d4',
+    colorId: 2,
   },
   {
     id: 'line-2-v',
@@ -26,6 +28,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-cyan-500 border-cyan-400 text-cyan-100',
     glowClass: 'shadow-cyan-500/50',
     accentColor: '#06b6d4',
+    colorId: 2,
   },
   // 1x3 and 3x1
   {
@@ -35,6 +38,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-blue-500 border-blue-400 text-blue-100',
     glowClass: 'shadow-blue-500/50',
     accentColor: '#3b82f6',
+    colorId: 3,
   },
   {
     id: 'line-3-v',
@@ -43,6 +47,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-blue-500 border-blue-400 text-blue-100',
     glowClass: 'shadow-blue-500/50',
     accentColor: '#3b82f6',
+    colorId: 3,
   },
   // 1x4 and 4x1
   {
@@ -52,6 +57,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-indigo-500 border-indigo-400 text-indigo-100',
     glowClass: 'shadow-indigo-500/50',
     accentColor: '#6366f1',
+    colorId: 4,
   },
   {
     id: 'line-4-v',
@@ -60,6 +66,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-indigo-500 border-indigo-400 text-indigo-100',
     glowClass: 'shadow-indigo-500/50',
     accentColor: '#6366f1',
+    colorId: 4,
   },
   // 1x5 and 5x1
   {
@@ -69,6 +76,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-violet-500 border-violet-400 text-violet-100',
     glowClass: 'shadow-violet-500/50',
     accentColor: '#8b5cf6',
+    colorId: 5,
   },
   {
     id: 'line-5-v',
@@ -77,6 +85,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-violet-500 border-violet-400 text-violet-100',
     glowClass: 'shadow-violet-500/50',
     accentColor: '#8b5cf6',
+    colorId: 5,
   },
   // 2x2 Square
   {
@@ -89,6 +98,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-amber-500 border-amber-400 text-amber-100',
     glowClass: 'shadow-amber-500/50',
     accentColor: '#f59e0b',
+    colorId: 6,
   },
   // 2x2 Corners
   {
@@ -101,6 +111,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-teal-500 border-teal-400 text-teal-100',
     glowClass: 'shadow-teal-500/50',
     accentColor: '#14b8a6',
+    colorId: 7,
   },
   {
     id: 'corner-2-tr',
@@ -112,6 +123,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-teal-500 border-teal-400 text-teal-100',
     glowClass: 'shadow-teal-500/50',
     accentColor: '#14b8a6',
+    colorId: 7,
   },
   {
     id: 'corner-2-bl',
@@ -123,6 +135,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-teal-500 border-teal-400 text-teal-100',
     glowClass: 'shadow-teal-500/50',
     accentColor: '#14b8a6',
+    colorId: 7,
   },
   {
     id: 'corner-2-br',
@@ -134,6 +147,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-teal-500 border-teal-400 text-teal-100',
     glowClass: 'shadow-teal-500/50',
     accentColor: '#14b8a6',
+    colorId: 7,
   },
   // 3x3 Large Corners
   {
@@ -147,6 +161,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-orange-500 border-orange-400 text-orange-100',
     glowClass: 'shadow-orange-500/50',
     accentColor: '#f97316',
+    colorId: 8,
   },
   {
     id: 'corner-3-br',
@@ -159,6 +174,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-orange-500 border-orange-400 text-orange-100',
     glowClass: 'shadow-orange-500/50',
     accentColor: '#f97316',
+    colorId: 8,
   },
   // T-Shapes (All 4 Directions)
   {
@@ -171,6 +187,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-purple-500 border-purple-400 text-purple-100',
     glowClass: 'shadow-purple-500/50',
     accentColor: '#a855f7',
+    colorId: 9,
   },
   {
     id: 't-shape-down',
@@ -182,6 +199,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-purple-500 border-purple-400 text-purple-100',
     glowClass: 'shadow-purple-500/50',
     accentColor: '#a855f7',
+    colorId: 9,
   },
   {
     id: 't-shape-left',
@@ -194,6 +212,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-purple-500 border-purple-400 text-purple-100',
     glowClass: 'shadow-purple-500/50',
     accentColor: '#a855f7',
+    colorId: 9,
   },
   {
     id: 't-shape-right',
@@ -206,6 +225,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-purple-500 border-purple-400 text-purple-100',
     glowClass: 'shadow-purple-500/50',
     accentColor: '#a855f7',
+    colorId: 9,
   },
   // L-Shapes (3x2 and 2x3)
   {
@@ -219,6 +239,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-sky-500 border-sky-400 text-sky-100',
     glowClass: 'shadow-sky-500/50',
     accentColor: '#0ea5e9',
+    colorId: 10,
   },
   {
     id: 'l-shape-2',
@@ -231,6 +252,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-sky-500 border-sky-400 text-sky-100',
     glowClass: 'shadow-sky-500/50',
     accentColor: '#0ea5e9',
+    colorId: 10,
   },
   // Z / S shapes
   {
@@ -243,6 +265,7 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-pink-500 border-pink-400 text-pink-100',
     glowClass: 'shadow-pink-500/50',
     accentColor: '#ec4899',
+    colorId: 11,
   },
   {
     id: 's-shape',
@@ -254,8 +277,23 @@ export const SHAPES: Shape[] = [
     colorClass: 'bg-pink-500 border-pink-400 text-pink-100',
     glowClass: 'shadow-pink-500/50',
     accentColor: '#ec4899',
+    colorId: 11,
   },
 ];
+
+export const COLOR_ID_CLASSES: Record<number, string> = {
+  1: 'bg-emerald-500 border-emerald-400 text-emerald-100 shadow-sm shadow-emerald-500/20',
+  2: 'bg-cyan-500 border-cyan-400 text-cyan-100 shadow-sm shadow-cyan-500/20',
+  3: 'bg-blue-500 border-blue-400 text-blue-100 shadow-sm shadow-blue-500/20',
+  4: 'bg-indigo-500 border-indigo-400 text-indigo-100 shadow-sm shadow-indigo-500/20',
+  5: 'bg-violet-500 border-violet-400 text-violet-100 shadow-sm shadow-violet-500/20',
+  6: 'bg-amber-500 border-amber-400 text-amber-100 shadow-sm shadow-amber-500/20',
+  7: 'bg-teal-500 border-teal-400 text-teal-100 shadow-sm shadow-teal-500/20',
+  8: 'bg-orange-500 border-orange-400 text-orange-100 shadow-sm shadow-orange-500/20',
+  9: 'bg-purple-500 border-purple-400 text-purple-100 shadow-sm shadow-purple-500/20',
+  10: 'bg-sky-500 border-sky-400 text-sky-100 shadow-sm shadow-sky-500/20',
+  11: 'bg-pink-500 border-pink-400 text-pink-100 shadow-sm shadow-pink-500/20',
+};
 
 // Difficulty Categories for Balanced Tray Generation
 const SMALL_SHAPES = SHAPES.filter((s) => ['dot-1', 'line-2-h', 'line-2-v', 'line-3-h', 'line-3-v', 'corner-2-tl', 'corner-2-tr', 'corner-2-bl', 'corner-2-br'].includes(s.id));
