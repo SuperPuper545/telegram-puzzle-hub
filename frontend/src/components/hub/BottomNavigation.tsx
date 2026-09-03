@@ -2,12 +2,14 @@
 import { useGameBridge, type HubTab } from '../../context/GameContext';
 import { Gamepad2, Trophy, User } from 'lucide-react';
 import { haptics } from '../../telegram/telegram';
+import { sound } from '../../utils/sound';
 
 export const BottomNavigation: React.FC = () => {
   const { activeTab, setActiveTab } = useGameBridge();
 
   const handleTabChange = (tab: HubTab) => {
     haptics.selection();
+    sound.playUiTap();
     setActiveTab(tab);
   };
 

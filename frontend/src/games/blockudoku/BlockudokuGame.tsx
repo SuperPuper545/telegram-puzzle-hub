@@ -8,8 +8,18 @@ import {
 } from './useBlockudoku';
 import type { Shape, DragState } from './types';
 import { haptics } from '../../telegram/telegram';
+import { sound } from '../../utils/sound';
 import confetti from 'canvas-confetti';
-import { ArrowLeft, RotateCcw, Trophy, Sparkles, Flame, Ban } from 'lucide-react';
+import {
+  ArrowLeft,
+  RotateCcw,
+  Trophy,
+  Sparkles,
+  Flame,
+  Ban,
+  Volume2,
+  VolumeX,
+} from 'lucide-react';
 
 const FINGER_OFFSET_TOUCH = 65; // Lift piece above touch point on mobile screens only
 
@@ -37,15 +47,28 @@ export const BlockudokuGame: React.FC = () => {
   const [selectedTrayIndex, setSelectedTrayIndex] = useState<number | null>(null);
   const [hoverBoardCell, setHoverBoardCell] = useState<{ row: number; col: number } | null>(null);
   const [isNewRecordAchieved, setIsNewRecordAchieved] = useState(false);
+  const [isMuted, setIsMuted] = useState(() => sound.isMuted());
   const boardRef = useRef<HTMLDivElement>(null);
 
-  // Submit score on game over
+  const toggleSound = () => {
+    const next = sound.toggleMute();
+    setIsMuted(next);
+  };
+
+  // Submit score on game over & play game over sound
+  useEffect(() => {
+    if (isStuck) {
+      sound.playGameOver();
+    }
+  }, [isStuck]);
+
   useEffect(() => {
     if (isGameOver && score > 0) {
       haptics.warning();
       submitScore('blockudoku', score).then((res) => {
         if (res.isNewRecord) {
           setIsNewRecordAchieved(true);
+          sound.playRecord();
           confetti({
             particleCount: 80,
             spread: 70,
@@ -63,16 +86,22 @@ export const BlockudokuGame: React.FC = () => {
         if (selectedTrayIndex !== null) {
           setSelectedTrayIndex(null);
         } else {
+          sound.playUiTap();
           closeGame();
         }
       } else if (e.key === 'r' || e.key === 'R') {
         handleRestart();
+      } else if (e.key === 'm' || e.key === 'M') {
+        toggleSound();
       } else if (e.key === '1' && trayPieces[0] && trayPlaceable[0]) {
         setSelectedTrayIndex((prev) => (prev === 0 ? null : 0));
+        sound.playPickup();
       } else if (e.key === '2' && trayPieces[1] && trayPlaceable[1]) {
         setSelectedTrayIndex((prev) => (prev === 1 ? null : 1));
+        sound.playPickup();
       } else if (e.key === '3' && trayPieces[2] && trayPlaceable[2]) {
         setSelectedTrayIndex((prev) => (prev === 2 ? null : 2));
+        sound.playPickup();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -90,8 +119,8 @@ export const BlockudokuGame: React.FC = () => {
     e.preventDefault();
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
     haptics.selection();
+    sound.playPickup();
 
-    // Finger offset ONLY for touch devices
     const isTouch = e.pointerType === 'touch';
     const offsetY = isTouch ? FINGER_OFFSET_TOUCH : 0;
 
@@ -176,16 +205,20 @@ export const BlockudokuGame: React.FC = () => {
 
       if (res.success) {
         setSelectedTrayIndex(null);
-        if (res.clearedLines > 1) {
-          haptics.success();
-          confetti({
-            particleCount: 50,
-            spread: 60,
-            origin: { y: 0.5 },
-          });
-        } else if (res.clearedLines === 1) {
-          haptics.medium();
+        if (res.clearedLines > 0) {
+          sound.playClear(res.clearedLines + res.combo);
+          if (res.clearedLines > 1) {
+            haptics.success();
+            confetti({
+              particleCount: 50,
+              spread: 60,
+              origin: { y: 0.5 },
+            });
+          } else {
+            haptics.medium();
+          }
         } else {
+          sound.playPlace();
           haptics.light();
         }
       }
@@ -205,12 +238,16 @@ export const BlockudokuGame: React.FC = () => {
       if (res.success) {
         setSelectedTrayIndex(null);
         setHoverBoardCell(null);
-        if (res.clearedLines > 1) {
-          haptics.success();
-          confetti({ particleCount: 50, spread: 60, origin: { y: 0.5 } });
-        } else if (res.clearedLines === 1) {
-          haptics.medium();
+        if (res.clearedLines > 0) {
+          sound.playClear(res.clearedLines + res.combo);
+          if (res.clearedLines > 1) {
+            haptics.success();
+            confetti({ particleCount: 50, spread: 60, origin: { y: 0.5 } });
+          } else {
+            haptics.medium();
+          }
         } else {
+          sound.playPlace();
           haptics.light();
         }
       }
@@ -220,6 +257,7 @@ export const BlockudokuGame: React.FC = () => {
   // Restart handler
   const handleRestart = () => {
     haptics.medium();
+    sound.playUiTap();
     setIsNewRecordAchieved(false);
     setSelectedTrayIndex(null);
     setHoverBoardCell(null);
@@ -240,12 +278,10 @@ export const BlockudokuGame: React.FC = () => {
     return [];
   }, [dragState, selectedTrayIndex, hoverBoardCell, grid, trayPieces]);
 
-  // Determine if a cell will be cleared by current hover/drag
   const isPredictedClearCell = (r: number, c: number) => {
     return predictedClears.some((cell) => cell.row === r && cell.col === c);
   };
 
-  // Determine if a cell is part of the ghost preview
   const isGhostCell = (r: number, c: number) => {
     if (dragState && dragState.targetRow !== null && dragState.targetCol !== null) {
       const piece = dragState.piece;
@@ -276,7 +312,6 @@ export const BlockudokuGame: React.FC = () => {
     return false;
   };
 
-  // Determine if cell is actively being cleared
   const isClearing = (r: number, c: number) => {
     return clearingCells.some((cell) => cell.row === r && cell.col === c);
   };
@@ -291,7 +326,10 @@ export const BlockudokuGame: React.FC = () => {
       {/* 1. Fixed Header & Score HUD (h-14) */}
       <header className="h-14 shrink-0 px-4 flex items-center justify-between border-b border-slate-800/60 bg-tg-secondaryBg/80 backdrop-blur-md z-10">
         <button
-          onClick={closeGame}
+          onClick={() => {
+            sound.playUiTap();
+            closeGame();
+          }}
           className="p-2 -ml-2 rounded-xl text-slate-400 hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
           title="В меню (Esc)"
         >
@@ -307,7 +345,6 @@ export const BlockudokuGame: React.FC = () => {
             <span className="text-2xl font-black text-indigo-400 tracking-tight leading-none">
               {score}
             </span>
-            {/* Floating Score Popup */}
             {lastScorePopup && (
               <span
                 key={lastScorePopup.id}
@@ -331,16 +368,31 @@ export const BlockudokuGame: React.FC = () => {
           </div>
         </div>
 
-        <button
-          onClick={handleRestart}
-          className="p-2 -mr-2 rounded-xl text-slate-400 hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
-          title="Начать заново (R)"
-        >
-          <RotateCcw className="w-5 h-5" />
-        </button>
+        {/* Right Header Buttons: Sound & Restart */}
+        <div className="flex items-center gap-1 -mr-2">
+          <button
+            onClick={toggleSound}
+            className="p-2 rounded-xl text-slate-400 hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
+            title={isMuted ? 'Включить звук (M)' : 'Выключить звук (M)'}
+          >
+            {isMuted ? (
+              <VolumeX className="w-5 h-5 text-slate-500" />
+            ) : (
+              <Volume2 className="w-5 h-5 text-indigo-400" />
+            )}
+          </button>
+
+          <button
+            onClick={handleRestart}
+            className="p-2 rounded-xl text-slate-400 hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
+            title="Начать заново (R)"
+          >
+            <RotateCcw className="w-5 h-5" />
+          </button>
+        </div>
       </header>
 
-      {/* 2. Fixed Status & Combo Banner (h-7, no layout shift) */}
+      {/* 2. Fixed Status & Combo Banner (h-7) */}
       <div className="h-7 shrink-0 flex items-center justify-center px-4">
         {isStuck ? (
           <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-rose-500/20 border border-rose-400/40 text-[11px] font-bold text-rose-300 animate-pulse">
@@ -429,6 +481,7 @@ export const BlockudokuGame: React.FC = () => {
                 onClick={() => {
                   if (piece && canPlace) {
                     setSelectedTrayIndex((prev) => (prev === index ? null : index));
+                    sound.playPickup();
                   }
                 }}
                 className={`relative rounded-2xl border transition-all duration-200 flex items-center justify-center overflow-hidden touch-none ${
@@ -516,7 +569,7 @@ export const BlockudokuGame: React.FC = () => {
         </div>
       )}
 
-      {/* Game Over Modal (Appears smoothly after delay) */}
+      {/* Game Over Modal */}
       {isGameOver && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in">
           <div className="w-full max-w-sm rounded-3xl bg-tg-secondaryBg border border-slate-700/80 p-6 text-center shadow-2xl animate-pop">
@@ -550,7 +603,10 @@ export const BlockudokuGame: React.FC = () => {
                 Играть снова
               </button>
               <button
-                onClick={closeGame}
+                onClick={() => {
+                  sound.playUiTap();
+                  closeGame();
+                }}
                 className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-tg-hint font-semibold text-xs border border-slate-700 active:scale-95 transition-all cursor-pointer"
               >
                 В главное меню
