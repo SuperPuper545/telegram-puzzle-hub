@@ -226,8 +226,8 @@ export const Match3Game: React.FC = () => {
             <span className="text-[10px] uppercase tracking-wider text-tg-hint font-semibold block leading-none mb-1">
               Рекорд
             </span>
-            <span className="text-base font-bold text-amber-300 leading-none flex items-center gap-1 justify-center">
-              <Trophy className="w-3.5 h-3.5 fill-amber-400/20" />
+            <span className="text-base font-bold text-amber-500 leading-none flex items-center gap-1 justify-center">
+              <Trophy className="w-3.5 h-3.5 fill-amber-500/20" />
               {bestScore}
             </span>
           </div>
@@ -235,7 +235,7 @@ export const Match3Game: React.FC = () => {
 
         {/* Right Header Buttons: Coins, Sound & Restart */}
         <div className="flex items-center gap-1.5 -mr-1">
-          <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-400/25 text-amber-300 text-xs font-black shadow-sm">
+          <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-400/25 text-amber-500 text-xs font-black shadow-sm">
             <Coins className="w-3.5 h-3.5" />
             <span>{coins}</span>
           </div>
@@ -265,15 +265,15 @@ export const Match3Game: React.FC = () => {
       {/* 2. Moves & Status Bar (h-8) */}
       <div className="h-8 shrink-0 flex items-center justify-center px-5">
         {boosterNotice ? (
-          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-[11px] font-black text-amber-300 animate-fade-in shadow-md">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-[11px] font-black text-amber-500 animate-fade-in shadow-md">
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
             {boosterNotice}
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-slate-800/90 border border-slate-700/60 shadow-sm">
-            <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+          <div className="flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] shadow-sm">
+            <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
             <span className="text-xs font-extrabold text-tg-text">
-              Осталось ходов: <span className={movesLeft <= 5 ? 'text-rose-400 animate-pulse font-black' : 'text-amber-300'}>{movesLeft}</span>
+              Осталось ходов: <span className={movesLeft <= 5 ? 'text-rose-400 animate-pulse font-black' : 'text-amber-500'}>{movesLeft}</span>
             </span>
           </div>
         )}
@@ -343,28 +343,28 @@ export const Match3Game: React.FC = () => {
       <div className="h-14 shrink-0 px-3 flex items-center justify-between gap-2 border-t border-[var(--tg-theme-section-separator-color)] bg-tg-secondaryBg/80">
         <button
           onClick={handleBoosterMoves}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-slate-800/90 border border-slate-700/80 active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-amber-500/50 cursor-pointer shadow-sm"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-amber-500/50 cursor-pointer shadow-sm"
           title="+5 ходов за 100 монет"
         >
-          <Hourglass className="w-4 h-4 text-amber-400" />
+          <Hourglass className="w-4 h-4 text-amber-500" />
           <span>+5 ходов</span>
-          <span className="text-[10px] text-amber-400 font-black">100🪙</span>
+          <span className="text-[10px] text-amber-500 font-black">100🪙</span>
         </button>
 
         <button
           onClick={handleBoosterBomb}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-slate-800/90 border border-slate-700/80 active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-purple-500/50 cursor-pointer shadow-sm"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-purple-500/50 cursor-pointer shadow-sm"
           title="Радужная бомба за 150 монет"
         >
           <Bomb className="w-4 h-4 text-pink-400" />
           <span>Радужная бомба</span>
-          <span className="text-[10px] text-amber-400 font-black">150🪙</span>
+          <span className="text-[10px] text-amber-500 font-black">150🪙</span>
         </button>
       </div>
 
       {/* Game Over Modal */}
       {isGameOver && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
           <div className="w-full max-w-sm rounded-3xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-6 text-center shadow-2xl animate-pop">
             <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-pink-500 to-amber-500 p-[2px] shadow-lg shadow-pink-500/20 flex items-center justify-center">
               <Trophy className="w-8 h-8 text-white fill-white/20" />
@@ -375,14 +375,14 @@ export const Match3Game: React.FC = () => {
               Закончились все доступные ходы
             </p>
 
-            <div className="my-5 p-4 rounded-2xl bg-black/25 border border-white/10">
+            <div className="my-5 p-4 rounded-2xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)]">
               <span className="text-xs text-tg-hint uppercase font-semibold">
                 Итоговые кристаллы
               </span>
               <p className="text-3xl font-black text-pink-400 mt-1">{score}</p>
 
               {isNewRecord && (
-                <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-xs font-extrabold animate-bounce">
+                <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-500 text-xs font-extrabold animate-bounce">
                   <Sparkles className="w-3.5 h-3.5" /> Новый рекорд в Match-3!
                 </div>
               )}
@@ -423,7 +423,7 @@ export const Match3Game: React.FC = () => {
                   sound.playUiTap();
                   closeGame();
                 }}
-                className="w-full py-2.5 px-4 rounded-xl bg-black/30 hover:bg-black/40 text-tg-hint font-semibold text-xs border border-white/10 active:scale-95 transition-all cursor-pointer"
+                className="w-full py-2.5 px-4 rounded-xl bg-tg-bg hover:bg-tg-secondaryBg text-tg-hint font-semibold text-xs border border-[var(--tg-theme-section-separator-color)] active:scale-95 transition-all cursor-pointer"
               >
                 В главное меню
               </button>

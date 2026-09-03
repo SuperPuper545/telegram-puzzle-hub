@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { useGameBridge } from '../../context/GameContext';
 import { Play, Sparkles, Grid, Gem, Layers } from 'lucide-react';
 import { haptics } from '../../telegram/telegram';
@@ -52,10 +52,10 @@ export const GameCatalog: React.FC = () => {
   return (
     <div className="p-4 space-y-4">
       {/* Featured Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-950/80 via-purple-950/50 to-tg-secondaryBg p-4 border border-indigo-500/25 shadow-lg">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500/15 via-purple-500/10 to-tg-secondaryBg p-4 border border-indigo-500/25 shadow-md">
         <div className="relative z-10">
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 mb-2">
-            <Sparkles className="w-3 h-3 text-indigo-300" /> Сезон #1
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-400/30 mb-2">
+            <Sparkles className="w-3 h-3 text-indigo-400" /> Сезон #1
           </span>
           <h2 className="text-lg font-black text-tg-text tracking-tight">
             Каталог Головоломок
@@ -74,12 +74,12 @@ export const GameCatalog: React.FC = () => {
         {games.map((game) => (
           <div
             key={game.id}
-            className={`rounded-2xl bg-tg-secondaryBg border ${game.borderColor} p-4 shadow-md transition-all duration-200`}
+            className={`rounded-2xl bg-tg-secondaryBg border ${game.borderColor} p-4 shadow-sm transition-all duration-200`}
           >
             <div className="flex items-start gap-3.5">
               {/* Left Column: Icon + Best Score Badge underneath */}
               <div className="flex flex-col items-center gap-1.5 shrink-0 w-12">
-                <div className="p-2.5 rounded-xl bg-slate-800/90 border border-slate-700/60 flex items-center justify-center">
+                <div className="p-2.5 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] flex items-center justify-center shadow-inner">
                   {game.icon}
                 </div>
                 {game.bestScore > 0 && (
@@ -87,7 +87,7 @@ export const GameCatalog: React.FC = () => {
                     <span className="block text-[9px] uppercase tracking-wider text-tg-hint leading-none font-semibold mb-0.5">
                       Рекорд
                     </span>
-                    <span className="text-[11px] font-black text-amber-300 leading-none">
+                    <span className="text-[11px] font-black text-amber-500 leading-none">
                       {game.bestScore.toLocaleString()}
                     </span>
                   </div>
@@ -98,24 +98,24 @@ export const GameCatalog: React.FC = () => {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
                   <h3 className="font-bold text-sm text-tg-text truncate">{game.title}</h3>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800/80 text-tg-hint border border-slate-700/50 shrink-0">
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-tg-bg text-tg-hint border border-[var(--tg-theme-section-separator-color)] shrink-0">
                     {game.badge}
                   </span>
                 </div>
                 <p className="text-[11px] text-tg-hint font-medium mt-0.5">{game.subtitle}</p>
-                <p className="text-xs text-slate-300/90 mt-1.5 leading-relaxed">
+                <p className="text-xs text-tg-hint mt-1.5 leading-relaxed">
                   {game.description}
                 </p>
               </div>
             </div>
 
             {/* Bottom Row: Tags on left, Play Button on right */}
-            <div className="mt-3.5 pt-3 border-t border-slate-800/70 flex items-center justify-between gap-2">
+            <div className="mt-3.5 pt-3 border-t border-[var(--tg-theme-section-separator-color)] flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 flex-wrap">
                 {game.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="text-[10px] text-tg-hint bg-slate-800/60 px-2 py-0.5 rounded-md"
+                    className="text-[10px] text-tg-hint bg-tg-bg border border-[var(--tg-theme-section-separator-color)] px-2 py-0.5 rounded-md"
                   >
                     #{tag}
                   </span>
@@ -135,7 +135,7 @@ export const GameCatalog: React.FC = () => {
                   Играть
                 </button>
               ) : (
-                <span className="px-3 py-1.5 rounded-xl bg-slate-800/60 text-slate-500 font-semibold text-xs border border-slate-700/40 shrink-0">
+                <span className="px-3 py-1.5 rounded-xl bg-tg-bg text-tg-hint font-semibold text-xs border border-[var(--tg-theme-section-separator-color)] shrink-0">
                   Скоро
                 </span>
               )}

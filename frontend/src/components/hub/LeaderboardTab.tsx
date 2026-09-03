@@ -49,7 +49,7 @@ export const LeaderboardTab: React.FC = () => {
       </div>
 
       {/* Telegram Segmented Control */}
-      <div className="flex items-center gap-1 p-1 bg-tg-secondaryBg rounded-xl border border-slate-800/80">
+      <div className="flex items-center gap-1 p-1 bg-tg-secondaryBg rounded-xl border border-[var(--tg-theme-section-separator-color)]">
         {gameNames.map((g) => {
           const isActive = selectedGame === g.id;
           return (
@@ -72,8 +72,8 @@ export const LeaderboardTab: React.FC = () => {
       </div>
 
       {list.length === 0 && !isLoadingLeaderboard ? (
-        <div className="p-8 text-center rounded-2xl bg-tg-secondaryBg border border-slate-800/60">
-          <Trophy className="w-10 h-10 mx-auto text-slate-600 mb-2" />
+        <div className="p-8 text-center rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] shadow-sm">
+          <Trophy className="w-10 h-10 mx-auto text-tg-hint mb-2 opacity-50" />
           <p className="font-semibold text-tg-text text-sm">Пока нет рекордов</p>
           <p className="text-xs text-tg-hint mt-1">
             Сыграй первую партию и займи 1 место в топе!
@@ -91,7 +91,7 @@ export const LeaderboardTab: React.FC = () => {
                     <>
                       <div className="relative mb-2">
                         <div className="w-12 h-12 rounded-full bg-slate-300 p-[2px] shadow-md">
-                          <div className="w-full h-full bg-slate-800 rounded-full flex items-center justify-center font-bold text-slate-200 text-xs overflow-hidden">
+                          <div className="w-full h-full bg-tg-bg rounded-full flex items-center justify-center font-bold text-tg-text text-xs overflow-hidden border border-[var(--tg-theme-section-separator-color)]">
                             {top2.photoUrl ? (
                               <img src={top2.photoUrl} alt="" className="w-full h-full object-cover" />
                             ) : (
@@ -99,21 +99,21 @@ export const LeaderboardTab: React.FC = () => {
                             )}
                           </div>
                         </div>
-                        <div className="absolute -top-1.5 -right-1 bg-slate-400 text-slate-950 text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-slate-900">
+                        <div className="absolute -top-1.5 -right-1 bg-slate-400 text-slate-950 text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-tg-secondaryBg">
                           2
                         </div>
                       </div>
                       <span className="text-xs font-bold text-tg-text truncate max-w-[80px]">
                         {top2.firstName}
                       </span>
-                      <span className="text-[11px] font-extrabold text-slate-400">
+                      <span className="text-[11px] font-extrabold text-tg-hint">
                         {top2.highScore.toLocaleString()}
                       </span>
                     </>
                   ) : (
                     <div className="h-16" />
                   )}
-                  <div className="w-full h-14 bg-gradient-to-t from-slate-800 to-slate-800/40 rounded-t-xl border-t border-slate-400/30 flex items-center justify-center text-slate-400 font-black text-sm">
+                  <div className="w-full h-14 bg-gradient-to-t from-tg-bg to-tg-secondaryBg/50 rounded-t-xl border-t border-[var(--tg-theme-section-separator-color)] flex items-center justify-center text-tg-hint font-black text-sm">
                     2
                   </div>
                 </div>
@@ -121,9 +121,9 @@ export const LeaderboardTab: React.FC = () => {
                 {/* 1st Place */}
                 <div className="flex-1 flex flex-col items-center -mt-3">
                   <div className="relative mb-2">
-                    <Crown className="w-5 h-5 text-amber-400 absolute -top-4 left-1/2 -translate-x-1/2 animate-bounce" />
+                    <Crown className="w-5 h-5 text-amber-500 absolute -top-4 left-1/2 -translate-x-1/2 animate-bounce" />
                     <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-amber-400 to-yellow-300 p-[2px] shadow-lg shadow-amber-500/20">
-                      <div className="w-full h-full bg-slate-800 rounded-full flex items-center justify-center font-black text-amber-300 text-sm overflow-hidden">
+                      <div className="w-full h-full bg-tg-bg rounded-full flex items-center justify-center font-black text-amber-500 text-sm overflow-hidden border border-[var(--tg-theme-section-separator-color)]">
                         {top1.photoUrl ? (
                           <img src={top1.photoUrl} alt="" className="w-full h-full object-cover" />
                         ) : (
@@ -131,17 +131,17 @@ export const LeaderboardTab: React.FC = () => {
                         )}
                       </div>
                     </div>
-                    <div className="absolute -top-1.5 -right-1 bg-amber-400 text-slate-950 text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-slate-900">
+                    <div className="absolute -top-1.5 -right-1 bg-amber-400 text-slate-950 text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-tg-secondaryBg">
                       1
                     </div>
                   </div>
-                  <span className="text-xs font-bold text-amber-200 truncate max-w-[90px]">
+                  <span className="text-xs font-bold text-amber-500 truncate max-w-[90px]">
                     {top1.firstName}
                   </span>
-                  <span className="text-xs font-black text-amber-400">
+                  <span className="text-xs font-black text-amber-500">
                     {top1.highScore.toLocaleString()}
                   </span>
-                  <div className="w-full h-20 bg-gradient-to-t from-amber-950/40 via-amber-900/20 to-amber-500/20 rounded-t-xl border-t-2 border-amber-400 flex items-center justify-center text-amber-300 font-black text-base shadow-lg">
+                  <div className="w-full h-20 bg-gradient-to-t from-amber-500/20 via-amber-500/10 to-transparent rounded-t-xl border-t-2 border-amber-400 flex items-center justify-center text-amber-500 font-black text-base shadow-sm">
                     👑 1
                   </div>
                 </div>
@@ -152,7 +152,7 @@ export const LeaderboardTab: React.FC = () => {
                     <>
                       <div className="relative mb-2">
                         <div className="w-12 h-12 rounded-full bg-amber-600 p-[2px] shadow-md">
-                          <div className="w-full h-full bg-slate-800 rounded-full flex items-center justify-center font-bold text-amber-200 text-xs overflow-hidden">
+                          <div className="w-full h-full bg-tg-bg rounded-full flex items-center justify-center font-bold text-amber-600 text-xs overflow-hidden border border-[var(--tg-theme-section-separator-color)]">
                             {top3.photoUrl ? (
                               <img src={top3.photoUrl} alt="" className="w-full h-full object-cover" />
                             ) : (
@@ -160,7 +160,7 @@ export const LeaderboardTab: React.FC = () => {
                             )}
                           </div>
                         </div>
-                        <div className="absolute -top-1.5 -right-1 bg-amber-700 text-slate-100 text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-slate-900">
+                        <div className="absolute -top-1.5 -right-1 bg-amber-700 text-slate-100 text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-tg-secondaryBg">
                           3
                         </div>
                       </div>
@@ -174,7 +174,7 @@ export const LeaderboardTab: React.FC = () => {
                   ) : (
                     <div className="h-16" />
                   )}
-                  <div className="w-full h-11 bg-gradient-to-t from-slate-800 to-slate-800/40 rounded-t-xl border-t border-amber-700/30 flex items-center justify-center text-amber-700 font-black text-sm">
+                  <div className="w-full h-11 bg-gradient-to-t from-tg-bg to-tg-secondaryBg/40 rounded-t-xl border-t border-amber-700/30 flex items-center justify-center text-amber-700 font-black text-sm">
                     3
                   </div>
                 </div>
@@ -184,21 +184,21 @@ export const LeaderboardTab: React.FC = () => {
 
           {/* Ranks 4+ in Telegram List Style */}
           {rest.length > 0 && (
-            <div className="rounded-2xl bg-tg-secondaryBg border border-slate-800/80 divide-y divide-slate-800/50 overflow-hidden">
+            <div className="rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] divide-y divide-[var(--tg-theme-section-separator-color)] overflow-hidden shadow-sm">
               {rest.map((entry) => {
                 const isCurrentUser = String(entry.telegramId) === String(user.id);
                 return (
                   <div
                     key={entry.userId}
                     className={`flex items-center justify-between px-3.5 py-2.5 transition-colors ${
-                      isCurrentUser ? 'bg-indigo-950/40 border-l-4 border-l-indigo-500' : ''
+                      isCurrentUser ? 'bg-indigo-500/10 border-l-4 border-l-indigo-500' : ''
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <span className="w-5 text-center font-bold text-xs text-tg-hint">
                         {entry.rank}
                       </span>
-                      <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center font-bold text-xs text-tg-hint overflow-hidden">
+                      <div className="w-8 h-8 rounded-full bg-tg-bg flex items-center justify-center font-bold text-xs text-tg-hint overflow-hidden border border-[var(--tg-theme-section-separator-color)]">
                         {entry.photoUrl ? (
                           <img src={entry.photoUrl} alt="" className="w-full h-full object-cover" />
                         ) : (

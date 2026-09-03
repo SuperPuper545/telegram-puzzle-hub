@@ -12,50 +12,50 @@
 }
 
 :root {
-  --tg-theme-bg-color: #0e1621;
-  --tg-theme-secondary-bg-color: #17212b;
-  --tg-theme-text-color: #ffffff;
-  --tg-theme-hint-color: #8e8e93;
-  --tg-theme-link-color: #2481cc;
-  --tg-theme-button-color: #2481cc;
+  --tg-theme-bg-color: #1e1d1a;
+  --tg-theme-secondary-bg-color: #282622;
+  --tg-theme-text-color: #f5f5f4;
+  --tg-theme-hint-color: #a8a29e;
+  --tg-theme-link-color: #5288c1;
+  --tg-theme-button-color: #5288c1;
   --tg-theme-button-text-color: #ffffff;
-  --tg-theme-header-bg-color: #0e1621;
-  --tg-theme-section-bg-color: #17212b;
-  --tg-theme-section-separator-color: rgba(255, 255, 255, 0.08);
+  --tg-theme-header-bg-color: #1e1d1a;
+  --tg-theme-section-bg-color: #282622;
+  --tg-theme-section-separator-color: rgba(255, 255, 255, 0.09);
 }
 
-/* 1. Telegram Classic Dark (Midnight Blue) */
+/* 1. Telegram Тёмная (Classic Dark: Warm Sand & Charcoal) */
 .tg-dark {
-  --tg-theme-bg-color: #0e1621;
-  --tg-theme-secondary-bg-color: #17212b;
-  --tg-theme-text-color: #ffffff;
-  --tg-theme-hint-color: #8e8e93;
-  --tg-theme-button-color: #2481cc;
+  --tg-theme-bg-color: #1e1d1a;
+  --tg-theme-secondary-bg-color: #282622;
+  --tg-theme-text-color: #f5f5f4;
+  --tg-theme-hint-color: #a8a29e;
+  --tg-theme-button-color: #5288c1;
   --tg-theme-button-text-color: #ffffff;
-  --tg-theme-section-bg-color: #17212b;
-  --tg-theme-section-separator-color: rgba(255, 255, 255, 0.08);
+  --tg-theme-section-bg-color: #282622;
+  --tg-theme-section-separator-color: rgba(255, 255, 255, 0.09);
 }
 
-/* 2. Telegram AMOLED (Pure Jet Black) */
+/* 2. Telegram Dark / AMOLED (Pure Jet Black) */
 .tg-amoled {
   --tg-theme-bg-color: #000000;
-  --tg-theme-secondary-bg-color: #111111;
+  --tg-theme-secondary-bg-color: #121212;
   --tg-theme-text-color: #ffffff;
-  --tg-theme-hint-color: #888888;
+  --tg-theme-hint-color: #8e8e93;
   --tg-theme-button-color: #2481cc;
   --tg-theme-button-text-color: #ffffff;
-  --tg-theme-section-bg-color: #111111;
+  --tg-theme-section-bg-color: #121212;
   --tg-theme-section-separator-color: rgba(255, 255, 255, 0.12);
 }
 
-/* 3. Telegram Light */
+/* 3. Telegram Light (Светлая тема) */
 .tg-light {
-  --tg-theme-bg-color: #f4f4f5;
+  --tg-theme-bg-color: #f3f4f6;
   --tg-theme-secondary-bg-color: #ffffff;
-  --tg-theme-text-color: #1c1c1e;
-  --tg-theme-hint-color: #8e8e93;
-  --tg-theme-link-color: #007aff;
-  --tg-theme-button-color: #007aff;
+  --tg-theme-text-color: #111827;
+  --tg-theme-hint-color: #6b7280;
+  --tg-theme-link-color: #2563eb;
+  --tg-theme-button-color: #2563eb;
   --tg-theme-button-text-color: #ffffff;
   --tg-theme-section-bg-color: #ffffff;
   --tg-theme-section-separator-color: rgba(0, 0, 0, 0.08);

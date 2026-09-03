@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useGameBridge } from '../../context/GameContext';
 import { Trophy, Gamepad2, Share2, Play, Flame, Coins, Gift, ShoppingBag } from 'lucide-react';
-import { haptics, getTelegramWebApp } from '../../telegram/telegram';
+import { haptics, getTelegramWebApp, getStoredThemeMode, setStoredThemeMode, type ThemeMode } from '../../telegram/telegram';
 import { sound } from '../../utils/sound';
 
 export const ProfileTab: React.FC = () => {
@@ -16,6 +16,15 @@ export const ProfileTab: React.FC = () => {
     setActiveTab, 
     openGame 
   } = useGameBridge();
+  const [currentTheme, setCurrentTheme] = useState<ThemeMode>(() => getStoredThemeMode());
+
+  const handleSelectTheme = (mode: ThemeMode) => {
+    sound.playUiTap();
+    haptics.selection();
+    setCurrentTheme(mode);
+    setStoredThemeMode(mode);
+  };
+
   const totalScore = Object.values(bestScores).reduce((acc, s) => acc + s, 0);
   const initials = (user.first_name || 'U').slice(0, 2).toUpperCase();
 
@@ -98,7 +107,7 @@ export const ProfileTab: React.FC = () => {
               className="w-full h-full object-cover rounded-full"
             />
           ) : (
-            <div className="w-full h-full bg-slate-800 rounded-full flex items-center justify-center font-black text-xl text-indigo-300">
+            <div className="w-full h-full bg-tg-bg rounded-full flex items-center justify-center font-black text-xl text-indigo-400 border border-[var(--tg-theme-section-separator-color)]">
               {initials}
             </div>
           )}
@@ -109,9 +118,60 @@ export const ProfileTab: React.FC = () => {
           {user.username ? `@${user.username}` : `ID: ${user.id}`}
         </p>
 
-        <div className="mt-3.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border bg-indigo-500/15 border-indigo-400/30 text-indigo-300">
+        <div className="mt-3.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border bg-indigo-500/15 border-indigo-400/30 text-indigo-400">
           <span>🎮</span>
           <span>Игрок TapTap Hub</span>
+        </div>
+      </div>
+
+      {/* Theme Switcher: Auto / Light / Dark (Sand) / AMOLED */}
+      <div className="rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-3.5 space-y-2.5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold text-tg-text">Тема оформления</span>
+          <span className="text-[10px] text-tg-hint font-semibold">
+            {currentTheme === 'auto'
+              ? 'Авто (Telegram)'
+              : currentTheme === 'light'
+              ? '☀️ Светлая'
+              : currentTheme === 'dark'
+              ? '🌘 Тёмная (Песок)'
+              : '🌑 Dark (AMOLED)'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-4 gap-1 p-1 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)]">
+          <button
+            onClick={() => handleSelectTheme('auto')}
+            className={`py-1.5 px-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+              currentTheme === 'auto' ? 'tg-btn-primary shadow-sm' : 'text-tg-hint hover:text-tg-text'
+            }`}
+          >
+            Авто
+          </button>
+          <button
+            onClick={() => handleSelectTheme('light')}
+            className={`py-1.5 px-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+              currentTheme === 'light' ? 'tg-btn-primary shadow-sm' : 'text-tg-hint hover:text-tg-text'
+            }`}
+          >
+            ☀️ Светлая
+          </button>
+          <button
+            onClick={() => handleSelectTheme('dark')}
+            className={`py-1.5 px-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+              currentTheme === 'dark' ? 'tg-btn-primary shadow-sm' : 'text-tg-hint hover:text-tg-text'
+            }`}
+          >
+            🌘 Тёмная
+          </button>
+          <button
+            onClick={() => handleSelectTheme('amoled')}
+            className={`py-1.5 px-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+              currentTheme === 'amoled' ? 'tg-btn-primary shadow-sm' : 'text-tg-hint hover:text-tg-text'
+            }`}
+          >
+            🌑 Dark
+          </button>
         </div>
       </div>
 
@@ -124,14 +184,14 @@ export const ProfileTab: React.FC = () => {
             haptics.selection();
             setIsShopModalOpen(true);
           }}
-          className="p-3.5 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] flex items-center gap-3 cursor-pointer hover:border-amber-500/40 active:scale-98 transition-all"
+          className="p-3.5 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] flex items-center gap-3 cursor-pointer hover:border-amber-500/40 active:scale-98 transition-all shadow-sm"
         >
-          <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-400 shrink-0">
+          <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-500 shrink-0">
             <Coins className="w-5 h-5" />
           </div>
           <div>
             <span className="text-[11px] text-tg-hint font-medium">Баланс монет</span>
-            <p className="text-base font-black text-amber-300">{coins.toLocaleString()} 🪙</p>
+            <p className="text-base font-black text-amber-500">{coins.toLocaleString()} 🪙</p>
           </div>
         </div>
 
@@ -142,19 +202,19 @@ export const ProfileTab: React.FC = () => {
             haptics.selection();
             setIsDailyModalOpen(true);
           }}
-          className="p-3.5 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] flex items-center gap-3 cursor-pointer active:scale-98 transition-transform hover:border-amber-500/40"
+          className="p-3.5 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] flex items-center gap-3 cursor-pointer active:scale-98 transition-transform hover:border-amber-500/40 shadow-sm"
         >
-          <div className="p-2.5 rounded-xl bg-orange-500/15 text-orange-400 shrink-0">
+          <div className="p-2.5 rounded-xl bg-orange-500/15 text-orange-500 shrink-0">
             <Flame className="w-5 h-5" />
           </div>
           <div>
             <span className="text-[11px] text-tg-hint font-medium">Серия входов</span>
-            <p className="text-base font-black text-orange-400">{dailyStreak} дн. 🔥</p>
+            <p className="text-base font-black text-orange-500">{dailyStreak} дн. 🔥</p>
           </div>
         </div>
 
         {/* Games Played */}
-        <div className="p-3.5 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] flex items-center gap-3">
+        <div className="p-3.5 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] flex items-center gap-3 shadow-sm">
           <div className="p-2.5 rounded-xl bg-indigo-500/15 text-indigo-400 shrink-0">
             <Gamepad2 className="w-5 h-5" />
           </div>
@@ -165,13 +225,13 @@ export const ProfileTab: React.FC = () => {
         </div>
 
         {/* Total Score */}
-        <div className="p-3.5 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-purple-500/15 text-purple-400 shrink-0">
+        <div className="p-3.5 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] flex items-center gap-3 shadow-sm">
+          <div className="p-2.5 rounded-xl bg-purple-500/15 text-purple-500 shrink-0">
             <Trophy className="w-5 h-5" />
           </div>
           <div>
             <span className="text-[11px] text-tg-hint font-medium">Суммарный счет</span>
-            <p className="text-base font-extrabold text-purple-300">{totalScore.toLocaleString()}</p>
+            <p className="text-base font-extrabold text-purple-500">{totalScore.toLocaleString()}</p>
           </div>
         </div>
       </div>
@@ -183,18 +243,18 @@ export const ProfileTab: React.FC = () => {
           haptics.selection();
           setIsShopModalOpen(true);
         }}
-        className="p-3.5 rounded-2xl bg-gradient-to-r from-indigo-950/70 via-purple-950/70 to-pink-950/60 border border-purple-500/40 flex items-center justify-between cursor-pointer active:scale-98 transition-all hover:border-purple-400 shadow-md"
+        className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-500/15 via-indigo-500/10 to-tg-secondaryBg border border-purple-500/30 flex items-center justify-between cursor-pointer active:scale-98 transition-all hover:border-purple-400 shadow-sm"
       >
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-purple-500/20 text-purple-300">
+          <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400">
             <ShoppingBag className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-xs font-bold text-white">Магазин кастомизации</p>
-            <p className="text-[10px] text-purple-200/80">Скины блоков, кристаллов и титулы</p>
+            <p className="text-xs font-bold text-tg-text">Магазин кастомизации</p>
+            <p className="text-[10px] text-tg-hint">Скины для Blockudoku, Match-3 и 2048</p>
           </div>
         </div>
-        <div className="px-2.5 py-1 rounded-xl bg-purple-500/30 text-xs font-bold text-purple-200 border border-purple-400/30">
+        <div className="px-2.5 py-1 rounded-xl bg-purple-500/20 text-xs font-bold text-purple-400 border border-purple-400/30">
           Открыть
         </div>
       </div>
@@ -206,24 +266,24 @@ export const ProfileTab: React.FC = () => {
           haptics.selection();
           setActiveTab('friends');
         }}
-        className="p-3.5 rounded-2xl bg-gradient-to-r from-indigo-900/40 via-purple-900/40 to-pink-900/30 border border-purple-500/30 flex items-center justify-between cursor-pointer active:scale-98 transition-transform"
+        className="p-3.5 rounded-2xl bg-gradient-to-r from-indigo-500/15 via-purple-500/10 to-tg-secondaryBg border border-indigo-500/25 flex items-center justify-between cursor-pointer active:scale-98 transition-transform shadow-sm"
       >
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-purple-500/20 text-purple-300">
+          <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400">
             <Gift className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-xs font-bold text-white">Приглашай друзей — получай 500 🪙</p>
-            <p className="text-[10px] text-purple-200/80">Твоя реферальная ссылка и статистика</p>
+            <p className="text-xs font-bold text-tg-text">Приглашай друзей — получай 500 🪙</p>
+            <p className="text-[10px] text-tg-hint">Твоя реферальная ссылка и статистика</p>
           </div>
         </div>
-        <div className="px-2.5 py-1 rounded-xl bg-white/10 text-xs font-bold text-white">
+        <div className="px-2.5 py-1 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-xs font-bold text-tg-text">
           Открыть
         </div>
       </div>
 
       {/* Grouped Records Section */}
-      <div className="rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-4 space-y-2.5">
+      <div className="rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-4 space-y-2.5 shadow-sm">
         <h3 className="text-xs font-bold text-tg-hint uppercase tracking-wider mb-2">
           Личные рекорды в играх
         </h3>
@@ -232,7 +292,7 @@ export const ProfileTab: React.FC = () => {
           {gameRecords.map((game) => (
             <div
               key={game.id}
-              className="flex items-center justify-between p-2.5 rounded-xl bg-black/15 border border-white/5"
+              className="flex items-center justify-between p-2.5 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)]"
             >
               <div className="flex items-center gap-2.5">
                 <span className="text-lg">{game.icon}</span>

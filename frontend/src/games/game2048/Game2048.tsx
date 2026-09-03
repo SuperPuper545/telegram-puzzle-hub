@@ -273,8 +273,8 @@ export const Game2048: React.FC = () => {
             <span className="text-[10px] uppercase tracking-wider text-tg-hint font-semibold block leading-none mb-1">
               Рекорд
             </span>
-            <span className="text-base font-bold text-amber-300 leading-none flex items-center gap-1 justify-center">
-              <Trophy className="w-3.5 h-3.5 fill-amber-400/20" />
+            <span className="text-base font-bold text-amber-500 leading-none flex items-center gap-1 justify-center">
+              <Trophy className="w-3.5 h-3.5 fill-amber-500/20" />
               {bestScore}
             </span>
           </div>
@@ -282,7 +282,7 @@ export const Game2048: React.FC = () => {
 
         {/* Right Header Buttons: Coins, Sound, Restart */}
         <div className="flex items-center gap-1.5 -mr-1">
-          <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-400/25 text-amber-300 text-xs font-black shadow-sm">
+          <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-400/25 text-amber-500 text-xs font-black shadow-sm">
             <Coins className="w-3.5 h-3.5" />
             <span>{coins}</span>
           </div>
@@ -312,13 +312,13 @@ export const Game2048: React.FC = () => {
       {/* 2. Status Bar (h-8) */}
       <div className="h-8 shrink-0 flex items-center justify-between px-5">
         {boosterNotice ? (
-          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-[11px] font-black text-amber-300 animate-fade-in shadow-md">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-[11px] font-black text-amber-500 animate-fade-in shadow-md">
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
             {boosterNotice}
           </div>
         ) : (
-          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/30 text-[11px] font-extrabold text-amber-300">
-            <Flame className="w-3.5 h-3.5 fill-amber-400" />
+          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/30 text-[11px] font-extrabold text-amber-500">
+            <Flame className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
             Цель: плитка 2048!
           </div>
         )}
@@ -344,7 +344,7 @@ export const Game2048: React.FC = () => {
               return (
                 <div
                   key={`${r}-${c}`}
-                  className="relative rounded-2xl bg-black/15 border border-white/5 flex items-center justify-center overflow-hidden aspect-square"
+                  className="relative rounded-2xl bg-black/[0.05] dark:bg-black/25 border border-[var(--tg-theme-section-separator-color)] flex items-center justify-center overflow-hidden aspect-square"
                 >
                   {val > 0 && (
                     <div
@@ -367,41 +367,41 @@ export const Game2048: React.FC = () => {
           disabled={!canUndo}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl border transition-all text-xs font-bold cursor-pointer shadow-sm ${
             canUndo
-              ? 'bg-slate-800/90 border-slate-700/80 text-tg-text hover:border-indigo-500/50 active:scale-95'
-              : 'bg-slate-900/40 border-slate-800/40 text-tg-hint opacity-40 cursor-not-allowed'
+              ? 'bg-tg-bg border-[var(--tg-theme-section-separator-color)] text-tg-text hover:border-indigo-500/50 active:scale-95'
+              : 'bg-tg-secondaryBg/40 border-[var(--tg-theme-section-separator-color)] text-tg-hint opacity-40 cursor-not-allowed'
           }`}
           title="Откат на 1 ход за 25 монет"
         >
           <Undo2 className="w-4 h-4 text-indigo-400" />
           <span>Откат</span>
-          <span className="text-[10px] text-amber-400 font-black">25🪙</span>
+          <span className="text-[10px] text-amber-500 font-black">25🪙</span>
         </button>
 
         <button
           onClick={handleBoosterErase}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-slate-800/90 border border-slate-700/80 active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-amber-500/50 cursor-pointer shadow-sm"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-amber-500/50 cursor-pointer shadow-sm"
           title="Стереть минимальную плитку за 100 монет"
         >
           <Eraser className="w-4 h-4 text-amber-400" />
           <span>Стереть 2/4</span>
-          <span className="text-[10px] text-amber-400 font-black">100🪙</span>
+          <span className="text-[10px] text-amber-500 font-black">100🪙</span>
         </button>
       </div>
 
       {/* 2048 Win Modal */}
       {hasWon && !acknowledgedWin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
           <div className="w-full max-w-sm rounded-3xl bg-tg-secondaryBg border border-amber-500/80 p-6 text-center shadow-2xl animate-pop">
             <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-yellow-400 to-amber-500 p-[2px] shadow-lg shadow-amber-500/40 flex items-center justify-center">
               <Sparkles className="w-8 h-8 text-white fill-white/20 animate-spin" />
             </div>
 
-            <h3 className="text-xl font-black text-amber-300">Плитка 2048 собрана! 🎉</h3>
+            <h3 className="text-xl font-black text-amber-500">Плитка 2048 собрана! 🎉</h3>
             <p className="text-xs text-tg-hint mt-1">Потрясающая победа! Вы достигли легендарной плитки.</p>
 
-            <div className="my-5 p-4 rounded-2xl bg-black/25 border border-white/10">
+            <div className="my-5 p-4 rounded-2xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)]">
               <span className="text-xs text-tg-hint uppercase font-semibold">Текущий счет</span>
-              <p className="text-3xl font-black text-amber-400 mt-1">{score}</p>
+              <p className="text-3xl font-black text-amber-500 mt-1">{score}</p>
             </div>
 
             <div className="space-y-2">
@@ -416,7 +416,7 @@ export const Game2048: React.FC = () => {
                   sound.playUiTap();
                   closeGame();
                 }}
-                className="w-full py-2.5 px-4 rounded-xl bg-black/30 hover:bg-black/40 text-tg-hint font-semibold text-xs border border-white/10 active:scale-95 transition-all cursor-pointer"
+                className="w-full py-2.5 px-4 rounded-xl bg-tg-bg hover:bg-tg-secondaryBg text-tg-hint font-semibold text-xs border border-[var(--tg-theme-section-separator-color)] active:scale-95 transition-all cursor-pointer"
               >
                 В главное меню
               </button>
@@ -427,7 +427,7 @@ export const Game2048: React.FC = () => {
 
       {/* Game Over Modal */}
       {isGameOver && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
           <div className="w-full max-w-sm rounded-3xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-6 text-center shadow-2xl animate-pop">
             <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 p-[2px] shadow-lg shadow-amber-500/20 flex items-center justify-center">
               <Trophy className="w-8 h-8 text-white fill-white/20" />
@@ -436,14 +436,14 @@ export const Game2048: React.FC = () => {
             <h3 className="text-xl font-black text-tg-text">Игра окончена</h3>
             <p className="text-xs text-tg-hint mt-1">Нет доступных ходов для слияния</p>
 
-            <div className="my-5 p-4 rounded-2xl bg-black/25 border border-white/10">
+            <div className="my-5 p-4 rounded-2xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)]">
               <span className="text-xs text-tg-hint uppercase font-semibold">
                 Итоговый результат
               </span>
-              <p className="text-3xl font-black text-amber-400 mt-1">{score}</p>
+              <p className="text-3xl font-black text-amber-500 mt-1">{score}</p>
 
               {isNewRecord && (
-                <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-xs font-extrabold animate-bounce">
+                <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-500 text-xs font-extrabold animate-bounce">
                   <Sparkles className="w-3.5 h-3.5" /> Новый рекорд в 2048!
                 </div>
               )}
@@ -484,7 +484,7 @@ export const Game2048: React.FC = () => {
                   sound.playUiTap();
                   closeGame();
                 }}
-                className="w-full py-2.5 px-4 rounded-xl bg-black/30 hover:bg-black/40 text-tg-hint font-semibold text-xs border border-white/10 active:scale-95 transition-all cursor-pointer"
+                className="w-full py-2.5 px-4 rounded-xl bg-tg-bg hover:bg-tg-secondaryBg text-tg-hint font-semibold text-xs border border-[var(--tg-theme-section-separator-color)] active:scale-95 transition-all cursor-pointer"
               >
                 В главное меню
               </button>

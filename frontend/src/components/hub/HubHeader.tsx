@@ -59,12 +59,12 @@ export const HubHeader: React.FC = () => {
             onClick={handleOpenDaily}
             className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-black transition-all cursor-pointer ${
               canClaim
-                ? 'bg-amber-500/20 border border-amber-400 text-amber-300 animate-pulse shadow-md shadow-amber-500/20'
-                : 'bg-tg-secondaryBg border border-white/5 text-tg-hint hover:text-tg-text'
+                ? 'bg-amber-500/20 border border-amber-400 text-amber-500 animate-pulse shadow-md shadow-amber-500/20'
+                : 'bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] text-tg-hint hover:text-tg-text'
             }`}
             title="Ежедневные награды"
           >
-            <Flame className={`w-3.5 h-3.5 ${canClaim ? 'text-amber-400 fill-amber-400/40' : 'text-orange-400'}`} />
+            <Flame className={`w-3.5 h-3.5 ${canClaim ? 'text-amber-500 fill-amber-500/40' : 'text-orange-400'}`} />
             <span>{canClaim ? 'Награда!' : `${dailyStreak} дн.`}</span>
           </button>
 
@@ -74,8 +74,8 @@ export const HubHeader: React.FC = () => {
             className="flex items-center gap-1.5 bg-tg-secondaryBg border border-amber-500/30 hover:border-amber-400/60 active:scale-95 px-2.5 py-1.5 rounded-full shadow-inner cursor-pointer transition-all"
             title="Открыть магазин хаба"
           >
-            <Coins className="w-3.5 h-3.5 text-amber-400" />
-            <span className="font-black text-amber-300 text-xs tracking-tight">
+            <Coins className="w-3.5 h-3.5 text-amber-500" />
+            <span className="font-black text-amber-500 text-xs tracking-tight">
               {coins.toLocaleString()}
             </span>
           </button>

@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { useGameBridge } from '../../context/GameContext';
 import { X, Check, Lock, Gift, Flame, Sparkles, Coins } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -88,7 +88,7 @@ export const DailyRewardModal: React.FC = () => {
 
           <button
             onClick={closeModal}
-            className="p-1.5 rounded-full text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer bg-black/20"
+            className="p-1.5 rounded-full text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer bg-tg-bg border border-[var(--tg-theme-section-separator-color)]"
           >
             <X className="w-4 h-4" />
           </button>
@@ -109,10 +109,10 @@ export const DailyRewardModal: React.FC = () => {
                 key={dayNum}
                 className={`relative flex flex-col items-center justify-center p-2.5 rounded-2xl border transition-all text-center ${
                   isClaimed
-                    ? 'bg-emerald-950/25 border-emerald-500/30 text-emerald-400'
+                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-500'
                     : isCurrent
-                    ? 'bg-amber-500/20 border-amber-400 shadow-lg shadow-amber-500/20 scale-[1.03] text-amber-300 ring-2 ring-amber-400/50'
-                    : 'bg-black/15 border-white/5 text-tg-hint opacity-60'
+                    ? 'bg-amber-500/20 border-amber-400 shadow-lg shadow-amber-500/20 scale-[1.03] text-amber-500 ring-2 ring-amber-400/50'
+                    : 'bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint opacity-60'
                 }`}
               >
                 <span className="text-[10px] font-bold uppercase tracking-wider mb-1">
@@ -121,15 +121,15 @@ export const DailyRewardModal: React.FC = () => {
 
                 <div className="my-1">
                   {isClaimed ? (
-                    <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                    <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
                       <Check className="w-3.5 h-3.5 stroke-[3]" />
                     </div>
                   ) : isCurrent ? (
-                    <div className="w-6 h-6 rounded-full bg-amber-400/20 flex items-center justify-center text-amber-300 animate-pulse">
+                    <div className="w-6 h-6 rounded-full bg-amber-400/20 flex items-center justify-center text-amber-500 animate-pulse">
                       <Coins className="w-4 h-4" />
                     </div>
                   ) : (
-                    <div className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-tg-hint">
+                    <div className="w-6 h-6 rounded-full bg-tg-secondaryBg flex items-center justify-center text-tg-hint">
                       <Lock className="w-3.5 h-3.5" />
                     </div>
                   )}
@@ -152,10 +152,10 @@ export const DailyRewardModal: React.FC = () => {
             <div
               className={`relative mb-5 flex items-center justify-between p-3.5 rounded-2xl border transition-all ${
                 isDay7Claimed
-                  ? 'bg-emerald-950/25 border-emerald-500/30 text-emerald-400'
+                  ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-500'
                   : isDay7Current
-                  ? 'bg-gradient-to-r from-amber-500/25 via-pink-500/25 to-purple-500/25 border-amber-400 shadow-xl shadow-amber-500/20 ring-2 ring-amber-400/60'
-                  : 'bg-black/15 border-white/5 text-tg-hint opacity-75'
+                  ? 'bg-gradient-to-r from-amber-500/20 via-pink-500/20 to-purple-500/20 border-amber-400 shadow-xl shadow-amber-500/20 ring-2 ring-amber-400/60'
+                  : 'bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint opacity-75'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -163,17 +163,17 @@ export const DailyRewardModal: React.FC = () => {
                   isDay7Current 
                     ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/40 animate-bounce' 
                     : isDay7Claimed
-                    ? 'bg-emerald-500/20 text-emerald-400'
-                    : 'bg-white/10 text-amber-400'
+                    ? 'bg-emerald-500/20 text-emerald-500'
+                    : 'bg-tg-secondaryBg text-amber-500 border border-[var(--tg-theme-section-separator-color)]'
                 }`}>
                   <Gift className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-black text-amber-300">
+                    <span className="text-xs font-black text-amber-500">
                       ДЕНЬ 7: СУПЕР-ПРИЗ!
                     </span>
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                   </div>
                   <p className="text-[11px] text-tg-hint">Главный джекпот недели</p>
                 </div>
@@ -181,11 +181,11 @@ export const DailyRewardModal: React.FC = () => {
 
               <div className="text-right">
                 {isDay7Claimed ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400">
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-500">
                     <Check className="w-3.5 h-3.5" /> Забрано
                   </span>
                 ) : (
-                  <span className="text-sm font-black text-amber-300">
+                  <span className="text-sm font-black text-amber-500">
                     +{day7Amount.toLocaleString()} 🪙
                   </span>
                 )}

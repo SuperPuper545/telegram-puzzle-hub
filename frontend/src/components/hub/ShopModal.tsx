@@ -111,14 +111,14 @@ export const ShopModal: React.FC = () => {
 
           <button
             onClick={closeModal}
-            className="p-1.5 rounded-full text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer bg-black/20"
+            className="p-1.5 rounded-full text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer bg-tg-bg border border-[var(--tg-theme-section-separator-color)]"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Categories Tab Bar */}
-        <div className="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-black/20 border border-white/5 mb-3.5 shrink-0">
+        <div className="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] mb-3.5 shrink-0">
           <button
             onClick={() => {
               sound.playUiTap();
@@ -184,8 +184,8 @@ export const ShopModal: React.FC = () => {
                 key={item.id}
                 className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
                   isEquipped
-                    ? 'bg-indigo-950/30 border-indigo-500/50 shadow-sm'
-                    : 'bg-black/15 border-white/5 hover:border-white/10'
+                    ? 'bg-indigo-500/15 border-indigo-500/40 shadow-sm'
+                    : 'bg-tg-bg border border-[var(--tg-theme-section-separator-color)]'
                 }`}
               >
                 {/* Item Icon / Swatch */}
@@ -203,7 +203,7 @@ export const ShopModal: React.FC = () => {
                         {item.name}
                       </p>
                       {isEquipped && (
-                        <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-[9px] font-black text-emerald-400 border border-emerald-500/30">
+                        <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-[9px] font-black text-emerald-500 border border-emerald-500/30">
                           Активен
                         </span>
                       )}
@@ -217,7 +217,7 @@ export const ShopModal: React.FC = () => {
                 {/* Action Button */}
                 <div className="shrink-0">
                   {isEquipped ? (
-                    <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-xs font-black">
+                    <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-emerald-500 text-xs font-black">
                       <Check className="w-3.5 h-3.5 stroke-[3]" />
                       <span>Надето</span>
                     </div>
@@ -225,7 +225,7 @@ export const ShopModal: React.FC = () => {
                     <button
                       onClick={() => handleEquip(item.id)}
                       disabled={isLoading}
-                      className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 active:scale-95 text-xs font-bold text-tg-text transition-all cursor-pointer"
+                      className="px-3.5 py-1.5 rounded-xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] hover:border-indigo-500/40 active:scale-95 text-xs font-bold text-tg-text transition-all cursor-pointer shadow-sm"
                     >
                       {isLoading ? '...' : 'Надеть'}
                     </button>
@@ -236,7 +236,7 @@ export const ShopModal: React.FC = () => {
                       className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-md ${
                         canAfford
                           ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white active:scale-95 shadow-amber-500/20 hover:brightness-110'
-                          : 'bg-white/5 text-tg-hint border border-white/5 opacity-50 cursor-not-allowed'
+                          : 'bg-tg-secondaryBg text-tg-hint border border-[var(--tg-theme-section-separator-color)] opacity-50 cursor-not-allowed'
                       }`}
                     >
                       <Sparkles className="w-3.5 h-3.5" />

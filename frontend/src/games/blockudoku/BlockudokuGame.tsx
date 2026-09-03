@@ -429,14 +429,14 @@ export const BlockudokuGame: React.FC = () => {
             )}
           </div>
 
-          <div className="h-6 w-[1px] bg-slate-800" />
+          <div className="h-6 w-[1px] bg-[var(--tg-theme-section-separator-color)]" />
 
           <div className="text-center">
             <span className="text-[10px] uppercase tracking-wider text-tg-hint font-semibold block leading-none mb-1">
               Рекорд
             </span>
-            <span className="text-base font-bold text-amber-400 leading-none flex items-center gap-1 justify-center">
-              <Trophy className="w-3.5 h-3.5 fill-amber-400/20" />
+            <span className="text-base font-bold text-amber-500 leading-none flex items-center gap-1 justify-center">
+              <Trophy className="w-3.5 h-3.5 fill-amber-500/20" />
               {bestScore}
             </span>
           </div>
@@ -444,18 +444,18 @@ export const BlockudokuGame: React.FC = () => {
 
         {/* Right Header Buttons: Sound, Coins & Restart */}
         <div className="flex items-center gap-1.5 -mr-1">
-          <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-400/25 text-amber-300 text-xs font-black shadow-sm">
+          <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-400/25 text-amber-500 text-xs font-black shadow-sm">
             <Coins className="w-3.5 h-3.5" />
             <span>{coins}</span>
           </div>
 
           <button
             onClick={toggleSound}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
+            className="p-1.5 rounded-xl text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
             title={isMuted ? 'Включить звук (M)' : 'Выключить звук (M)'}
           >
             {isMuted ? (
-              <VolumeX className="w-4 h-4 text-slate-500" />
+              <VolumeX className="w-4 h-4 text-tg-hint opacity-50" />
             ) : (
               <Volume2 className="w-4 h-4 text-indigo-400" />
             )}
@@ -463,7 +463,7 @@ export const BlockudokuGame: React.FC = () => {
 
           <button
             onClick={handleRestart}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
+            className="p-1.5 rounded-xl text-tg-hint hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
             title="Начать заново (R)"
           >
             <RotateCcw className="w-4 h-4" />
@@ -474,27 +474,27 @@ export const BlockudokuGame: React.FC = () => {
       {/* 2. Fixed Status & Combo Banner (h-7) */}
       <div className="h-7 shrink-0 flex items-center justify-center px-4">
         {boosterNotice ? (
-          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-[11px] font-black text-amber-300 animate-fade-in shadow-md">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-[11px] font-black text-amber-500 animate-fade-in shadow-md">
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
             {boosterNotice}
           </div>
         ) : isStuck ? (
-          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-rose-500/20 border border-rose-400/40 text-[11px] font-bold text-rose-300 animate-pulse">
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-rose-500/20 border border-rose-400/40 text-[11px] font-bold text-rose-400 animate-pulse">
             <Ban className="w-3.5 h-3.5 text-rose-400" />
             Нет места! Используйте Смену или Поворот!
           </div>
         ) : comboBanner ? (
-          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-[11px] font-bold text-indigo-300 animate-fade-in">
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-[11px] font-bold text-indigo-400 animate-fade-in">
             <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
             {comboBanner.text}
           </div>
         ) : streak > 1 ? (
-          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/30 text-[11px] font-extrabold text-amber-300 animate-pulse">
-            <Flame className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/30 text-[11px] font-extrabold text-amber-500 animate-pulse">
+            <Flame className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
             Серия ходов: x{streak}!
           </div>
         ) : selectedTrayIndex !== null ? (
-          <span className="text-[11px] text-indigo-300 font-medium animate-pulse">
+          <span className="text-[11px] text-indigo-400 font-medium animate-pulse">
             Кликните по доске для установки
           </span>
         ) : null}
@@ -508,7 +508,7 @@ export const BlockudokuGame: React.FC = () => {
             width: 'min(86vw, 44vh, 370px)',
             height: 'min(86vw, 44vh, 370px)',
           }}
-          className="aspect-square bg-slate-900/95 rounded-2xl p-2 border-2 border-slate-800/90 shadow-2xl shadow-indigo-950/40 grid grid-cols-9 gap-1"
+          className="aspect-square bg-tg-secondaryBg rounded-2xl p-2 border-2 border-[var(--tg-theme-section-separator-color)] shadow-xl grid grid-cols-9 gap-1"
         >
           {grid.map((row, r) =>
             row.map((cell, c) => {
@@ -534,8 +534,8 @@ export const BlockudokuGame: React.FC = () => {
                       : isGhost
                       ? 'bg-indigo-400/50 border-2 border-indigo-300 scale-95 animate-pulse'
                       : isSubgridEven
-                      ? 'bg-slate-800/80 border border-slate-700/40'
-                      : 'bg-slate-850/60 border border-slate-800/60'
+                      ? 'bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.05] dark:border-white/[0.05]'
+                      : 'bg-black/[0.08] dark:bg-white/[0.08] border border-black/[0.09] dark:border-white/[0.09]'
                   }`}
                 >
                   {cell > 0 && !isClear && !isPredicted && (
@@ -556,28 +556,28 @@ export const BlockudokuGame: React.FC = () => {
         {/* Reroll */}
         <button
           onClick={handleReroll}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-slate-800/90 border border-slate-700/80 active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-indigo-500/50 cursor-pointer shadow-sm"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-indigo-500/50 cursor-pointer shadow-sm"
           title="Смена фигур за 50 монет"
         >
           <Dices className="w-4 h-4 text-indigo-400" />
           <span>Смена фигур</span>
-          <span className="text-[10px] text-amber-400 font-black">50🪙</span>
+          <span className="text-[10px] text-amber-500 font-black">50🪙</span>
         </button>
 
         {/* Rotate */}
         <button
           onClick={handleRotate}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-slate-800/90 border border-slate-700/80 active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-purple-500/50 cursor-pointer shadow-sm"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] active:scale-95 transition-all text-xs font-bold text-tg-text hover:border-purple-500/50 cursor-pointer shadow-sm"
           title="Поворот фигуры за 75 монет"
         >
           <RotateCw className="w-4 h-4 text-purple-400" />
           <span>Поворот</span>
-          <span className="text-[10px] text-amber-400 font-black">75🪙</span>
+          <span className="text-[10px] text-amber-500 font-black">75🪙</span>
         </button>
       </div>
 
       {/* 4. Tray of 3 Pieces (h-28) */}
-      <div className="h-28 shrink-0 pb-3 px-3 bg-tg-secondaryBg/40 border-t border-slate-800/60">
+      <div className="h-28 shrink-0 pb-3 px-3 bg-tg-secondaryBg/40 border-t border-[var(--tg-theme-section-separator-color)]">
         <div className="max-w-md mx-auto grid grid-cols-3 gap-2.5 h-full">
           {trayPieces.map((piece, index) => {
             const isBeingDragged = dragState?.pieceIndex === index;
@@ -680,8 +680,8 @@ export const BlockudokuGame: React.FC = () => {
 
       {/* Game Over Modal */}
       {isGameOver && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in">
-          <div className="w-full max-w-sm rounded-3xl bg-tg-secondaryBg border border-slate-700/80 p-6 text-center shadow-2xl animate-pop">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+          <div className="w-full max-w-sm rounded-3xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-6 text-center shadow-2xl animate-pop">
             <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 p-[2px] shadow-lg shadow-amber-500/20 flex items-center justify-center">
               <Trophy className="w-8 h-8 text-white fill-white/20" />
             </div>
@@ -691,14 +691,14 @@ export const BlockudokuGame: React.FC = () => {
               Для оставшихся фигур не нашлось места на поле
             </p>
 
-            <div className="my-5 p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+            <div className="my-5 p-4 rounded-2xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)]">
               <span className="text-xs text-tg-hint uppercase font-semibold">
                 Итоговый результат
               </span>
               <p className="text-3xl font-black text-indigo-400 mt-1">{score}</p>
 
               {isNewRecordAchieved && (
-                <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-xs font-extrabold animate-bounce">
+                <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-500 text-xs font-extrabold animate-bounce">
                   <Sparkles className="w-3.5 h-3.5" /> Новый личный рекорд!
                 </div>
               )}
@@ -739,7 +739,7 @@ export const BlockudokuGame: React.FC = () => {
                   sound.playUiTap();
                   closeGame();
                 }}
-                className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-tg-hint font-semibold text-xs border border-slate-700 active:scale-95 transition-all cursor-pointer"
+                className="w-full py-2.5 px-4 rounded-xl bg-tg-bg hover:bg-tg-secondaryBg text-tg-hint font-semibold text-xs border border-[var(--tg-theme-section-separator-color)] active:scale-95 transition-all cursor-pointer"
               >
                 В главное меню
               </button>
