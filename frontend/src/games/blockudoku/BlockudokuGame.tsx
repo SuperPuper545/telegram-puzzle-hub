@@ -24,7 +24,15 @@ import {
   RotateCw,
 } from 'lucide-react';
 
-const FINGER_OFFSET_TOUCH = 65; // Lift piece above touch point on mobile screens only
+// Ergonomic vertical lift so the piece floats above thumb and top row is easy to reach
+const FINGER_OFFSET_TOUCH = 95;
+const getPointerOffsetY = (e: React.PointerEvent) => {
+  const isTouch =
+    e.pointerType === 'touch' ||
+    (typeof window !== 'undefined' &&
+      ('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.innerWidth < 768));
+  return isTouch ? FINGER_OFFSET_TOUCH : 40;
+};
 
 function getBlockSkinClass(skinId: string): string {
   switch (skinId) {
@@ -145,9 +153,7 @@ export const BlockudokuGame: React.FC = () => {
     haptics.selection();
     sound.playPickup();
 
-    const isTouch = e.pointerType === 'touch';
-    const offsetY = isTouch ? FINGER_OFFSET_TOUCH : 0;
-
+    const offsetY = getPointerOffsetY(e);
     const clientX = e.clientX;
     const clientY = e.clientY - offsetY;
 
@@ -167,8 +173,7 @@ export const BlockudokuGame: React.FC = () => {
   // Handle pointer move during drag
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
-      const isTouch = e.pointerType === 'touch';
-      const offsetY = isTouch ? FINGER_OFFSET_TOUCH : 0;
+      const offsetY = getPointerOffsetY(e);
       const clientX = e.clientX;
       const clientY = e.clientY - offsetY;
 

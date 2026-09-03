@@ -8,6 +8,7 @@ interface Pipe {
   x: number;
   topHeight: number;
   bottomHeight: number;
+  gap: number;
   passed: boolean;
   hasCoin: boolean;
   coinCollected: boolean;
@@ -50,11 +51,10 @@ export const FlappyGame: React.FC = () => {
     lastPipeX: 0,
     gameWidth: 360,
     gameHeight: 600,
-    pipeGap: 175,
     pipeWidth: 52,
-    gravity: 0.16,
-    flapStrength: -4.0,
-    speed: 1.6,
+    gravity: 0.22,
+    flapStrength: -4.8,
+    speed: 1.8,
     frameCount: 0,
   });
 
@@ -149,21 +149,30 @@ export const FlappyGame: React.FC = () => {
 
       if (s.isStarted && !s.isGameOver) {
         // Apply smooth physics with capped fall speed
-        s.birdVy = Math.min(4.2, s.birdVy + s.gravity);
+        s.birdVy = Math.min(5.0, s.birdVy + s.gravity);
         s.birdY += s.birdVy;
         s.birdAngle = Math.min(Math.PI / 4, Math.max(-0.4, s.birdVy * 0.08));
 
-        // Pipe spawn with wide spacing (requires ~5-6 taps per obstacle point)
-        if (s.pipes.length === 0 || w - s.lastPipeX >= 340) {
-          const minPipe = 60;
-          const maxPipe = h - s.pipeGap - minPipe;
+        // Gradually increase speed with score up to a reasonable cap
+        s.speed = Math.min(2.5, 1.8 + s.score * 0.035);
+
+        // Pipe spawn with dynamic randomized gap width
+        if (s.pipes.length === 0 || w - s.lastPipeX >= 300) {
+          // Dynamic gap: base 170px slightly tightening with score, with random ±22px variation
+          const baseGap = Math.max(145, 170 - Math.min(20, s.score * 0.7));
+          const randomVariation = (Math.random() - 0.5) * 44;
+          const pipeGap = Math.round(baseGap + randomVariation);
+
+          const minPipe = 50;
+          const maxPipe = h - pipeGap - minPipe;
           const topH = Math.floor(minPipe + Math.random() * (maxPipe - minPipe));
-          const botH = h - topH - s.pipeGap;
+          const botH = h - topH - pipeGap;
 
           s.pipes.push({
             x: w + 20,
             topHeight: topH,
             bottomHeight: botH,
+            gap: pipeGap,
             passed: false,
             hasCoin: Math.random() > 0.45,
             coinCollected: false,
@@ -191,7 +200,7 @@ export const FlappyGame: React.FC = () => {
           // Check coin collection
           if (p.hasCoin && !p.coinCollected) {
             const coinX = p.x + s.pipeWidth / 2;
-            const coinY = p.topHeight + s.pipeGap / 2;
+            const coinY = p.topHeight + p.gap / 2;
             const dist = Math.hypot(birdX - coinX, s.birdY - coinY);
 
             if (dist < birdRadius + 12) {
@@ -277,7 +286,7 @@ export const FlappyGame: React.FC = () => {
         // Draw Floating Coin if available
         if (p.hasCoin && !p.coinCollected) {
           const coinX = p.x + s.pipeWidth / 2;
-          const coinY = p.topHeight + s.pipeGap / 2;
+          const coinY = p.topHeight + p.gap / 2;
           ctx.save();
           ctx.fillStyle = '#fbbf24';
           ctx.shadowColor = '#f59e0b';
@@ -385,6 +394,7 @@ export const FlappyGame: React.FC = () => {
     s.isGameOver = false;
     s.isStarted = false;
     s.lastPipeX = 0;
+    s.speed = 1.8;
 
     setScore(0);
     setCollectedCoins(0);
