@@ -1,24 +1,40 @@
 ﻿@import "tailwindcss";
 
 @theme {
-  --color-tg-bg: var(--tg-theme-bg-color, #121826);
-  --color-tg-secondaryBg: var(--tg-theme-secondary-bg-color, #1a2234);
+  --color-tg-bg: var(--tg-theme-bg-color, #0f172a);
+  --color-tg-secondaryBg: var(--tg-theme-secondary-bg-color, #1e293b);
   --color-tg-text: var(--tg-theme-text-color, #f8fafc);
   --color-tg-hint: var(--tg-theme-hint-color, #94a3b8);
   --color-tg-link: var(--tg-theme-link-color, #38bdf8);
-  --color-tg-button: var(--tg-theme-button-color, #2563eb);
+  --color-tg-button: var(--tg-theme-button-color, #4f46e5);
   --color-tg-buttonText: var(--tg-theme-button-text-color, #ffffff);
   --color-tg-accent: #6366f1;
 }
 
 :root {
-  --tg-theme-bg-color: #0f172a;
-  --tg-theme-secondary-bg-color: #1e293b;
+  --tg-theme-bg-color: #0d1322;
+  --tg-theme-secondary-bg-color: #172033;
   --tg-theme-text-color: #f8fafc;
   --tg-theme-hint-color: #94a3b8;
   --tg-theme-link-color: #38bdf8;
-  --tg-theme-button-color: #3b82f6;
+  --tg-theme-button-color: #4f46e5;
   --tg-theme-button-text-color: #ffffff;
+  --tg-theme-header-bg-color: #0d1322;
+  --tg-theme-section-bg-color: #172033;
+  --tg-theme-section-separator-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Telegram Light theme overrides */
+.tg-light {
+  --tg-theme-bg-color: #f1f5f9;
+  --tg-theme-secondary-bg-color: #ffffff;
+  --tg-theme-text-color: #0f172a;
+  --tg-theme-hint-color: #64748b;
+  --tg-theme-link-color: #0284c7;
+  --tg-theme-button-color: #4f46e5;
+  --tg-theme-button-text-color: #ffffff;
+  --tg-theme-section-bg-color: #ffffff;
+  --tg-theme-section-separator-color: rgba(0, 0, 0, 0.08);
 }
 
 * {
@@ -33,34 +49,52 @@ html, body {
   padding: 0;
   width: 100%;
   height: 100%;
-  overflow-x: hidden;
+  overscroll-behavior: none;
   background-color: var(--tg-theme-bg-color);
   color: var(--tg-theme-text-color);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  touch-action: pan-y pinch-zoom;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
 #root {
-  min-height: 100vh;
-  min-height: 100dvh;
+  min-height: 100%;
+  width: 100%;
   display: flex;
   flex-direction: column;
 }
 
-/* For game boards: complete touch capture without default scrolling or gestures */
-.game-touch-surface {
+/* Prevent layout jump and overscroll on game screens */
+.game-viewport-lock {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
   touch-action: none;
   -webkit-touch-callout: none;
 }
 
-/* Custom scrollbar for leaderboard and catalog */
+/* Telegram UI Utility classes */
+.tg-card {
+  background-color: var(--tg-theme-secondary-bg-color);
+  border: 1px solid var(--tg-theme-section-separator-color);
+}
+
+.tg-btn-primary {
+  background-color: var(--tg-theme-button-color);
+  color: var(--tg-theme-button-text-color);
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+.tg-btn-primary:active {
+  transform: scale(0.97);
+  opacity: 0.9;
+}
+
+/* Smooth custom scrollbars */
 ::-webkit-scrollbar {
-  width: 4px;
+  width: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.15);
-  border-radius: 4px;
+  border-radius: 9999px;
 }

@@ -18,6 +18,8 @@ declare global {
         themeParams?: Record<string, string>;
         colorScheme?: 'light' | 'dark';
         isExpanded?: boolean;
+        viewportHeight?: number;
+        viewportStableHeight?: number;
         expand: () => void;
         ready: () => void;
         close: () => void;
@@ -50,6 +52,35 @@ export function getTelegramWebApp() {
   return null;
 }
 
+export function applyTelegramTheme() {
+  const tg = getTelegramWebApp();
+  if (!tg) return;
+
+  const root = document.documentElement;
+  const tp = tg.themeParams || {};
+
+  // Standard Telegram Theme variables
+  if (tp.bg_color) root.style.setProperty('--tg-theme-bg-color', tp.bg_color);
+  if (tp.secondary_bg_color) root.style.setProperty('--tg-theme-secondary-bg-color', tp.secondary_bg_color);
+  if (tp.text_color) root.style.setProperty('--tg-theme-text-color', tp.text_color);
+  if (tp.hint_color) root.style.setProperty('--tg-theme-hint-color', tp.hint_color);
+  if (tp.link_color) root.style.setProperty('--tg-theme-link-color', tp.link_color);
+  if (tp.button_color) root.style.setProperty('--tg-theme-button-color', tp.button_color);
+  if (tp.button_text_color) root.style.setProperty('--tg-theme-button-text-color', tp.button_text_color);
+  if (tp.header_bg_color) root.style.setProperty('--tg-theme-header-bg-color', tp.header_bg_color);
+  if (tp.section_bg_color) root.style.setProperty('--tg-theme-section-bg-color', tp.section_bg_color);
+  if (tp.section_separator_color) root.style.setProperty('--tg-theme-section-separator-color', tp.section_separator_color);
+
+  // Set dark or light class
+  if (tg.colorScheme === 'light') {
+    root.classList.add('tg-light');
+    root.classList.remove('tg-dark');
+  } else {
+    root.classList.add('tg-dark');
+    root.classList.remove('tg-light');
+  }
+}
+
 export function initTelegramApp() {
   const tg = getTelegramWebApp();
   if (tg) {
@@ -59,12 +90,7 @@ export function initTelegramApp() {
       if (typeof tg.disableVerticalSwipe === 'function') {
         tg.disableVerticalSwipe();
       }
-      if (tg.setHeaderColor) {
-        tg.setHeaderColor('#0f172a');
-      }
-      if (tg.setBackgroundColor) {
-        tg.setBackgroundColor('#0f172a');
-      }
+      applyTelegramTheme();
     } catch (e) {
       console.warn('Could not fully init TMA WebApp features:', e);
     }
@@ -76,7 +102,6 @@ export function getTelegramUser(): TgUser {
   if (tg?.initDataUnsafe?.user) {
     return tg.initDataUnsafe.user;
   }
-  // Mock user for desktop/local browser development
   return {
     id: '10001',
     first_name: 'Игрок',

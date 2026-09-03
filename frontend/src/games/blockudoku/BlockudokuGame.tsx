@@ -6,7 +6,7 @@ import { haptics } from '../../telegram/telegram';
 import confetti from 'canvas-confetti';
 import { ArrowLeft, RotateCcw, Trophy, Sparkles, Flame } from 'lucide-react';
 
-const FINGER_OFFSET_Y = 70; // Lift piece above touch point so finger does not obscure the board
+const FINGER_OFFSET_TOUCH = 65; // Lift piece above touch point on mobile screens only
 
 export const BlockudokuGame: React.FC = () => {
   const { closeGame, bestScores, submitScore } = useGameBridge();
@@ -26,8 +26,10 @@ export const BlockudokuGame: React.FC = () => {
   } = useBlockudoku(currentBest);
 
   const [dragState, setDragState] = useState<DragState | null>(null);
-  const boardRef = useRef<HTMLDivElement>(null);
+  const [selectedTrayIndex, setSelectedTrayIndex] = useState<number | null>(null);
+  const [hoverBoardCell, setHoverBoardCell] = useState<{ row: number; col: number } | null>(null);
   const [isNewRecordAchieved, setIsNewRecordAchieved] = useState(false);
+  const boardRef = useRef<HTMLDivElement>(null);
 
   // Submit score on game over
   useEffect(() => {
@@ -46,7 +48,30 @@ export const BlockudokuGame: React.FC = () => {
     }
   }, [isGameOver, score, submitScore]);
 
-  // Handle pointer down on a tray piece
+  // Keyboard shortcuts on PC
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (selectedTrayIndex !== null) {
+          setSelectedTrayIndex(null);
+        } else {
+          closeGame();
+        }
+      } else if (e.key === 'r' || e.key === 'R') {
+        handleRestart();
+      } else if (e.key === '1' && trayPieces[0]) {
+        setSelectedTrayIndex(prev => prev === 0 ? null : 0);
+      } else if (e.key === '2' && trayPieces[1]) {
+        setSelectedTrayIndex(prev => prev === 1 ? null : 1);
+      } else if (e.key === '3' && trayPieces[2]) {
+        setSelectedTrayIndex(prev => prev === 2 ? null : 2);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedTrayIndex, trayPieces, closeGame]);
+
+  // Handle pointer down on a tray piece (Drag or Click-to-select)
   const handlePiecePointerDown = (
     e: React.PointerEvent,
     piece: Shape,
@@ -56,9 +81,15 @@ export const BlockudokuGame: React.FC = () => {
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
     haptics.selection();
 
-    // Initial drag state
+    // Finger offset ONLY for touch devices
+    const isTouch = e.pointerType === 'touch';
+    const offsetY = isTouch ? FINGER_OFFSET_TOUCH : 0;
+
     const clientX = e.clientX;
-    const clientY = e.clientY - FINGER_OFFSET_Y;
+    const clientY = e.clientY - offsetY;
+
+    // Also toggle click selection
+    setSelectedTrayIndex(pieceIndex);
 
     setDragState({
       piece,
@@ -74,43 +105,50 @@ export const BlockudokuGame: React.FC = () => {
   // Handle pointer move during drag
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
-      if (!dragState || !boardRef.current) return;
-
+      const isTouch = e.pointerType === 'touch';
+      const offsetY = isTouch ? FINGER_OFFSET_TOUCH : 0;
       const clientX = e.clientX;
-      const clientY = e.clientY - FINGER_OFFSET_Y;
+      const clientY = e.clientY - offsetY;
 
+      if (!boardRef.current) return;
       const boardRect = boardRef.current.getBoundingClientRect();
       const cellSize = boardRect.width / GRID_SIZE;
 
-      // Calculate candidate top-left cell on board
-      const pieceMatrix = dragState.piece.matrix;
-      const pieceWidth = pieceMatrix[0].length * cellSize;
-      const pieceHeight = pieceMatrix.length * cellSize;
+      // Check hover for selected piece or dragged piece
+      const activePiece = dragState?.piece || (selectedTrayIndex !== null ? trayPieces[selectedTrayIndex] : null);
 
-      // Center piece at pointer position
-      const pieceLeft = clientX - pieceWidth / 2;
-      const pieceTop = clientY - pieceHeight / 2;
+      if (activePiece) {
+        const pieceMatrix = activePiece.matrix;
+        const pieceWidth = pieceMatrix[0].length * cellSize;
+        const pieceHeight = pieceMatrix.length * cellSize;
 
-      // Round to nearest board grid coordinates
-      const targetCol = Math.round((pieceLeft - boardRect.left) / cellSize);
-      const targetRow = Math.round((pieceTop - boardRect.top) / cellSize);
+        const pieceLeft = clientX - pieceWidth / 2;
+        const pieceTop = clientY - pieceHeight / 2;
 
-      const isValid = canPlacePiece(grid, pieceMatrix, targetRow, targetCol);
+        const targetCol = Math.round((pieceLeft - boardRect.left) / cellSize);
+        const targetRow = Math.round((pieceTop - boardRect.top) / cellSize);
 
-      setDragState((prev) =>
-        prev
-          ? {
-              ...prev,
-              x: clientX,
-              y: clientY,
-              targetRow: isValid ? targetRow : null,
-              targetCol: isValid ? targetCol : null,
-              canDrop: isValid,
-            }
-          : null
-      );
+        const isValid = canPlacePiece(grid, pieceMatrix, targetRow, targetCol);
+
+        if (dragState) {
+          setDragState((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  x: clientX,
+                  y: clientY,
+                  targetRow: isValid ? targetRow : null,
+                  targetCol: isValid ? targetCol : null,
+                  canDrop: isValid,
+                }
+              : null
+          );
+        } else {
+          setHoverBoardCell(isValid ? { row: targetRow, col: targetCol } : null);
+        }
+      }
     },
-    [dragState, grid]
+    [dragState, selectedTrayIndex, trayPieces, grid]
   );
 
   // Handle pointer up to drop piece
@@ -125,10 +163,11 @@ export const BlockudokuGame: React.FC = () => {
       );
 
       if (res.success) {
+        setSelectedTrayIndex(null);
         if (res.clearedLines > 1) {
           haptics.success();
           confetti({
-            particleCount: 40,
+            particleCount: 45,
             spread: 60,
             origin: { y: 0.5 },
           });
@@ -143,28 +182,69 @@ export const BlockudokuGame: React.FC = () => {
     setDragState(null);
   }, [dragState, placePiece]);
 
+  // Click on board cell (Click-to-place mode)
+  const handleBoardClick = (targetRow: number, targetCol: number) => {
+    if (selectedTrayIndex === null) return;
+    const piece = trayPieces[selectedTrayIndex];
+    if (!piece) return;
+
+    if (canPlacePiece(grid, piece.matrix, targetRow, targetCol)) {
+      const res = placePiece(selectedTrayIndex, targetRow, targetCol);
+      if (res.success) {
+        setSelectedTrayIndex(null);
+        setHoverBoardCell(null);
+        if (res.clearedLines > 1) {
+          haptics.success();
+          confetti({ particleCount: 45, spread: 60, origin: { y: 0.5 } });
+        } else if (res.clearedLines === 1) {
+          haptics.medium();
+        } else {
+          haptics.light();
+        }
+      }
+    }
+  };
+
   // Restart handler
   const handleRestart = () => {
     haptics.medium();
     setIsNewRecordAchieved(false);
+    setSelectedTrayIndex(null);
+    setHoverBoardCell(null);
     restartGame();
   };
 
   // Determine if a cell is part of the ghost preview
   const isGhostCell = (r: number, c: number) => {
-    if (!dragState || dragState.targetRow === null || dragState.targetCol === null) {
-      return false;
+    // 1. From DragState
+    if (dragState && dragState.targetRow !== null && dragState.targetCol !== null) {
+      const piece = dragState.piece;
+      const relR = r - dragState.targetRow;
+      const relC = c - dragState.targetCol;
+      return (
+        relR >= 0 &&
+        relR < piece.matrix.length &&
+        relC >= 0 &&
+        relC < piece.matrix[0].length &&
+        piece.matrix[relR][relC] === 1
+      );
     }
-    const piece = dragState.piece;
-    const relR = r - dragState.targetRow;
-    const relC = c - dragState.targetCol;
-    return (
-      relR >= 0 &&
-      relR < piece.matrix.length &&
-      relC >= 0 &&
-      relC < piece.matrix[0].length &&
-      piece.matrix[relR][relC] === 1
-    );
+    // 2. From Click-to-place hover
+    if (selectedTrayIndex !== null && hoverBoardCell) {
+      const piece = trayPieces[selectedTrayIndex];
+      if (piece) {
+        const relR = r - hoverBoardCell.row;
+        const relC = c - hoverBoardCell.col;
+        return (
+          relR >= 0 &&
+          relR < piece.matrix.length &&
+          relC >= 0 &&
+          relC < piece.matrix[0].length &&
+          piece.matrix[relR][relC] === 1
+        );
+      }
+    }
+    return false;
   };
 
   // Determine if cell is being cleared
@@ -174,46 +254,45 @@ export const BlockudokuGame: React.FC = () => {
 
   return (
     <div
-      className="flex flex-col h-full min-h-[100dvh] bg-slate-950 text-slate-100 select-none game-touch-surface"
+      className="w-full h-full min-h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col justify-between bg-tg-bg text-tg-text select-none game-viewport-lock"
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={() => setDragState(null)}
     >
-      {/* Top Header & Score HUD */}
-      <div className="px-4 pt-3 pb-2 flex items-center justify-between border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-sm">
+      {/* 1. Fixed Header & Score HUD (Fixed Height: 56px / h-14) */}
+      <header className="h-14 shrink-0 px-4 flex items-center justify-between border-b border-slate-800/60 bg-tg-secondaryBg/80 backdrop-blur-md z-10">
         <button
           onClick={closeGame}
-          className="p-2 -ml-2 rounded-xl text-slate-400 hover:text-slate-100 active:scale-95 transition-transform"
+          className="p-2 -ml-2 rounded-xl text-slate-400 hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
+          title="В меню (Esc)"
         >
           <ArrowLeft className="w-6 h-6" />
         </button>
 
-        {/* Scores */}
-        <div className="flex items-center gap-4">
-          <div className="text-center">
-            <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold block">
+        {/* Centered Scores */}
+        <div className="flex items-center gap-5">
+          <div className="text-center relative">
+            <span className="text-[10px] uppercase tracking-wider text-tg-hint font-semibold block leading-none mb-1">
               Счет
             </span>
-            <div className="relative">
-              <span className="text-2xl font-black text-indigo-300 tracking-tight leading-none">
-                {score}
+            <span className="text-2xl font-black text-indigo-400 tracking-tight leading-none">
+              {score}
+            </span>
+            {/* Floating Score Popup (absolute, never shifts layout) */}
+            {lastScorePopup && (
+              <span
+                key={lastScorePopup.id}
+                className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-black text-amber-300 whitespace-nowrap animate-bounce drop-shadow pointer-events-none"
+              >
+                {lastScorePopup.text}
               </span>
-              {/* Score popup animation */}
-              {lastScorePopup && (
-                <span
-                  key={lastScorePopup.id}
-                  className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs font-black text-amber-300 whitespace-nowrap animate-bounce drop-shadow"
-                >
-                  {lastScorePopup.text}
-                </span>
-              )}
-            </div>
+            )}
           </div>
 
-          <div className="h-7 w-[1px] bg-slate-800" />
+          <div className="h-6 w-[1px] bg-slate-800" />
 
           <div className="text-center">
-            <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold block">
+            <span className="text-[10px] uppercase tracking-wider text-tg-hint font-semibold block leading-none mb-1">
               Рекорд
             </span>
             <span className="text-base font-bold text-amber-400 leading-none flex items-center gap-1 justify-center">
@@ -225,34 +304,43 @@ export const BlockudokuGame: React.FC = () => {
 
         <button
           onClick={handleRestart}
-          className="p-2 -mr-2 rounded-xl text-slate-400 hover:text-slate-100 active:scale-95 transition-transform"
+          className="p-2 -mr-2 rounded-xl text-slate-400 hover:text-tg-text active:scale-95 transition-transform cursor-pointer"
+          title="Начать заново (R)"
         >
           <RotateCcw className="w-5 h-5" />
         </button>
-      </div>
+      </header>
 
-      {/* Streak / Combo Banner */}
-      <div className="h-6 flex items-center justify-center">
-        {streak > 1 && (
-          <div className="flex items-center gap-1 text-[11px] font-extrabold text-amber-400 animate-pulse">
+      {/* 2. Streak Banner (Fixed Height: 28px / h-7, never shifts layout) */}
+      <div className="h-7 shrink-0 flex items-center justify-center">
+        {streak > 1 ? (
+          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/30 text-[11px] font-extrabold text-amber-300 animate-pulse">
             <Flame className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
             Серия ходов: x{streak}!
           </div>
-        )}
+        ) : selectedTrayIndex !== null ? (
+          <span className="text-[11px] text-indigo-300 font-medium animate-pulse">
+            Кликните по доске для установки фигуры
+          </span>
+        ) : null}
       </div>
 
-      {/* 9x9 Board */}
-      <div className="flex-1 flex items-center justify-center p-3 max-w-md mx-auto w-full">
+      {/* 3. Responsive 9x9 Board (Scales dynamically within viewport limits) */}
+      <div className="flex-1 flex items-center justify-center p-2 min-h-0">
         <div
           ref={boardRef}
-          className="w-full aspect-square max-w-[360px] bg-slate-900/90 rounded-2xl p-2 border-2 border-slate-800 shadow-2xl shadow-indigo-950/40 grid grid-cols-9 gap-1"
+          style={{
+            width: 'min(86vw, 44vh, 370px)',
+            height: 'min(86vw, 44vh, 370px)',
+          }}
+          className="aspect-square bg-slate-900/95 rounded-2xl p-2 border-2 border-slate-800/90 shadow-2xl shadow-indigo-950/40 grid grid-cols-9 gap-1"
         >
           {grid.map((row, r) =>
             row.map((cell, c) => {
               const isGhost = isGhostCell(r, c);
               const isClear = isClearing(r, c);
 
-              // 3x3 block visual alternation (checkerboard pattern of 3x3 zones)
+              // 3x3 checkerboard pattern
               const boxRow = Math.floor(r / 3);
               const boxCol = Math.floor(c / 3);
               const isSubgridEven = (boxRow + boxCol) % 2 === 0;
@@ -260,19 +348,19 @@ export const BlockudokuGame: React.FC = () => {
               return (
                 <div
                   key={`${r}-${c}`}
-                  className={`relative rounded-md transition-colors duration-150 flex items-center justify-center aspect-square ${
+                  onClick={() => handleBoardClick(r, c)}
+                  className={`relative rounded-md transition-all duration-100 flex items-center justify-center aspect-square cursor-pointer ${
                     isClear
-                      ? 'bg-amber-300 scale-110 shadow-lg shadow-amber-400/50 z-10 transition-transform duration-200'
+                      ? 'bg-amber-300 scale-105 shadow-lg shadow-amber-400/60 z-10'
                       : cell > 0
-                      ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 border border-indigo-400/60 shadow-sm shadow-indigo-500/20'
+                      ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 border border-indigo-400/50 shadow-sm shadow-indigo-500/20'
                       : isGhost
-                      ? 'bg-indigo-400/40 border border-indigo-300 scale-95 animate-pulse'
+                      ? 'bg-indigo-400/40 border-2 border-indigo-300 scale-95 animate-pulse'
                       : isSubgridEven
                       ? 'bg-slate-800/80 border border-slate-700/40'
                       : 'bg-slate-850/60 border border-slate-800/60'
                   }`}
                 >
-                  {/* Subtle inner bevel for filled blocks */}
                   {cell > 0 && !isClear && (
                     <div className="w-full h-full rounded-[4px] bg-white/10 border-t border-l border-white/20" />
                   )}
@@ -283,21 +371,31 @@ export const BlockudokuGame: React.FC = () => {
         </div>
       </div>
 
-      {/* Tray of 3 pieces */}
-      <div className="pb-6 pt-2 px-3 bg-slate-900/40 border-t border-slate-800/60">
-        <div className="max-w-md mx-auto grid grid-cols-3 gap-2.5 h-28">
+      {/* 4. Tray of 3 Pieces (Fixed Height: 112px / h-28) */}
+      <div className="h-28 shrink-0 pb-3 px-3 bg-tg-secondaryBg/40 border-t border-slate-800/60">
+        <div className="max-w-md mx-auto grid grid-cols-3 gap-2.5 h-full">
           {trayPieces.map((piece, index) => {
             const isBeingDragged = dragState?.pieceIndex === index;
+            const isSelected = selectedTrayIndex === index;
 
             return (
               <div
                 key={index}
-                className="relative rounded-2xl bg-slate-900/80 border border-slate-800/80 flex items-center justify-center overflow-hidden touch-none"
+                onClick={() => {
+                  if (piece) setSelectedTrayIndex(prev => prev === index ? null : index);
+                }}
+                className={`relative rounded-2xl bg-slate-900/80 border transition-all duration-150 flex items-center justify-center overflow-hidden touch-none cursor-grab active:cursor-grabbing ${
+                  isSelected
+                    ? 'border-indigo-400 ring-2 ring-indigo-500/40 bg-indigo-950/30'
+                    : 'border-slate-800/80 hover:border-slate-700'
+                }`}
               >
                 {piece && !isBeingDragged && (
                   <div
                     onPointerDown={(e) => handlePiecePointerDown(e, piece, index)}
-                    className="cursor-grab active:cursor-grabbing p-2 transition-transform hover:scale-105 active:scale-95"
+                    className={`p-2 transition-transform hover:scale-105 active:scale-95 ${
+                      isSelected ? 'scale-105' : ''
+                    }`}
                   >
                     <div
                       className="grid gap-1"
@@ -309,7 +407,7 @@ export const BlockudokuGame: React.FC = () => {
                         row.map((val, c) => (
                           <div
                             key={`${r}-${c}`}
-                            className={`w-4 h-4 sm:w-5 sm:h-5 rounded-sm transition-all ${
+                            className={`w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-sm transition-all ${
                               val === 1
                                 ? `${piece.colorClass} shadow-sm ${piece.glowClass}`
                                 : 'opacity-0'
@@ -326,7 +424,7 @@ export const BlockudokuGame: React.FC = () => {
         </div>
       </div>
 
-      {/* Floating Dragged Piece following finger */}
+      {/* Floating Dragged Piece following cursor/finger */}
       {dragState && (
         <div
           className="pointer-events-none fixed z-50 transition-opacity"
@@ -358,23 +456,23 @@ export const BlockudokuGame: React.FC = () => {
         </div>
       )}
 
-      {/* Game Over Modal */}
+      {/* Game Over Modal in Telegram Style */}
       {isGameOver && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
-          <div className="w-full max-w-sm rounded-3xl bg-slate-900 border-2 border-indigo-500/40 p-6 text-center shadow-2xl animate-pop">
+          <div className="w-full max-w-sm rounded-3xl bg-tg-secondaryBg border border-slate-700/80 p-6 text-center shadow-2xl animate-pop">
             <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 p-[2px] shadow-lg shadow-amber-500/20 flex items-center justify-center">
               <Trophy className="w-8 h-8 text-white fill-white/20" />
             </div>
 
-            <h3 className="text-xl font-black text-white">Игра окончена</h3>
-            <p className="text-xs text-slate-400 mt-1">Больше нет доступных ходов</p>
+            <h3 className="text-xl font-black text-tg-text">Игра окончена</h3>
+            <p className="text-xs text-tg-hint mt-1">Больше нет доступных ходов</p>
 
             {/* Score presentation */}
-            <div className="my-5 p-4 rounded-2xl bg-slate-800/80 border border-slate-700/60">
-              <span className="text-xs text-slate-400 uppercase font-semibold">
+            <div className="my-5 p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+              <span className="text-xs text-tg-hint uppercase font-semibold">
                 Итоговый результат
               </span>
-              <p className="text-3xl font-black text-indigo-300 mt-1">{score}</p>
+              <p className="text-3xl font-black text-indigo-400 mt-1">{score}</p>
 
               {isNewRecordAchieved && (
                 <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-xs font-extrabold animate-bounce">
@@ -383,17 +481,17 @@ export const BlockudokuGame: React.FC = () => {
               )}
             </div>
 
-            {/* Actions */}
+            {/* Actions with Telegram Button Style */}
             <div className="space-y-2">
               <button
                 onClick={handleRestart}
-                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 active:scale-95 transition-all"
+                className="w-full py-3 px-4 rounded-xl tg-btn-primary font-bold text-sm shadow-lg shadow-indigo-600/30 cursor-pointer"
               >
                 Играть снова
               </button>
               <button
                 onClick={closeGame}
-                className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs border border-slate-700 active:scale-95 transition-all"
+                className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-tg-hint font-semibold text-xs border border-slate-700 active:scale-95 transition-all cursor-pointer"
               >
                 В главное меню
               </button>
