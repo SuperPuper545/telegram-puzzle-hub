@@ -19,9 +19,13 @@ async function tgCall(method, data) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    return await res.json();
+    const json = await res.json();
+    if (!json.ok) {
+      console.error(`Telegram API error on ${method}:`, JSON.stringify(json));
+    }
+    return json;
   } catch (err) {
-    console.error(`Telegram API error on ${method}:`, err);
+    console.error(`Network error on ${method}:`, err);
     return null;
   }
 }
@@ -30,7 +34,8 @@ function getPlayButton() {
   if (WEBAPP_URL && WEBAPP_URL.startsWith('https://')) {
     return [{ text: '🎮 Играть в TapTap Hub', web_app: { url: WEBAPP_URL } }];
   }
-  return [{ text: '🎮 Запустить игру (Web)', url: 'http://localhost:5173' }];
+  // Telegram strictly forbids http:// or localhost in inline button url
+  return [{ text: '🎮 Играть (Blockudoku)', callback_data: 'cb_play' }];
 }
 
 function getMainKeyboard() {
@@ -84,17 +89,7 @@ async function handleMessage(msg) {
   }
 
   if (text.startsWith('/play')) {
-    await tgCall('sendMessage', {
-      chat_id: chatId,
-      text: `🎮 <b>Blockudoku 9x9</b>\n\nРазмещай фигуры на поле, очищай строки и квадраты 3x3. Нажми кнопку ниже для старта:`,
-      parse_mode: 'HTML',
-      reply_markup: {
-        inline_keyboard: [
-          getPlayButton(),
-          [{ text: '🏆 Посмотреть рекорд', callback_data: 'cb_profile' }],
-        ],
-      },
-    });
+    await sendPlayInfo(chatId);
     return;
   }
 
@@ -111,6 +106,49 @@ async function handleMessage(msg) {
   if (text.startsWith('/help')) {
     await sendHelpMessage(chatId);
     return;
+  }
+}
+
+async function sendPlayInfo(chatId, messageId = null) {
+  let text = '';
+  if (WEBAPP_URL && WEBAPP_URL.startsWith('https://')) {
+    text = `🎮 <b>TapTap Hub: Blockudoku 9x9</b>\n\nНажмите кнопку ниже, чтобы запустить игру прямо внутри Telegram!`;
+  } else {
+    text = `🎮 <b>TapTap Hub: Blockudoku 9x9</b>\n\n` +
+      `Проект сейчас запущен на вашем компьютере!\n\n` +
+      `🌐 <b>Открыть в браузере:</b>\n` +
+      `👉 <a href="http://localhost:5173">http://localhost:5173</a>\n\n` +
+      `📱 <b>Для игры прямо внутри мобильного Telegram:</b>\n` +
+      `Укажите публичный HTTPS адрес (например, через tunnel или на VPS) в <code>backend/.env</code> (параметр <code>WEBAPP_URL</code>).`;
+  }
+
+  const keyboard = {
+    inline_keyboard: [
+      getPlayButton(),
+      [
+        { text: '🏆 Лидерборд', callback_data: 'cb_leaderboard' },
+        { text: '◀️ Меню', callback_data: 'cb_menu' },
+      ],
+    ],
+  };
+
+  if (messageId) {
+    await tgCall('editMessageText', {
+      chat_id: chatId,
+      message_id: messageId,
+      text,
+      parse_mode: 'HTML',
+      reply_markup: keyboard,
+      disable_web_page_preview: true,
+    });
+  } else {
+    await tgCall('sendMessage', {
+      chat_id: chatId,
+      text,
+      parse_mode: 'HTML',
+      reply_markup: keyboard,
+      disable_web_page_preview: true,
+    });
   }
 }
 
@@ -254,7 +292,9 @@ async function handleCallback(query) {
 
   await tgCall('answerCallbackQuery', { callback_query_id: query.id });
 
-  if (data === 'cb_leaderboard') {
+  if (data === 'cb_play') {
+    await sendPlayInfo(chatId, messageId);
+  } else if (data === 'cb_leaderboard') {
     await sendLeaderboardMessage(chatId, messageId);
   } else if (data === 'cb_profile') {
     await sendProfileMessage(chatId, dbUser || tgUser, messageId);
