@@ -1,22 +1,25 @@
-﻿import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { haptics } from '../../../telegram/telegram';
-
-type Suit = 's' | 'h' | 'd' | 'c';
-type Rank = '6'|'7'|'8'|'9'|'10'|'J'|'Q'|'K'|'A';
-interface Card { rank: Rank; suit: Suit }
-interface TableSlot { attack: Card; defense: Card | null }
-
-const SUIT_SYMBOL: Record<Suit, string> = { s:'♠', h:'♥', d:'♦', c:'♣' };
-const SUIT_COLOR: Record<Suit, string> = { s:'text-tg-text', h:'text-rose-500', d:'text-rose-500', c:'text-tg-text' };
+import { sound } from '../../../utils/sound';
+import confetti from 'canvas-confetti';
+import { Flag, Trophy, Frown, Sparkles, Shield, Swords, Layers } from 'lucide-react';
+import type { Card, TableSlot, GameOverPayload, DuelOpponent } from '../types';
 
 interface Props {
   roomId: string;
   myUserId: number;
-  opponent: { firstName: string; username: string | null; userId: number };
+  opponent: DuelOpponent;
   betAmount: number;
   gameState: {
-    hand: Card[]; opponentCardCount: number; table: TableSlot[];
-    phase: string; deckCount: number; trump: Suit; attackerId: number; defenderId: number; discardCount: number;
+    hand: Card[];
+    opponentCardCount: number;
+    table: TableSlot[];
+    phase: string;
+    deckCount: number;
+    trump: 's' | 'h' | 'd' | 'c';
+    attackerId: number;
+    defenderId: number;
+    discardCount: number;
   } | null;
   onAttack: (card: Card) => void;
   onDefend: (attackCard: Card, defenseCard: Card) => void;
@@ -24,35 +27,75 @@ interface Props {
   onTake: () => void;
   onDoneAttacking: () => void;
   onSurrender: () => void;
-  gameOverData?: { reason: string; winnerUserId: number | null; payout: number; commission: number } | null;
+  gameOverData?: GameOverPayload | null;
+  onExit: () => void;
 }
 
-function CardView({ card, selected, onClick, small }: { card: Card; selected?: boolean; onClick?: () => void; small?: boolean }) {
-  const sym = SUIT_SYMBOL[card.suit];
-  const col = SUIT_COLOR[card.suit];
+const SUIT_SYMBOLS = { s: '♠', h: '♥', d: '♦', c: '♣' };
+const SUIT_COLORS = {
+  s: 'text-tg-text',
+  c: 'text-tg-text',
+  h: 'text-rose-500',
+  d: 'text-rose-500',
+};
+
+function CardItem({
+  card,
+  selected,
+  onClick,
+  small,
+}: {
+  card: Card;
+  selected?: boolean;
+  onClick?: () => void;
+  small?: boolean;
+}) {
+  const sym = SUIT_SYMBOLS[card.suit];
+  const col = SUIT_COLORS[card.suit];
+
   return (
     <button
       onClick={onClick}
-      className={`rounded-lg border-2 flex flex-col items-center justify-between select-none active:scale-95 transition-all ${small ? 'w-9 h-12 text-xs p-0.5' : 'w-11 h-16 text-sm p-1'} ${selected ? 'border-indigo-400 bg-indigo-500/20 -translate-y-3' : 'border-[var(--tg-theme-section-separator-color)] bg-tg-secondaryBg'}`}
-      style={{ touchAction: 'none' }}
+      className={`rounded-xl border-2 flex flex-col justify-between select-none transition-all active:scale-95 cursor-pointer shadow-md ${
+        small ? 'w-9 h-14 p-1 text-[10px]' : 'w-12 h-18 p-1.5 text-xs'
+      } ${
+        selected
+          ? 'border-indigo-400 bg-indigo-500/20 -translate-y-3 shadow-indigo-500/30'
+          : 'border-[var(--tg-theme-section-separator-color)] bg-tg-secondaryBg hover:border-indigo-400/40'
+      }`}
     >
-      <span className={`font-bold leading-none ${col} ${small ? 'text-[9px]' : 'text-xs'}`}>{card.rank}</span>
-      <span className={`leading-none ${col} ${small ? 'text-base' : 'text-xl'}`}>{sym}</span>
-      <span className={`font-bold leading-none rotate-180 ${col} ${small ? 'text-[9px]' : 'text-xs'}`}>{card.rank}</span>
+      <div className={`font-black leading-none ${col}`}>{card.rank}</div>
+      <div className={`text-center font-bold text-base leading-none ${col}`}>{sym}</div>
+      <div className={`font-black leading-none text-right ${col}`}>{card.rank}</div>
     </button>
   );
 }
 
 function CardBack({ small }: { small?: boolean }) {
   return (
-    <div className={`rounded-lg border-2 border-indigo-500/30 bg-indigo-900/30 flex items-center justify-center ${small ? 'w-9 h-12' : 'w-11 h-16'}`}>
-      <span className="text-indigo-400/60" style={{ fontSize: small ? 10 : 16 }}>🂠</span>
+    <div
+      className={`rounded-xl border-2 border-indigo-500/30 bg-gradient-to-br from-indigo-900/40 to-purple-900/40 flex items-center justify-center shadow-inner ${
+        small ? 'w-8 h-12 text-xs' : 'w-10 h-15 text-sm'
+      }`}
+    >
+      <span className="opacity-50">🂠</span>
     </div>
   );
 }
 
 export const DurakGame: React.FC<Props> = ({
-  myUserId, opponent, betAmount, gameState, onAttack, onDefend, onPass, onTake, onDoneAttacking, onSurrender, gameOverData,
+  myUserId,
+  opponent,
+  betAmount,
+  gameState,
+  onAttack,
+  onDefend,
+  onPass,
+  onTake,
+  onDoneAttacking,
+  onSurrender,
+  gameOverData,
+  onExit,
 }) => {
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [showSurrender, setShowSurrender] = useState(false);
@@ -61,96 +104,172 @@ export const DurakGame: React.FC<Props> = ({
   const isAttacker = gs?.attackerId === myUserId;
   const isDefender = gs?.defenderId === myUserId;
 
-  const handleCardClick = useCallback((card: Card) => {
-    if (!gs) return;
-    haptics.light();
-    if (isAttacker && (gs.phase === 'attack' || gs.phase === 'additional')) {
-      onAttack(card);
-      setSelectedCard(null);
-    } else if (isDefender && gs.phase === 'defense') {
-      if (!selectedCard) {
-        // First: select attack card to defend against
-        const attackSlot = gs.table.find(s => !s.defense);
+  useEffect(() => {
+    if (gameOverData) {
+      const won = gameOverData.winnerUserId === myUserId;
+      if (won) {
+        sound.playRecord();
+        confetti({
+          particleCount: 80,
+          spread: 80,
+          origin: { y: 0.6 },
+          colors: ['#ec4899', '#f59e0b', '#10b981', '#6366f1'],
+        });
+      } else {
+        sound.playGameOver();
+      }
+    }
+  }, [gameOverData, myUserId]);
+
+  const handleCardClick = useCallback(
+    (card: Card) => {
+      if (!gs) return;
+      haptics.light();
+      sound.playPickup();
+
+      if (isAttacker && (gs.phase === 'attack' || gs.phase === 'additional')) {
+        sound.playPickup();
+        onAttack(card);
+        setSelectedCard(null);
+      } else if (isDefender && gs.phase === 'defense') {
+        const attackSlot = gs.table.find((s) => !s.defense);
         if (attackSlot) {
-          setSelectedCard(card); // selected = my defense card for the pending attack
+          sound.playPickup();
           onDefend(attackSlot.attack, card);
           setSelectedCard(null);
+        } else {
+          setSelectedCard(card);
         }
+      } else {
+        setSelectedCard((prev) =>
+          prev?.rank === card.rank && prev.suit === card.suit ? null : card
+        );
       }
-    } else if (isDefender && gs.phase === 'defense' && gs.table.length === 1 && !gs.table[0].defense) {
-      // Pass (perevodnoy)
-      setSelectedCard(prev => prev?.rank === card.rank && prev.suit === card.suit ? null : card);
-    }
-  }, [gs, isAttacker, isDefender, selectedCard, onAttack, onDefend]);
+    },
+    [gs, isAttacker, isDefender, onAttack, onDefend]
+  );
 
-  const handleTableSlotClick = useCallback((slot: TableSlot) => {
-    if (!gs || !isDefender || gs.phase !== 'defense' || slot.defense) return;
-    if (!selectedCard) return;
-    onDefend(slot.attack, selectedCard);
-    setSelectedCard(null);
-  }, [gs, isDefender, selectedCard, onDefend]);
+  const handleTableSlotClick = useCallback(
+    (slot: TableSlot) => {
+      if (!gs || !isDefender || gs.phase !== 'defense' || slot.defense) return;
+      if (!selectedCard) return;
+      sound.playPickup();
+      haptics.medium();
+      onDefend(slot.attack, selectedCard);
+      setSelectedCard(null);
+    },
+    [gs, isDefender, selectedCard, onDefend]
+  );
 
-  if (gameOverData) {
-    const won = gameOverData.winnerUserId === myUserId;
-    const draw = !gameOverData.winnerUserId;
+  if (!gs) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 p-6 touch-none select-none">
-        <div className="text-6xl">{draw ? '🤝' : won ? '🏆' : '😔'}</div>
-        <h2 className="text-2xl font-black text-tg-text">{draw ? 'Ничья!' : won ? 'Победа!' : 'Поражение'}</h2>
-        <p className="text-xs text-tg-hint">{gameOverData.reason === 'surrender' ? 'Соперник сдался' : gameOverData.reason === 'hand_empty' ? 'Карты закончились' : gameOverData.reason === 'disconnect' ? 'Соперник отключился' : gameOverData.reason}</p>
-        {betAmount > 0 && !draw && won && <div className="text-amber-400 font-bold text-lg">+{gameOverData.payout} 🪙</div>}
-        {betAmount > 0 && !draw && !won && <div className="text-rose-400 font-bold text-lg">-{betAmount} 🪙</div>}
+      <div className="flex flex-col items-center justify-center h-full gap-3 text-tg-hint">
+        <div className="text-3xl animate-spin">🃏</div>
+        <p className="text-xs">Загрузка партии...</p>
       </div>
     );
   }
 
-  if (!gs) return <div className="flex items-center justify-center h-full text-tg-hint">Загрузка...</div>;
-
-  const trumpSym = SUIT_SYMBOL[gs.trump];
-  const canDoneAttacking = isAttacker && gs.phase === 'additional';
+  const trumpSym = SUIT_SYMBOLS[gs.trump];
+  const trumpCol = SUIT_COLORS[gs.trump];
+  const canDone = isAttacker && gs.phase === 'additional';
   const canTake = isDefender && (gs.phase === 'defense' || gs.phase === 'additional');
   const canPass = isDefender && gs.phase === 'defense' && gs.table.length === 1 && !gs.table[0].defense;
 
   return (
-    <div className="flex flex-col h-full bg-tg-bg touch-none select-none game-viewport-lock" style={{ touchAction: 'none' }}>
-      {/* Opponent hand */}
-      <div className="flex items-center gap-2 px-3 py-2 bg-tg-secondaryBg border-b border-[var(--tg-theme-section-separator-color)]">
-        <div className="flex items-center gap-1">
-          <div className="w-7 h-7 rounded-full bg-rose-500/30 flex items-center justify-center text-xs font-bold text-rose-400">{opponent.firstName[0]}</div>
-          <span className="text-xs text-tg-hint">{opponent.firstName}</span>
-          {!isAttacker && <span className="text-[10px] text-emerald-400 font-semibold ml-1">⚔️ атакует</span>}
-          {!isDefender && <span className="text-[10px] text-blue-400 font-semibold ml-1">🛡️ защищается</span>}
+    <div className="flex flex-col h-full bg-tg-bg select-none touch-none overflow-hidden">
+      {/* Top Header: Opponent Hand & Status */}
+      <div className="flex items-center justify-between px-4 py-2.5 bg-tg-secondaryBg border-b border-[var(--tg-theme-section-separator-color)] shadow-sm">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center font-bold text-xs text-rose-400">
+            {opponent.firstName[0]}
+          </div>
+          <div>
+            <div className="text-xs font-bold text-tg-text truncate max-w-[120px]">
+              {opponent.firstName}
+            </div>
+            <div className="text-[10px] font-medium text-tg-hint flex items-center gap-1">
+              {!isAttacker ? (
+                <span className="text-amber-400 font-bold flex items-center gap-0.5">
+                  <Swords className="w-3 h-3" /> Атакует
+                </span>
+              ) : (
+                <span className="text-indigo-400 font-bold flex items-center gap-0.5">
+                  <Shield className="w-3 h-3" /> Защищается
+                </span>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="flex gap-0.5 ml-2">
-          {Array(gs.opponentCardCount).fill(null).map((_, i) => <CardBack key={i} small />)}
+
+        {/* Opponent Cards in Hand */}
+        <div className="flex items-center gap-1 overflow-x-auto max-w-[140px] px-1">
+          {Array(Math.min(gs.opponentCardCount, 8))
+            .fill(null)
+            .map((_, i) => (
+              <CardBack key={i} small />
+            ))}
+          {gs.opponentCardCount > 8 && (
+            <span className="text-[10px] font-bold text-tg-hint">+{gs.opponentCardCount - 8}</span>
+          )}
         </div>
-        <div className="ml-auto text-xs text-tg-hint">{gs.opponentCardCount} карт</div>
+
+        {/* Surrender Button */}
+        <button
+          onClick={() => setShowSurrender(true)}
+          title="Сдаться"
+          className="p-2 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-rose-400 hover:border-rose-400/50 active:scale-90 transition-all cursor-pointer"
+        >
+          <Flag className="w-4 h-4" />
+        </button>
       </div>
 
-      {/* Deck & Trump info */}
-      <div className="flex items-center justify-between px-4 py-1 text-xs text-tg-hint bg-tg-bg border-b border-[var(--tg-theme-section-separator-color)]">
-        <span>🂠 Колода: {gs.deckCount}</span>
-        <span className="font-bold">Козырь: <span className={SUIT_COLOR[gs.trump]}>{trumpSym}</span></span>
-        <span>🗑️ Сброс: {gs.discardCount}</span>
+      {/* Deck & Trump Info Bar */}
+      <div className="flex items-center justify-between px-4 py-1.5 text-xs bg-tg-bg border-b border-[var(--tg-theme-section-separator-color)]">
+        <div className="flex items-center gap-1.5">
+          <Layers className="w-3.5 h-3.5 text-indigo-400" />
+          <span className="text-tg-hint">В колоде:</span>
+          <span className="font-extrabold text-tg-text">{gs.deckCount}</span>
+        </div>
+
+        <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30">
+          <span className="text-tg-hint text-[11px]">Козырь:</span>
+          <span className={`text-base font-black leading-none ${trumpCol}`}>{trumpSym}</span>
+        </div>
+
+        <div className="text-[11px] text-tg-hint">
+          Сброс: <span className="font-bold text-tg-text">{gs.discardCount}</span>
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="flex-1 flex flex-wrap items-center justify-center gap-2 p-3 min-h-0 overflow-auto">
+      {/* Center Table (Playing Area) */}
+      <div className="flex-1 flex flex-wrap items-center justify-center gap-3 p-4 overflow-y-auto min-h-0 bg-radial from-indigo-950/20 via-transparent to-transparent">
         {gs.table.length === 0 ? (
-          <div className="text-tg-hint text-sm text-center">
-            {isAttacker ? '👆 Выберите карту для атаки' : '⏳ Ожидаем атаку...'}
+          <div className="text-center py-6 space-y-2 opacity-80">
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] flex items-center justify-center text-2xl">
+              🃏
+            </div>
+            <p className="text-xs font-bold text-tg-text">
+              {isAttacker ? 'Ваш ход! Выберите карту для атаки' : 'Ожидаем ход соперника...'}
+            </p>
           </div>
         ) : (
           gs.table.map((slot, i) => (
-            <div key={i} className="relative flex flex-col items-center gap-1" onClick={() => handleTableSlotClick(slot)}>
-              <CardView card={slot.attack} />
+            <div
+              key={i}
+              className="relative flex flex-col items-center cursor-pointer"
+              onClick={() => handleTableSlotClick(slot)}
+            >
+              <CardItem card={slot.attack} />
               {slot.defense ? (
-                <div className="-mt-8 ml-4">
-                  <CardView card={slot.defense} />
+                <div className="-mt-8 ml-5 shadow-lg">
+                  <CardItem card={slot.defense} />
                 </div>
               ) : (
-                isDefender && selectedCard && gs.phase === 'defense' && (
-                  <div className="w-11 h-16 rounded-lg border-2 border-dashed border-indigo-400/40 flex items-center justify-center text-indigo-400/40 text-xl -mt-8 ml-4">+</div>
+                isDefender && (
+                  <div className="w-12 h-18 rounded-xl border-2 border-dashed border-indigo-400/60 bg-indigo-500/10 flex items-center justify-center text-indigo-400 text-base -mt-8 ml-5 shadow-sm animate-pulse">
+                    Крыть
+                  </div>
                 )
               )}
             </div>
@@ -158,60 +277,136 @@ export const DurakGame: React.FC<Props> = ({
         )}
       </div>
 
-      {/* Action buttons */}
-      <div className="flex gap-2 px-3 pb-2">
-        {canDoneAttacking && (
-          <button onClick={onDoneAttacking} className="flex-1 py-2 rounded-xl bg-emerald-500/20 text-emerald-400 font-bold text-sm active:scale-95 transition-transform">
-            ✅ Готово
+      {/* Action Controls Bar */}
+      <div className="flex gap-2 px-4 py-2 bg-tg-secondaryBg/70 border-t border-[var(--tg-theme-section-separator-color)]">
+        {canDone && (
+          <button
+            onClick={() => {
+              sound.playUiTap();
+              haptics.medium();
+              onDoneAttacking();
+            }}
+            className="flex-1 py-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-extrabold text-xs active:scale-95 transition-all cursor-pointer shadow-sm"
+          >
+            Бито ✅
           </button>
         )}
+
         {canTake && (
-          <button onClick={onTake} className="flex-1 py-2 rounded-xl bg-rose-500/20 text-rose-400 font-bold text-sm active:scale-95 transition-transform">
-            📥 Взять
+          <button
+            onClick={() => {
+              sound.playUiTap();
+              haptics.medium();
+              onTake();
+            }}
+            className="flex-1 py-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 font-extrabold text-xs active:scale-95 transition-all cursor-pointer shadow-sm"
+          >
+            Взять карты 📥
           </button>
         )}
+
         {canPass && (
-          <button onClick={() => selectedCard && onPass(selectedCard)} disabled={!selectedCard} className="flex-1 py-2 rounded-xl bg-amber-500/20 text-amber-400 font-bold text-sm active:scale-95 transition-transform disabled:opacity-40">
-            🔄 Перевести
+          <button
+            onClick={() => {
+              if (selectedCard) {
+                sound.playPickup();
+                haptics.medium();
+                onPass(selectedCard);
+              }
+            }}
+            disabled={!selectedCard}
+            className="flex-1 py-2.5 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-400 font-extrabold text-xs active:scale-95 transition-all disabled:opacity-40 cursor-pointer shadow-sm"
+          >
+            Перевести 🔄
           </button>
         )}
-        <button onClick={() => setShowSurrender(true)} className="px-3 py-2 rounded-xl bg-tg-secondaryBg text-tg-hint text-sm active:scale-95 transition-transform">🏳️</button>
       </div>
 
-      {/* My hand */}
-      <div className="flex items-end justify-center gap-1 px-2 pb-3 bg-tg-secondaryBg border-t border-[var(--tg-theme-section-separator-color)] overflow-x-auto min-h-[80px]">
+      {/* Player Hand */}
+      <div className="px-3 py-3 bg-tg-secondaryBg border-t border-[var(--tg-theme-section-separator-color)] shadow-lg overflow-x-auto flex items-end justify-center gap-1.5 min-h-[95px]">
         {gs.hand.map((card, i) => (
-          <CardView
+          <CardItem
             key={`${card.rank}${card.suit}${i}`}
             card={card}
             selected={selectedCard?.rank === card.rank && selectedCard.suit === card.suit}
-            onClick={() => {
-              if (isDefender && gs.phase === 'defense') {
-                setSelectedCard(prev => prev?.rank === card.rank && prev.suit === card.suit ? null : card);
-              } else {
-                handleCardClick(card);
-              }
-            }}
+            onClick={() => handleCardClick(card)}
           />
         ))}
-        {gs.hand.length === 0 && <div className="text-tg-hint text-xs py-4">Нет карт</div>}
       </div>
 
-      {/* Defend with selected card hint */}
-      {isDefender && selectedCard && gs.phase === 'defense' && (
-        <div className="px-3 pb-2 bg-tg-secondaryBg">
-          <p className="text-xs text-indigo-400 text-center">Теперь нажмите на карту атаки, которую хотите покрыть</p>
+      {/* Surrender Confirmation Modal */}
+      {showSurrender && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] rounded-3xl p-5 shadow-2xl max-w-xs w-full text-center space-y-3 animate-scale-up">
+            <h4 className="font-extrabold text-base text-tg-text">Сдаться в партии?</h4>
+            <p className="text-xs text-tg-hint leading-relaxed">
+              Вы уверены? Победа и банк будут присуждены сопернику.
+            </p>
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => setShowSurrender(false)}
+                className="flex-1 py-2.5 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint text-xs font-bold active:scale-95 transition-all cursor-pointer"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={() => {
+                  setShowSurrender(false);
+                  onSurrender();
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 text-xs font-bold active:scale-95 transition-all cursor-pointer"
+              >
+                Сдаться
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {showSurrender && (
-        <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-tg-secondaryBg rounded-2xl p-5 mx-4 space-y-3">
-            <h3 className="font-bold text-tg-text text-center">Сдаться?</h3>
-            <div className="flex gap-3">
-              <button onClick={() => setShowSurrender(false)} className="flex-1 py-2 rounded-xl bg-tg-bg text-tg-hint text-sm font-bold">Отмена</button>
-              <button onClick={() => { setShowSurrender(false); onSurrender(); }} className="flex-1 py-2 rounded-xl bg-rose-500/20 text-rose-400 text-sm font-bold">Сдаться</button>
-            </div>
+      {/* Game Over Modal */}
+      {gameOverData && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] rounded-3xl p-6 shadow-2xl max-w-xs w-full text-center space-y-4 animate-scale-up">
+            {gameOverData.winnerUserId === myUserId ? (
+              <div className="space-y-2">
+                <div className="w-16 h-16 mx-auto rounded-3xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-3xl shadow-inner text-amber-400">
+                  <Trophy className="w-9 h-9 animate-bounce" />
+                </div>
+                <h3 className="font-black text-xl text-tg-text">ПОБЕДА!</h3>
+                <p className="text-xs text-tg-hint">
+                  {gameOverData.reason === 'hand_empty'
+                    ? 'Вы первыми скинули все карты!'
+                    : 'Соперник сдался'}
+                </p>
+                {betAmount > 0 && (
+                  <div className="py-2 px-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-extrabold text-lg flex items-center justify-center gap-1.5">
+                    <Sparkles className="w-4 h-4" />
+                    +{gameOverData.payout} 🪙
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="w-16 h-16 mx-auto rounded-3xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-3xl shadow-inner text-rose-400">
+                  <Frown className="w-9 h-9" />
+                </div>
+                <h3 className="font-black text-xl text-tg-text">Вы в дураках!</h3>
+                <p className="text-xs text-tg-hint">Соперник избавился от всех карт</p>
+                {betAmount > 0 && (
+                  <div className="text-xs font-bold text-rose-400">-{betAmount} 🪙</div>
+                )}
+              </div>
+            )}
+
+            <button
+              onClick={() => {
+                sound.playUiTap();
+                onExit();
+              }}
+              className="w-full py-3 rounded-xl tg-btn-primary font-bold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+            >
+              Вернуться в хаб
+            </button>
           </div>
         </div>
       )}

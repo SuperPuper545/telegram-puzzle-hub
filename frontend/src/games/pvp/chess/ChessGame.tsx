@@ -1,44 +1,91 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { parseFen, getLegalMoves, makeMove, boardToFen, sqToRC, rcToSq, type GameState, type GameStatus, type Move, type PieceType, type PieceColor } from './chessEngine';
+import {
+  parseFen,
+  getLegalMoves,
+  makeMove,
+  boardToFen,
+  sqToRC,
+  rcToSq,
+  type GameState,
+  type GameStatus,
+  type Move,
+  type PieceType,
+  type PieceColor,
+} from './chessEngine';
 import { haptics } from '../../../telegram/telegram';
+import { sound } from '../../../utils/sound';
+import confetti from 'canvas-confetti';
+import { Flag, Handshake, Trophy, Frown, Sparkles } from 'lucide-react';
+import type { GameOverPayload, DuelOpponent } from '../types';
 
 interface Props {
   roomId: string;
   myColor: 'white' | 'black';
   initialFen: string;
-  timerMode?: string;
   initialWhiteMs: number;
   initialBlackMs: number;
   myUserId: number;
-  opponent: { firstName: string; username: string | null; userId: number };
+  opponent: DuelOpponent;
   onMove: (from: string, to: string, promotion: string | undefined, fen: string, status: string) => void;
   onSurrender: () => void;
   onOfferDraw: () => void;
   onRespondDraw: (accepted: boolean) => void;
-  // incoming events from WS
-  opponentMove?: { from: string; to: string; promotion?: string; fen: string; currentTurn: string; whiteTimeMs: number; blackTimeMs: number; status: string } | null;
+  opponentMove?: {
+    from: string;
+    to: string;
+    promotion?: string;
+    fen: string;
+    currentTurn: string;
+    whiteTimeMs: number;
+    blackTimeMs: number;
+    status: string;
+  } | null;
   tickData?: { whiteTimeMs: number; blackTimeMs: number } | null;
   drawOffered?: boolean;
-  gameOverData?: { reason: string; winnerColor?: string; winnerUserId?: number | null; isDraw?: boolean; payout: number; commission: number } | null;
+  gameOverData?: GameOverPayload | null;
   betAmount: number;
+  onExit: () => void;
 }
 
-const PIECE_UNICODE: Record<string, string> = {
-  wK:'♔',wQ:'♕',wR:'♖',wB:'♗',wN:'♘',wp:'♙',
-  bK:'♚',bQ:'♛',bR:'♜',bB:'♝',bN:'♞',bp:'♟',
+const PIECE_SYMBOLS: Record<string, string> = {
+  wK: '♔',
+  wQ: '♕',
+  wR: '♖',
+  wB: '♗',
+  wN: '♘',
+  wp: '♙',
+  bK: '♚',
+  bQ: '♛',
+  bR: '♜',
+  bB: '♝',
+  bN: '♞',
+  bp: '♟',
 };
 
 function formatTime(ms: number): string {
-  const s = Math.floor(ms / 1000);
+  const s = Math.max(0, Math.floor(ms / 1000));
   const m = Math.floor(s / 60);
   const sec = s % 60;
   return `${m}:${sec.toString().padStart(2, '0')}`;
 }
 
 export const ChessGame: React.FC<Props> = ({
-  myColor, initialFen, initialWhiteMs, initialBlackMs,
-  myUserId, opponent, onMove, onSurrender, onOfferDraw, onRespondDraw,
-  opponentMove, tickData, drawOffered, gameOverData, betAmount,
+  myColor,
+  initialFen,
+  initialWhiteMs,
+  initialBlackMs,
+  myUserId,
+  opponent,
+  onMove,
+  onSurrender,
+  onOfferDraw,
+  onRespondDraw,
+  opponentMove,
+  tickData,
+  drawOffered,
+  gameOverData,
+  betAmount,
+  onExit,
 }) => {
   const [gameState, setGameState] = useState<GameState>(() => parseFen(initialFen));
   const [status, setStatus] = useState<GameStatus>('active');
@@ -54,7 +101,6 @@ export const ChessGame: React.FC<Props> = ({
   const isMyTurn = gameState.turn === myEngineColor;
   const flipped = myColor === 'black';
 
-  // Apply incoming opponent move
   useEffect(() => {
     if (!opponentMove) return;
     const newState = parseFen(opponentMove.fen);
@@ -62,193 +108,421 @@ export const ChessGame: React.FC<Props> = ({
     setLastMove({ from: opponentMove.from, to: opponentMove.to });
     setSelected(null);
     setLegalMoves([]);
+    sound.playPickup();
     if (opponentMove.whiteTimeMs !== undefined) setWhiteMs(opponentMove.whiteTimeMs);
     if (opponentMove.blackTimeMs !== undefined) setBlackMs(opponentMove.blackTimeMs);
   }, [opponentMove]);
 
-  // Apply timer ticks
   useEffect(() => {
     if (!tickData) return;
     setWhiteMs(tickData.whiteTimeMs);
     setBlackMs(tickData.blackTimeMs);
   }, [tickData]);
 
-  const handleSquareTap = useCallback((sq: string) => {
-    if (status !== 'active' && status !== 'check') return;
-    if (!isMyTurn) return;
-    if (gameOverData) return;
-
-    const [r, c] = sqToRC(sq);
-    const piece = gameState.board[r][c];
-
-    if (selected === sq) { setSelected(null); setLegalMoves([]); return; }
-
-    if (selected) {
-      const move = legalMoves.find(m => m.to === sq);
-      if (move) {
-        if (move.promotion) {
-          setPromotionPending({ from: selected, to: sq });
-          return;
-        }
-        applyPlayerMove(selected, sq, undefined);
-        return;
+  // Game over sounds & confetti
+  useEffect(() => {
+    if (gameOverData) {
+      const won = gameOverData.winnerUserId === myUserId;
+      const draw = gameOverData.isDraw || gameOverData.reason === 'draw' || gameOverData.reason === 'stalemate';
+      if (won) {
+        sound.playRecord();
+        confetti({
+          particleCount: 80,
+          spread: 80,
+          origin: { y: 0.6 },
+          colors: ['#6366f1', '#f59e0b', '#10b981', '#ec4899'],
+        });
+      } else if (draw) {
+        sound.playUiTap();
+      } else {
+        sound.playGameOver();
       }
     }
+  }, [gameOverData, myUserId]);
 
-    if (piece && piece.color === myEngineColor) {
-      setSelected(sq);
-      setLegalMoves(getLegalMoves(gameState, sq));
-      haptics.light();
-    } else {
+  const handleSquareTap = useCallback(
+    (sq: string) => {
+      if (status !== 'active' && status !== 'check') return;
+      if (!isMyTurn || gameOverData) return;
+
+      const [r, c] = sqToRC(sq);
+      const piece = gameState.board[r][c];
+
+      if (selected === sq) {
+        setSelected(null);
+        setLegalMoves([]);
+        return;
+      }
+
+      if (selected) {
+        const move = legalMoves.find((m) => m.to === sq);
+        if (move) {
+          if (move.promotion) {
+            setPromotionPending({ from: selected, to: sq });
+            return;
+          }
+          applyPlayerMove(selected, sq, undefined);
+          return;
+        }
+      }
+
+      if (piece && piece.color === myEngineColor) {
+        setSelected(sq);
+        setLegalMoves(getLegalMoves(gameState, sq));
+        sound.playPickup();
+        haptics.light();
+      } else {
+        setSelected(null);
+        setLegalMoves([]);
+      }
+    },
+    [selected, legalMoves, gameState, isMyTurn, status, gameOverData, myEngineColor]
+  );
+
+  const applyPlayerMove = useCallback(
+    (from: string, to: string, promotion: PieceType | undefined) => {
+      const { state: newState, status: newStatus } = makeMove(gameState, from, to, promotion);
+      setGameState(newState);
+      setStatus(newStatus);
       setSelected(null);
       setLegalMoves([]);
-    }
-  }, [selected, legalMoves, gameState, isMyTurn, status, gameOverData, myEngineColor]);
+      setPromotionPending(null);
+      setLastMove({ from, to });
+      sound.playPickup();
+      haptics.medium();
+      const fen = boardToFen(newState);
+      const wsStatus = newStatus === 'active' || newStatus === 'check' ? 'active' : newStatus;
+      onMove(from, to, promotion, fen, wsStatus);
+    },
+    [gameState, onMove]
+  );
 
-  const applyPlayerMove = useCallback((from: string, to: string, promotion: PieceType | undefined) => {
-    const { state: newState, status: newStatus } = makeMove(gameState, from, to, promotion);
-    setGameState(newState);
-    setStatus(newStatus);
-    setSelected(null);
-    setLegalMoves([]);
-    setPromotionPending(null);
-    setLastMove({ from, to });
-    haptics.medium();
-    const fen = boardToFen(newState);
-    const wsStatus = newStatus === 'active' || newStatus === 'check' ? 'active' : newStatus;
-    onMove(from, to, promotion, fen, wsStatus);
-  }, [gameState, onMove]);
-
-  const ranks = flipped ? [0,1,2,3,4,5,6,7] : [7,6,5,4,3,2,1,0];
-  const files = flipped ? [7,6,5,4,3,2,1,0] : [0,1,2,3,4,5,6,7];
+  const ranks = flipped ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0];
+  const files = flipped ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7];
 
   const isLight = (r: number, c: number) => (r + c) % 2 === 0;
   const isSelected = (sq: string) => selected === sq;
-  const isLegal = (sq: string) => legalMoves.some(m => m.to === sq);
-  const isLastMove = (sq: string) => lastMove?.from === sq || lastMove?.to === sq;
+  const isLegal = (sq: string) => legalMoves.some((m) => m.to === sq);
+  const isLast = (sq: string) => lastMove?.from === sq || lastMove?.to === sq;
 
   const myTime = myColor === 'white' ? whiteMs : blackMs;
   const oppTime = myColor === 'white' ? blackMs : whiteMs;
-  const isMyTimeLow = myTime < 15000;
-
-  if (gameOverData) {
-    const won = gameOverData.winnerUserId === myUserId;
-    const draw = gameOverData.isDraw || gameOverData.reason === 'draw' || gameOverData.reason === 'stalemate';
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 p-6 touch-none select-none game-viewport-lock">
-        <div className="text-6xl">{draw ? '🤝' : won ? '🏆' : '😔'}</div>
-        <h2 className="text-2xl font-black text-tg-text">{draw ? 'Ничья!' : won ? 'Победа!' : 'Поражение'}</h2>
-        <p className="text-sm text-tg-hint capitalize">{gameOverData.reason === 'checkmate' ? 'Мат' : gameOverData.reason === 'surrender' ? 'Соперник сдался' : gameOverData.reason === 'timeout' ? 'Время вышло' : gameOverData.reason === 'disconnect' ? 'Соперник отключился' : gameOverData.reason}</p>
-        {betAmount > 0 && !draw && won && <div className="text-amber-400 font-bold text-lg">+{gameOverData.payout} 🪙</div>}
-        {betAmount > 0 && !draw && !won && <div className="text-rose-400 font-bold text-lg">-{betAmount} 🪙</div>}
-        {draw && betAmount > 0 && <div className="text-tg-hint text-sm">Ставки возвращены</div>}
-      </div>
-    );
-  }
+  const isMyTimeLow = myTime < 15000 && myTime > 0;
 
   return (
-    <div className="flex flex-col h-full bg-tg-bg select-none touch-none game-viewport-lock" style={{ touchAction: 'none' }}>
-      {/* Opponent info + timer */}
-      <div className="flex items-center justify-between px-3 py-2 bg-tg-secondaryBg border-b border-[var(--tg-theme-section-separator-color)]">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-indigo-500/30 flex items-center justify-center text-sm font-bold text-indigo-400">
-            {opponent.firstName[0]}
+    <div className="flex flex-col h-full bg-tg-bg select-none touch-none overflow-hidden">
+      {/* Top Bar: Opponent Info */}
+      <div className="flex items-center justify-between px-4 py-2.5 bg-tg-secondaryBg border-b border-[var(--tg-theme-section-separator-color)] shadow-sm">
+        <div className="flex items-center gap-2.5">
+          <div className="relative">
+            <div className="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center font-bold text-sm text-indigo-400">
+              {opponent.firstName[0]}
+            </div>
+            {!isMyTurn && (
+              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-tg-secondaryBg animate-pulse" />
+            )}
           </div>
-          <span className="text-sm font-semibold text-tg-text">{opponent.firstName}</span>
-          {!isMyTurn && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />}
+          <div>
+            <div className="text-xs font-bold text-tg-text truncate max-w-[120px]">
+              {opponent.firstName}
+            </div>
+            <div className="text-[10px] text-tg-hint font-medium">
+              {myColor === 'white' ? 'Черные фигуры' : 'Белые фигуры'}
+            </div>
+          </div>
         </div>
-        <div className={`font-mono text-lg font-bold px-3 py-1 rounded-lg ${!isMyTurn ? 'bg-emerald-500/20 text-emerald-400' : 'bg-tg-bg text-tg-hint'}`}>
+
+        {/* Bank badge in center */}
+        {betAmount > 0 && (
+          <div className="flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+            <span>🪙</span>
+            <span>Банк: {Math.floor(betAmount * 1.8)}</span>
+          </div>
+        )}
+
+        {/* Opponent Timer */}
+        <div
+          className={`font-mono text-base font-extrabold px-3 py-1 rounded-xl border transition-all ${
+            !isMyTurn
+              ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+              : 'bg-tg-bg border-[var(--tg-theme-section-separator-color)] text-tg-hint'
+          }`}
+        >
           {formatTime(oppTime)}
         </div>
       </div>
 
-      {/* Draw offer banner */}
+      {/* Draw Offer Notification */}
       {drawOffered && (
-        <div className="flex items-center justify-between gap-2 px-3 py-2 bg-amber-500/10 border-b border-amber-500/20">
-          <span className="text-xs text-amber-400 font-semibold">Соперник предлагает ничью</span>
-          <div className="flex gap-2">
-            <button onClick={() => onRespondDraw(true)} className="px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-bold">✓ Принять</button>
-            <button onClick={() => onRespondDraw(false)} className="px-3 py-1 rounded-lg bg-rose-500/20 text-rose-400 text-xs font-bold">✗ Отклонить</button>
+        <div className="flex items-center justify-between gap-3 px-4 py-2 bg-amber-500/15 border-b border-amber-500/30 animate-fade-in">
+          <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+            <Handshake className="w-4 h-4" /> Соперник предлагает ничью
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => onRespondDraw(true)}
+              className="px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/40 active:scale-95 transition-transform cursor-pointer"
+            >
+              Принять
+            </button>
+            <button
+              onClick={() => onRespondDraw(false)}
+              className="px-3 py-1 rounded-lg bg-rose-500/20 text-rose-400 text-xs font-bold border border-rose-500/40 active:scale-95 transition-transform cursor-pointer"
+            >
+              Отклонить
+            </button>
           </div>
         </div>
       )}
 
-      {/* Chess board */}
-      <div className="flex-1 flex items-center justify-center p-2">
-        <div className="relative" style={{ width: 'min(100vw, 100%)', aspectRatio: '1/1' }}>
-          <div className="grid" style={{ gridTemplateColumns: 'repeat(8, 1fr)', width: '100%', height: '100%' }}>
-            {ranks.map(rank => files.map(file => {
-              const sq = rcToSq(rank, file);
-              const piece = gameState.board[rank][file];
-              const light = isLight(rank, file);
-              const sel = isSelected(sq);
-              const legal = isLegal(sq);
-              const last = isLastMove(sq);
-              const inCheckSq = piece?.type === 'K' && piece.color === gameState.turn && (status === 'check' || status === 'checkmate');
-              return (
-                <div
-                  key={sq}
-                  onClick={() => handleSquareTap(sq)}
-                  className="relative flex items-center justify-center cursor-pointer"
-                  style={{
-                    background: inCheckSq ? 'rgba(239,68,68,0.6)' : sel ? 'rgba(99,102,241,0.5)' : last ? (light ? 'rgba(250,204,21,0.4)' : 'rgba(250,204,21,0.25)') : light ? 'rgba(240,217,181,0.9)' : 'rgba(181,136,99,0.9)',
-                    aspectRatio: '1/1',
-                  }}
-                >
-                  {legal && (
-                    <div className={`absolute rounded-full ${piece ? 'inset-0 border-4 border-indigo-400/70 rounded-none' : 'w-1/3 h-1/3 bg-indigo-400/60'}`} />
-                  )}
-                  {piece && (
-                    <span className="select-none z-10 font-chess leading-none" style={{ fontSize: 'clamp(18px, 6vw, 44px)', color: piece.color === 'w' ? '#fff' : '#1a1a1a', textShadow: piece.color === 'w' ? '0 1px 2px #000,0 0 4px #000' : '0 1px 2px rgba(255,255,255,0.4)', userSelect: 'none' }}>
-                      {PIECE_UNICODE[piece.color + piece.type]}
-                    </span>
-                  )}
-                </div>
-              );
-            }))}
+      {/* Chess Board Container */}
+      <div className="flex-1 flex items-center justify-center p-3">
+        <div className="w-full max-w-[360px] aspect-square rounded-2xl overflow-hidden shadow-2xl border-2 border-amber-950/40 bg-amber-900/10 relative">
+          <div className="grid grid-cols-8 grid-rows-8 w-full h-full">
+            {ranks.map((rank) =>
+              files.map((file) => {
+                const sq = rcToSq(rank, file);
+                const piece = gameState.board[rank][file];
+                const light = isLight(rank, file);
+                const sel = isSelected(sq);
+                const legal = isLegal(sq);
+                const last = isLast(sq);
+                const inCheckSq =
+                  piece?.type === 'K' &&
+                  piece.color === gameState.turn &&
+                  (status === 'check' || status === 'checkmate');
+
+                return (
+                  <div
+                    key={sq}
+                    onClick={() => handleSquareTap(sq)}
+                    className="relative flex items-center justify-center cursor-pointer select-none transition-colors"
+                    style={{
+                      backgroundColor: inCheckSq
+                        ? 'rgba(239, 68, 68, 0.75)'
+                        : sel
+                        ? 'rgba(99, 102, 241, 0.65)'
+                        : last
+                        ? light
+                          ? '#fef08a'
+                          : '#ca8a04'
+                        : light
+                        ? '#f3e8d2'
+                        : '#b88b4a',
+                    }}
+                  >
+                    {/* Legal move marker */}
+                    {legal && (
+                      <div
+                        className={`absolute rounded-full ${
+                          piece
+                            ? 'inset-0 border-[3px] border-indigo-600/80 rounded-none z-20'
+                            : 'w-3 h-3 bg-indigo-600/70 z-20 shadow-sm'
+                        }`}
+                      />
+                    )}
+
+                    {/* Chess Piece Symbol */}
+                    {piece && (
+                      <span
+                        className="relative z-10 font-bold leading-none select-none transition-transform"
+                        style={{
+                          fontSize: 'clamp(26px, 8vw, 38px)',
+                          color: piece.color === 'w' ? '#ffffff' : '#1f2937',
+                          textShadow:
+                            piece.color === 'w'
+                              ? '0 1px 2px rgba(0,0,0,0.8), 0 0 3px rgba(0,0,0,0.6)'
+                              : '0 1px 1px rgba(255,255,255,0.4)',
+                          transform: sel ? 'scale(1.12)' : 'none',
+                        }}
+                      >
+                        {PIECE_SYMBOLS[piece.color + piece.type]}
+                      </span>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </div>
 
-      {/* Promotion picker */}
+      {/* Promotion Modal Picker */}
       {promotionPending && (
-        <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-tg-secondaryBg rounded-2xl p-4 flex gap-4">
-            {(['Q','R','B','N'] as PieceType[]).map(pt => (
-              <button key={pt} onClick={() => applyPlayerMove(promotionPending.from, promotionPending.to, pt)}
-                className="w-14 h-14 rounded-xl bg-tg-bg flex items-center justify-center text-3xl hover:bg-indigo-500/20 active:scale-95 transition-all">
-                {PIECE_UNICODE[myEngineColor + pt]}
-              </button>
-            ))}
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] rounded-3xl p-5 shadow-2xl space-y-3 text-center">
+            <h4 className="font-extrabold text-sm text-tg-text">Выберите фигуру</h4>
+            <div className="flex gap-2 justify-center">
+              {(['Q', 'R', 'B', 'N'] as PieceType[]).map((pt) => (
+                <button
+                  key={pt}
+                  onClick={() => applyPlayerMove(promotionPending.from, promotionPending.to, pt)}
+                  className="w-14 h-14 rounded-2xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] flex items-center justify-center text-3xl hover:border-indigo-400 active:scale-90 transition-all cursor-pointer shadow-md"
+                >
+                  {PIECE_SYMBOLS[myEngineColor + pt]}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
 
-      {/* My info + timer + controls */}
-      <div className="flex items-center justify-between px-3 py-2 bg-tg-secondaryBg border-t border-[var(--tg-theme-section-separator-color)]">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-emerald-500/30 flex items-center justify-center text-sm font-bold text-emerald-400">Я</div>
-          {isMyTurn && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />}
+      {/* Bottom Bar: Player Info + Timer + Quick Actions */}
+      <div className="flex items-center justify-between px-4 py-2.5 bg-tg-secondaryBg border-t border-[var(--tg-theme-section-separator-color)] shadow-sm">
+        <div className="flex items-center gap-2.5">
+          <div className="relative">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center font-bold text-xs text-emerald-400">
+              Я
+            </div>
+            {isMyTurn && (
+              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-tg-secondaryBg animate-pulse" />
+            )}
+          </div>
+          <div>
+            <div className="text-xs font-bold text-tg-text">Ваш ход</div>
+            <div className="text-[10px] text-tg-hint font-medium">
+              {myColor === 'white' ? 'Белые фигуры' : 'Черные фигуры'}
+            </div>
+          </div>
         </div>
-        <div className={`font-mono text-lg font-bold px-3 py-1 rounded-lg ${isMyTurn ? 'bg-emerald-500/20 text-emerald-400' : 'bg-tg-bg text-tg-hint'} ${isMyTimeLow && isMyTurn ? 'animate-pulse' : ''}`}>
+
+        {/* Player Timer */}
+        <div
+          className={`font-mono text-base font-extrabold px-3 py-1 rounded-xl border transition-all ${
+            isMyTurn
+              ? isMyTimeLow
+                ? 'bg-rose-500/20 border-rose-500 text-rose-400 animate-pulse'
+                : 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+              : 'bg-tg-bg border-[var(--tg-theme-section-separator-color)] text-tg-hint'
+          }`}
+        >
           {formatTime(myTime)}
         </div>
-        <div className="flex gap-2">
-          <button onClick={onOfferDraw} className="px-2 py-1 rounded-lg bg-amber-500/15 text-amber-400 text-xs font-bold active:scale-95 transition-transform">🤝</button>
-          <button onClick={() => setShowSurrenderConfirm(true)} className="px-2 py-1 rounded-lg bg-rose-500/15 text-rose-400 text-xs font-bold active:scale-95 transition-transform">🏳️</button>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => {
+              sound.playUiTap();
+              haptics.selection();
+              onOfferDraw();
+            }}
+            title="Предложить ничью"
+            className="p-2 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-amber-400 hover:border-amber-400/50 active:scale-90 transition-all cursor-pointer"
+          >
+            <Handshake className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => {
+              sound.playUiTap();
+              haptics.selection();
+              setShowSurrenderConfirm(true);
+            }}
+            title="Сдаться"
+            className="p-2 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-rose-400 hover:border-rose-400/50 active:scale-90 transition-all cursor-pointer"
+          >
+            <Flag className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
-      {/* Surrender confirm */}
+      {/* Surrender Confirmation Modal */}
       {showSurrenderConfirm && (
-        <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-tg-secondaryBg rounded-2xl p-5 mx-4 space-y-3">
-            <h3 className="font-bold text-tg-text text-center">Сдаться?</h3>
-            <p className="text-xs text-tg-hint text-center">Соперник получит победу{betAmount > 0 ? ` и ${Math.floor(betAmount * 1.8)} 🪙` : ''}</p>
-            <div className="flex gap-3">
-              <button onClick={() => setShowSurrenderConfirm(false)} className="flex-1 py-2 rounded-xl bg-tg-bg text-tg-hint text-sm font-bold">Отмена</button>
-              <button onClick={() => { setShowSurrenderConfirm(false); onSurrender(); }} className="flex-1 py-2 rounded-xl bg-rose-500/20 text-rose-400 text-sm font-bold">Сдаться</button>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] rounded-3xl p-5 shadow-2xl max-w-xs w-full text-center space-y-3 animate-scale-up">
+            <h4 className="font-extrabold text-base text-tg-text">Сдаться в партии?</h4>
+            <p className="text-xs text-tg-hint leading-relaxed">
+              Победа и банк будут присуждены сопернику. Вы уверены?
+            </p>
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => setShowSurrenderConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-hint text-xs font-bold active:scale-95 transition-all cursor-pointer"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={() => {
+                  setShowSurrenderConfirm(false);
+                  onSurrender();
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 text-xs font-bold active:scale-95 transition-all cursor-pointer"
+              >
+                Сдаться
+              </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Game Over Modal */}
+      {gameOverData && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] rounded-3xl p-6 shadow-2xl max-w-xs w-full text-center space-y-4 animate-scale-up">
+            {gameOverData.winnerUserId === myUserId ? (
+              <div className="space-y-2">
+                <div className="w-16 h-16 mx-auto rounded-3xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-3xl shadow-inner text-amber-400">
+                  <Trophy className="w-9 h-9 animate-bounce" />
+                </div>
+                <h3 className="font-black text-xl text-tg-text">ПОБЕДА!</h3>
+                <p className="text-xs text-tg-hint">
+                  {gameOverData.reason === 'checkmate'
+                    ? 'Мат королю соперника!'
+                    : gameOverData.reason === 'surrender'
+                    ? 'Соперник сдался'
+                    : gameOverData.reason === 'timeout'
+                    ? 'У соперника вышло время'
+                    : 'Партия выиграна!'}
+                </p>
+                {betAmount > 0 && (
+                  <div className="py-2 px-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-extrabold text-lg flex items-center justify-center gap-1.5">
+                    <Sparkles className="w-4 h-4" />
+                    +{gameOverData.payout} 🪙
+                  </div>
+                )}
+              </div>
+            ) : gameOverData.isDraw || gameOverData.reason === 'draw' || gameOverData.reason === 'stalemate' ? (
+              <div className="space-y-2">
+                <div className="w-16 h-16 mx-auto rounded-3xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-3xl shadow-inner text-indigo-400">
+                  <Handshake className="w-9 h-9" />
+                </div>
+                <h3 className="font-black text-xl text-tg-text">НИЧЬЯ</h3>
+                <p className="text-xs text-tg-hint">
+                  {gameOverData.reason === 'stalemate' ? 'Пат на доске' : 'Согласие сторон'}
+                </p>
+                {betAmount > 0 && (
+                  <div className="text-xs text-tg-hint">Ставки полностью возвращены</div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="w-16 h-16 mx-auto rounded-3xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-3xl shadow-inner text-rose-400">
+                  <Frown className="w-9 h-9" />
+                </div>
+                <h3 className="font-black text-xl text-tg-text">Поражение</h3>
+                <p className="text-xs text-tg-hint">
+                  {gameOverData.reason === 'checkmate'
+                    ? 'Вам объявлен мат'
+                    : gameOverData.reason === 'timeout'
+                    ? 'Время вышло'
+                    : 'Партия проиграна'}
+                </p>
+                {betAmount > 0 && (
+                  <div className="text-xs font-bold text-rose-400">-{betAmount} 🪙</div>
+                )}
+              </div>
+            )}
+
+            <button
+              onClick={() => {
+                sound.playUiTap();
+                onExit();
+              }}
+              className="w-full py-3 rounded-xl tg-btn-primary font-bold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+            >
+              Вернуться в хаб
+            </button>
           </div>
         </div>
       )}
