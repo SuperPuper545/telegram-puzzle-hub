@@ -114,9 +114,21 @@ export const DuelLobby: React.FC<Props> = ({
         setGameOverData(null);
         setChessMoveData(null);
         setChessTickData(null);
-        setChessDrawOffered(false);
-        setDurakState(null);
-        setMyShots([]);
+        if (d.gameType === 'durak') {
+          setDurakState({
+            hand: (d as any).hand || [],
+            opponentCardCount: 6,
+            table: [],
+            phase: 'attack',
+            deckCount: (d as any).deckCount || 24,
+            trump: (d as any).trump || 's',
+            attackerId: (d as any).attackerId,
+            defenderId: (d as any).defenderId,
+            discardCount: 0,
+          });
+        } else {
+          setDurakState(null);
+        }
         setOppShots([]);
         setSunkEnemyCells([]);
         setBattlePhase('placement');

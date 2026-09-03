@@ -207,7 +207,7 @@ export const ChessGame: React.FC<Props> = ({
     [gameState, onMove]
   );
 
-  const ranks = flipped ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0];
+  const ranks = flipped ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7];
   const files = flipped ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7];
 
   const isLight = (r: number, c: number) => (r + c) % 2 === 0;
@@ -220,7 +220,7 @@ export const ChessGame: React.FC<Props> = ({
   const isMyTimeLow = myTime < 15000 && myTime > 0;
 
   return (
-    <div className="flex flex-col h-full bg-tg-bg select-none touch-none overflow-hidden">
+    <div className="flex flex-col h-full bg-tg-bg select-none overflow-hidden">
       {/* Top Bar: Back/Surrender button + Opponent Info + Bank + Opponent Timer */}
       <div className="flex items-center justify-between px-3 py-2.5 bg-tg-secondaryBg border-b border-[var(--tg-theme-section-separator-color)] shadow-sm">
         <div className="flex items-center gap-2">
@@ -337,7 +337,7 @@ export const ChessGame: React.FC<Props> = ({
                     {/* Legal move marker */}
                     {legal && (
                       <div
-                        className={`absolute rounded-full ${
+                        className={`absolute rounded-full pointer-events-none ${
                           piece
                             ? 'inset-0 border-[3px] border-indigo-600/80 rounded-none z-20'
                             : 'w-3.5 h-3.5 bg-indigo-600/70 z-20 shadow-sm'
@@ -348,7 +348,7 @@ export const ChessGame: React.FC<Props> = ({
                     {/* Chess Piece Symbol */}
                     {piece && (
                       <span
-                        className="relative z-10 font-bold leading-none select-none transition-transform"
+                        className="relative z-10 font-bold leading-none select-none transition-transform pointer-events-none"
                         style={{
                           fontSize: 'clamp(26px, 8vw, 38px)',
                           color: piece.color === 'w' ? '#ffffff' : '#1f2937',
@@ -402,7 +402,9 @@ export const ChessGame: React.FC<Props> = ({
             )}
           </div>
           <div>
-            <div className="text-xs font-bold text-tg-text">Ваш ход</div>
+            <div className={`text-xs font-black ${isMyTurn ? 'text-emerald-400 animate-pulse' : 'text-tg-hint'}`}>
+              {isMyTurn ? '🟢 Ваш ход' : '⏳ Ход соперника'}
+            </div>
             <div className="text-[10px] text-tg-hint font-medium">
               {myColor === 'white' ? 'Белые фигуры' : 'Черные фигуры'}
             </div>

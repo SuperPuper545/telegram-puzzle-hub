@@ -112,6 +112,16 @@ export const BattleshipGame: React.FC<Props> = ({
     return () => removeBackButton();
   }, []);
 
+  // Pre-place valid fleet automatically on mount so player doesn't have to place 10 ships manually
+  useEffect(() => {
+    const ships = autoPlaceShips();
+    const g = createEmptyGrid();
+    for (const s of ships) for (const c of s.cells) g[c.r][c.c] = 1;
+    setPlacedShips(ships);
+    setPlacedGrid(g);
+    setCurrentShipIdx(SHIP_RULES.length);
+  }, []);
+
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
     if (phase === 'placement' && ready) {
@@ -224,9 +234,9 @@ export const BattleshipGame: React.FC<Props> = ({
 
             <button
               onClick={handleRandomize}
-              className="px-2.5 py-1.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-xs font-bold text-indigo-400 active:scale-95 transition-all cursor-pointer"
+              className="px-3 py-1.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-xs font-bold text-indigo-400 active:scale-95 transition-all cursor-pointer flex items-center gap-1"
             >
-              🎲 Авто
+              🎲 Перемешать
             </button>
           </div>
         </div>
@@ -265,9 +275,10 @@ export const BattleshipGame: React.FC<Props> = ({
           <button
             onClick={handleConfirmFleet}
             disabled={placedShips.length < SHIP_RULES.length}
-            className="w-full py-3.5 rounded-xl tg-btn-primary font-bold text-xs shadow-md active:scale-95 transition-all disabled:opacity-40 cursor-pointer"
+            className="w-full py-3.5 rounded-2xl tg-btn-primary font-black text-sm shadow-xl active:scale-95 transition-all disabled:opacity-40 cursor-pointer flex items-center justify-center gap-2"
           >
-            Готов к бою! ⚓
+            <span>В БОЙ! Начать сражение</span>
+            <span>⚓</span>
           </button>
         </div>
 

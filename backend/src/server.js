@@ -93,7 +93,7 @@ function cleanup(roomId) { const r=rooms.get(roomId); if(!r)return; if(r.hostRec
 function initChess(timerMode='3+2') {
   const t={'1min':[60000,0],'3+2':[180000,2000],'15min':[900000,0]};
   const [ms,inc]=t[timerMode]||t['3+2'];
-  return {fen:'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',moves:[],currentTurn:'w',status:'active',timerMode,whiteTimeMs:ms,blackTimeMs:ms,increment:inc,lastMoveAt:Date.now(),lastTickAt:Date.now()};
+  return {fen:'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',moves:[],currentTurn:'white',status:'active',timerMode,whiteTimeMs:ms,blackTimeMs:ms,increment:inc,lastMoveAt:Date.now(),lastTickAt:Date.now()};
 }
 function initDurak(mode='perevodnoy') {
   const ranks=['6','7','8','9','10','J','Q','K','A'],suits=['s','h','d','c'],deck=[];
@@ -112,7 +112,7 @@ function startChessTimer(room) {
   room._chessInterval=setInterval(()=>{
     const gs=room.gameState; if(!gs||gs.status!=='active'){clearInterval(room._chessInterval);return;}
     const now=Date.now(),el=now-(gs.lastTickAt||gs.lastMoveAt); gs.lastTickAt=now;
-    if(gs.currentTurn==='w'){gs.whiteTimeMs=Math.max(0,gs.whiteTimeMs-el);if(gs.whiteTimeMs<=0){finishChess(room,'timeout','black');return;}}
+    if(gs.currentTurn==='white'){gs.whiteTimeMs=Math.max(0,gs.whiteTimeMs-el);if(gs.whiteTimeMs<=0){finishChess(room,'timeout','black');return;}}
     else{gs.blackTimeMs=Math.max(0,gs.blackTimeMs-el);if(gs.blackTimeMs<=0){finishChess(room,'timeout','white');return;}}
     broadcast(room,{type:'chess_tick',whiteTimeMs:gs.whiteTimeMs,blackTimeMs:gs.blackTimeMs});
   },1000);
@@ -136,6 +136,7 @@ function finishDurak(room,winnerId,reason) {
 }
 function finishBattle(room,winnerId,reason) {
   const gs=room.gameState; if(gs?._settled)return; if(gs)gs._settled=true;
+  if(room._bsTimeout)clearTimeout(room._bsTimeout);
   const s=settleDuel(room.id,room.host.userId,room.guest.userId,winnerId,room.betAmount,false);
   broadcast(room,{type:'game_over',game:'battleship',reason,winnerUserId:winnerId,payout:s.payout,commission:s.commission});
   room.status='finished'; setTimeout(()=>cleanup(room.id),30000);
@@ -162,6 +163,7 @@ function startRoom(gameType,betAmount,hostEnt,guestEnt,existId,timerMode,durakMo
   sendWs(room.host.ws,{...base,role:'host',myUserId:room.host.userId,opponent:{firstName:room.guest.firstName,username:room.guest.username,userId:room.guest.userId},...chessExtra(room.host.chessColor,room.guest.chessColor),...durakExtra(gs.hand1),...bsExtra});
   sendWs(room.guest.ws,{...base,role:'guest',myUserId:room.guest.userId,opponent:{firstName:room.host.firstName,username:room.host.username,userId:room.host.userId},...chessExtra(room.guest.chessColor,room.host.chessColor),...durakExtra(gs.hand2),...bsExtra});
   if(gameType==='chess')startChessTimer(room);
+  if(gameType==='durak')bcastDurak(room);
   console.log(`[Room] ${roomId} | ${gameType} | ${betAmount}c | ${room.host.firstName} vs ${room.guest.firstName}`);
 }
 
@@ -208,10 +210,15 @@ function onChessMove(ws,user,d) {
   const room=rooms.get(d.roomId); if(!room||room.status!=='active'||room.gameType!=='chess')return;
   const gs=room.gameState;
   const myColor=isHostUser(room,user.id)?room.host.chessColor:room.guest.chessColor;
-  if((gs.currentTurn==='w'?'white':'black')!==myColor)return sendWs(ws,{type:'error',message:'Не ваш ход'});
+  if(gs.currentTurn!==myColor)return sendWs(ws,{type:'error',message:'Не ваш ход'});
   const {from,to,promotion,fen,status}=d,now=Date.now();
-  if(gs.timerMode==='3+2'){if(gs.currentTurn==='w')gs.whiteTimeMs=Math.min(gs.whiteTimeMs+gs.increment,999*60000);else gs.blackTimeMs=Math.min(gs.blackTimeMs+gs.increment,999*60000);}
-  gs.lastMoveAt=now;gs.lastTickAt=now;gs.fen=fen;gs.currentTurn=gs.currentTurn==='w'?'b':'w';gs.moves.push({from,to,promotion});
+  if(gs.timerMode==='3+2'){
+    if(gs.currentTurn==='white')gs.whiteTimeMs=Math.min(gs.whiteTimeMs+gs.increment,999*60000);
+    else gs.blackTimeMs=Math.min(gs.blackTimeMs+gs.increment,999*60000);
+  }
+  gs.lastMoveAt=now;gs.lastTickAt=now;gs.fen=fen;
+  gs.currentTurn=gs.currentTurn==='white'?'black':'white';
+  gs.moves.push({from,to,promotion});
   sendWs(opp(room,user.id)?.ws,{type:'chess_move',from,to,promotion,fen,currentTurn:gs.currentTurn,whiteTimeMs:gs.whiteTimeMs,blackTimeMs:gs.blackTimeMs,status:status||'active'});
   if(status==='checkmate')finishChess(room,'checkmate',myColor);
   else if(status==='stalemate')finishChess(room,'stalemate',null);
@@ -283,16 +290,50 @@ function onDurakDoneAttacking(ws,user,d){
 }
 
 // ─── BATTLESHIP ───────────────────────────────────────────────────────────────
-function validShips(ships){const req={4:1,3:2,2:3,1:4},cnt={};for(const s of ships)cnt[s.size]=(cnt[s.size]||0)+1;return Object.entries(req).every(([sz,c])=>(cnt[sz]||0)===c);}
+function validShips(ships){if(!Array.isArray(ships)||ships.length!==10)return false;const req={4:1,3:2,2:3,1:4},cnt={};for(const s of ships)cnt[s.size]=(cnt[s.size]||0)+1;return Object.entries(req).every(([sz,c])=>(cnt[sz]||0)===c);}
+function generateRandomFleet() {
+  const req=[4,3,3,2,2,2,1,1,1,1],grid=Array(10).fill(null).map(()=>Array(10).fill(0)),ships=[];let id=0;
+  for(const size of req){
+    let placed=false;
+    for(let att=0;att<300&&!placed;att++){
+      const hor=Math.random()<0.5,r=Math.floor(Math.random()*(hor?10:10-size+1)),c=Math.floor(Math.random()*(hor?10-size+1:10)),cells=[];let ok=true;
+      for(let i=0;i<size;i++){
+        const cr=hor?r:r+i,cc=hor?c+i:c;
+        for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+          const nr=cr+dr,nc=cc+dc;
+          if(nr>=0&&nr<10&&nc>=0&&nc<10&&grid[nr][nc]===1){ok=false;break;}
+        }
+        if(!ok)break;cells.push({r:cr,c:cc});
+      }
+      if(ok){for(const cl of cells)grid[cl.r][cl.c]=1;ships.push({id:id++,size,cells,horizontal:hor});placed=true;}
+    }
+  }
+  return {ships,board:grid};
+}
 function onBattlePlace(ws,user,d){
   const room=rooms.get(d.roomId);if(!room||room.status!=='active'||room.gameType!=='battleship')return;
   const gs=room.gameState;if(gs.phase!=='placement')return;
-  const {ships}=d;if(!validShips(ships))return sendWs(ws,{type:'error',message:'Неверная расстановка'});
+  let {ships}=d;
+  if(!validShips(ships)){const rf=generateRandomFleet();ships=rf.ships;}
   const isH=isHostUser(room,user.id),board=Array(10).fill(null).map(()=>Array(10).fill(0));
   for(const ship of ships)for(const cell of ship.cells)board[cell.r][cell.c]=1;
   if(isH){gs.ships1=ships;gs.board1=board;gs.ready1=true;}else{gs.ships2=ships;gs.board2=board;gs.ready2=true;}
   sendWs(ws,{type:'battleship_placed'});
-  if(gs.ready1&&gs.ready2){gs.phase='battle';broadcast(room,{type:'battleship_battle_start',currentAttackerId:gs.currentAttackerId});}
+  if(gs.ready1&&gs.ready2){
+    if(room._bsTimeout)clearTimeout(room._bsTimeout);
+    gs.phase='battle';
+    broadcast(room,{type:'battleship_battle_start',currentAttackerId:gs.currentAttackerId});
+  } else if(!room._bsTimeout) {
+    // If opponent hasn't confirmed yet, give 4 seconds and auto-start!
+    room._bsTimeout=setTimeout(()=>{
+      if(room.status==='active'&&gs.phase==='placement'){
+        if(!gs.ready1){const f=generateRandomFleet();gs.ships1=f.ships;gs.board1=f.board;gs.ready1=true;}
+        if(!gs.ready2){const f=generateRandomFleet();gs.ships2=f.ships;gs.board2=f.board;gs.ready2=true;}
+        gs.phase='battle';
+        broadcast(room,{type:'battleship_battle_start',currentAttackerId:gs.currentAttackerId});
+      }
+    },4000);
+  }
 }
 function onBattleShoot(ws,user,d){
   const room=rooms.get(d.roomId);if(!room||room.status!=='active'||room.gameType!=='battleship')return;
