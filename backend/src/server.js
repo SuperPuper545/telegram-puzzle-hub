@@ -271,11 +271,26 @@ function onDurakAttack(ws,user,d){
   const room=rooms.get(d.roomId);if(!room||room.status!=='active'||room.gameType!=='durak')return;
   const gs=room.gameState;if(gs.attackerId!==user.id)return sendWs(ws,{type:'error',message:'Не ваш ход'});
   if(gs.phase!=='attack'&&gs.phase!=='additional')return;
-  const {card}=d,hand=getH(room,user.id),idx=hand.findIndex(c=>c.rank===card.rank&&c.suit===card.suit);
-  if(idx===-1)return sendWs(ws,{type:'error',message:'Карты нет'});
-  if(gs.table.length>=6)return sendWs(ws,{type:'error',message:'Максимум 6'});
-  if(gs.phase==='additional'&&gs.table.length>0){const tr=new Set(gs.table.flatMap(t=>[t.attack.rank,t.defense?.rank].filter(Boolean)));if(!tr.has(card.rank))return sendWs(ws,{type:'error',message:'Неверный ранг'});}
-  hand.splice(idx,1);setH(room,user.id,hand);gs.table.push({attack:card,defense:null});gs.phase='defense';
+  const cardsToPlay=Array.isArray(d.cards)?d.cards:(d.card?[d.card]:[]);
+  if(cardsToPlay.length===0)return;
+  const defHand=getH(room,gs.defenderId),unbeatCount=gs.table.filter(s=>!s.defense).length;
+  if(unbeatCount+cardsToPlay.length>defHand.length)return sendWs(ws,{type:'error',message:'У защитника меньше карт'});
+  if(gs.table.length+cardsToPlay.length>6)return sendWs(ws,{type:'error',message:'Максимум 6 карт на столе'});
+  if(gs.phase==='attack'){
+    const firstRank=cardsToPlay[0].rank;
+    if(!cardsToPlay.every(c=>c.rank===firstRank))return sendWs(ws,{type:'error',message:'Карты должны быть одного ранга'});
+  }else if(gs.phase==='additional'&&gs.table.length>0){
+    const tr=new Set(gs.table.flatMap(t=>[t.attack.rank,t.defense?.rank].filter(Boolean)));
+    if(!cardsToPlay.every(c=>tr.has(c.rank)))return sendWs(ws,{type:'error',message:'Неверный ранг'});
+  }
+  const hand=getH(room,user.id);
+  for(const card of cardsToPlay){
+    const idx=hand.findIndex(c=>c.rank===card.rank&&c.suit===card.suit);
+    if(idx===-1)return sendWs(ws,{type:'error',message:'Карты нет в руке'});
+    hand.splice(idx,1);
+    gs.table.push({attack:card,defense:null});
+  }
+  setH(room,user.id,hand);gs.phase='defense';
   bcastDurak(room);
   if(room.guest?.isBot)triggerBotTurn(room);
 }

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { haptics, setupBackButton, removeBackButton } from '../../../telegram/telegram';
 import { sound } from '../../../utils/sound';
 import confetti from 'canvas-confetti';
-import { ArrowLeft, Flag, Trophy, Frown, Sparkles, Shield, Swords, Layers } from 'lucide-react';
+import { ArrowLeft, Flag, Trophy, Frown, Sparkles, Shield, Swords, Layers, Send } from 'lucide-react';
 import type { Card, TableSlot, GameOverPayload, DuelOpponent } from '../types';
 
 interface Props {
@@ -22,7 +22,7 @@ interface Props {
     discardCount: number;
     mode?: string;
   } | null;
-  onAttack: (card: Card) => void;
+  onAttack: (cards: Card | Card[]) => void;
   onDefend: (attackCard: Card, defenseCard: Card) => void;
   onPass: (card: Card) => void;
   onTake: () => void;
@@ -172,7 +172,8 @@ export const DurakGame: React.FC<Props> = ({
   gameOverData,
   onExit,
 }) => {
-  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+  // Support selecting MULTIPLE cards of the same rank (e.g. two 6s or three 7s)
+  const [selectedCards, setSelectedCards] = useState<Card[]>([]);
   const [showSurrender, setShowSurrender] = useState(false);
   const [draggedCard, setDraggedCard] = useState<Card | null>(null);
   const [dealingAnimation, setDealingAnimation] = useState(false);
@@ -181,6 +182,11 @@ export const DurakGame: React.FC<Props> = ({
   const gs = gameState;
   const isAttacker = gs?.attackerId === myUserId;
   const isDefender = gs?.defenderId === myUserId;
+
+  // Clear selected cards when table clears or phase changes
+  useEffect(() => {
+    setSelectedCards([]);
+  }, [gs?.table.length, gs?.phase]);
 
   // Telegram BackButton integration
   useEffect(() => {
@@ -228,53 +234,85 @@ export const DurakGame: React.FC<Props> = ({
       sound.playPickup();
 
       if (isAttacker && (gs.phase === 'attack' || gs.phase === 'additional')) {
-        onAttack(card);
-        setSelectedCard(null);
+        // Multi-card selection logic:
+        setSelectedCards((prev) => {
+          const alreadyIdx = prev.findIndex((c) => c.rank === card.rank && c.suit === card.suit);
+          if (alreadyIdx !== -1) {
+            // Deselect this card
+            return prev.filter((_, i) => i !== alreadyIdx);
+          }
+          if (prev.length === 0) {
+            // First selected card
+            return [card];
+          }
+          // If already selected cards of the SAME rank (e.g. two 6s), add it!
+          if (prev[0].rank === card.rank) {
+            // Limit: cannot exceed defender hand count or table limit 6
+            const maxAllowed = Math.min(gs.opponentCardCount - gs.table.filter((s) => !s.defense).length, 6 - gs.table.length);
+            if (prev.length < maxAllowed) {
+              return [...prev, card];
+            }
+            return prev;
+          }
+          // If clicked a different rank, switch selection to this card
+          return [card];
+        });
       } else if (isDefender && gs.phase === 'defense') {
+        // If single attack slot is open and card can beat it, beat it directly
         const attackSlot = gs.table.find((s) => !s.defense);
         if (attackSlot && canBeat(attackSlot.attack, card, gs.trump)) {
           onDefend(attackSlot.attack, card);
-          setSelectedCard(null);
+          setSelectedCards([]);
         } else {
-          setSelectedCard((prev) =>
-            prev?.rank === card.rank && prev.suit === card.suit ? null : card
-          );
+          setSelectedCards([card]);
         }
       } else {
-        setSelectedCard((prev) =>
-          prev?.rank === card.rank && prev.suit === card.suit ? null : card
-        );
+        setSelectedCards([card]);
       }
     },
-    [gs, isAttacker, isDefender, onAttack, onDefend]
+    [gs, isAttacker, isDefender, onDefend]
   );
+
+  const handleSendSelectedCards = useCallback(() => {
+    if (!gs || selectedCards.length === 0) return;
+    sound.playPickup();
+    haptics.medium();
+    onAttack(selectedCards);
+    setSelectedCards([]);
+  }, [gs, selectedCards, onAttack]);
 
   const handleTableSlotClick = useCallback(
     (slot: TableSlot) => {
       if (!gs || !isDefender || slot.defense) return;
-      if (!selectedCard) return;
-      if (!canBeat(slot.attack, selectedCard, gs.trump)) {
+      const cardToUse = selectedCards[0];
+      if (!cardToUse) return;
+      if (!canBeat(slot.attack, cardToUse, gs.trump)) {
         haptics.error();
         return;
       }
       sound.playPickup();
       haptics.medium();
-      onDefend(slot.attack, selectedCard);
-      setSelectedCard(null);
+      onDefend(slot.attack, cardToUse);
+      setSelectedCards([]);
     },
-    [gs, isDefender, selectedCard, onDefend]
+    [gs, isDefender, selectedCards, onDefend]
   );
 
   // Drop card on Table Area
   const handleTableDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    if (!gs || !draggedCard) return;
+    if (!gs) return;
 
     if (isAttacker && (gs.phase === 'attack' || gs.phase === 'additional')) {
       haptics.medium();
       sound.playPickup();
-      onAttack(draggedCard);
-    } else if (isDefender && gs.phase === 'defense') {
+      // If multiple cards of same rank are selected and one of them is dragged, play all selected!
+      if (selectedCards.length > 1 && draggedCard && selectedCards.some((c) => c.rank === draggedCard.rank && c.suit === draggedCard.suit)) {
+        onAttack(selectedCards);
+      } else if (draggedCard) {
+        onAttack([draggedCard]);
+      }
+    } else if (isDefender && gs.phase === 'defense' && draggedCard) {
       const openSlot = gs.table.find((s) => !s.defense && canBeat(s.attack, draggedCard, gs.trump));
       if (openSlot) {
         haptics.medium();
@@ -283,7 +321,7 @@ export const DurakGame: React.FC<Props> = ({
       }
     }
     setDraggedCard(null);
-    setSelectedCard(null);
+    setSelectedCards([]);
   };
 
   // Drop on specific Slot
@@ -299,7 +337,7 @@ export const DurakGame: React.FC<Props> = ({
       haptics.error();
     }
     setDraggedCard(null);
-    setSelectedCard(null);
+    setSelectedCards([]);
   };
 
   if (!gs) {
@@ -327,11 +365,11 @@ export const DurakGame: React.FC<Props> = ({
   // Status message
   let statusMessage = '';
   if (isAttacker) {
-    if (gs.phase === 'attack') statusMessage = '⚔️ Ваш ход! Выберите или перетащите карту для атаки';
+    if (gs.phase === 'attack') statusMessage = '⚔️ Ваш ход! Выберите одну или несколько карт одного ранга (пару, тройку)';
     else if (gs.phase === 'defense') statusMessage = '⏳ Соперник отбивается...';
-    else if (gs.phase === 'additional') statusMessage = '⚔️ Вы можете подкинуть карту того же достоинства или нажать «Бито»';
+    else if (gs.phase === 'additional') statusMessage = '⚔️ Вы можете подкинуть карты подходящего достоинства или нажать «Бито»';
   } else {
-    if (gs.phase === 'defense') statusMessage = '🛡️ Ваш ход! Покройте карту или нажмите «Взять»';
+    if (gs.phase === 'defense') statusMessage = '🛡️ Ваш ход! Покройте карты или нажмите «Взять»';
     else if (gs.phase === 'additional') statusMessage = '🛡️ Вы отбились! Соперник решает, подкинуть ли карты... (или вы можете взять)';
     else statusMessage = '⏳ Ожидаем ход соперника...';
   }
@@ -439,9 +477,11 @@ export const DurakGame: React.FC<Props> = ({
               🃏
             </div>
             <p className="text-xs font-black text-tg-text">
-              {isAttacker ? 'Перетащите сюда карту или нажмите на неё' : 'Ожидаем ход соперника...'}
+              {isAttacker
+                ? 'Выберите карты (можно пару одинаковых) и нажмите «Пойти»'
+                : 'Ожидаем ход соперника...'}
             </p>
-            <p className="text-[10px] text-tg-hint">Карты можно перетаскивать пальцем или кликать</p>
+            <p className="text-[10px] text-tg-hint">Поддерживается выкладывание сразу 2-3 карт одного ранга</p>
           </div>
         ) : (
           gs.table.map((slot, i) => (
@@ -470,8 +510,24 @@ export const DurakGame: React.FC<Props> = ({
       </div>
 
       {/* Action Controls Bar */}
-      {(canDone || canTake || canPass) && (
+      {(canDone || canTake || canPass || (isAttacker && selectedCards.length > 0)) && (
         <div className="flex gap-2 px-4 py-2 bg-tg-secondaryBg/95 border-t border-[var(--tg-theme-section-separator-color)] shrink-0">
+          {/* Quick Play Selected Cards Button */}
+          {isAttacker && selectedCards.length > 0 && (
+            <button
+              onClick={handleSendSelectedCards}
+              className="flex-1 py-3 rounded-2xl bg-amber-500/25 border border-amber-500/50 text-amber-300 font-black text-xs active:scale-95 transition-all cursor-pointer shadow-md flex items-center justify-center gap-1.5 animate-pulse"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>
+                {gs.phase === 'additional' ? 'Подкинуть' : 'Пойти'}{' '}
+                {selectedCards.length > 1
+                  ? `${selectedCards.length} шт (${selectedCards.map((c) => RANK_RU[c.rank] + SUIT_SYMBOLS[c.suit]).join(' ')})`
+                  : `1 шт (${RANK_RU[selectedCards[0].rank]}${SUIT_SYMBOLS[selectedCards[0].suit]})`}
+              </span>
+            </button>
+          )}
+
           {canDone && (
             <button
               onClick={() => {
@@ -503,13 +559,13 @@ export const DurakGame: React.FC<Props> = ({
           {canPass && (
             <button
               onClick={() => {
-                if (selectedCard) {
+                if (selectedCards.length > 0) {
                   sound.playPickup();
                   haptics.medium();
-                  onPass(selectedCard);
+                  onPass(selectedCards[0]);
                 }
               }}
-              disabled={!selectedCard}
+              disabled={selectedCards.length === 0}
               className="flex-1 py-3 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-400 font-black text-xs active:scale-95 transition-all disabled:opacity-40 cursor-pointer shadow-md flex items-center justify-center gap-1.5"
             >
               <span>Перевести</span>
@@ -523,7 +579,7 @@ export const DurakGame: React.FC<Props> = ({
       <div className="pt-6 pb-4 px-2 bg-gradient-to-t from-tg-secondaryBg via-tg-secondaryBg/95 to-transparent border-t border-[var(--tg-theme-section-separator-color)] shadow-2xl shrink-0">
         <div className="flex items-end justify-center -space-x-3 sm:-space-x-4 overflow-x-visible max-w-full px-4 min-h-[96px]">
           {gs.hand.map((card, i) => {
-            const isSel = selectedCard?.rank === card.rank && selectedCard.suit === card.suit;
+            const isSel = selectedCards.some((c) => c.rank === card.rank && c.suit === card.suit);
             const deg = (i - midIndex) * Math.min(5, 36 / handCount);
             const translateY = Math.abs(i - midIndex) * 2.5;
 
@@ -543,7 +599,9 @@ export const DurakGame: React.FC<Props> = ({
                   onDragStart={(e) => {
                     e.dataTransfer.setData('text/plain', card.rank + card.suit);
                     setDraggedCard(card);
-                    setSelectedCard(card);
+                    if (!selectedCards.some((c) => c.rank === card.rank && c.suit === card.suit)) {
+                      setSelectedCards([card]);
+                    }
                     haptics.light();
                   }}
                   onClick={() => handleCardClick(card)}
