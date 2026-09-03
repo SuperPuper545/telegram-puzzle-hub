@@ -3,6 +3,7 @@ import { useGameBridge, type GameId } from '../../context/GameContext';
 import { Play, Sparkles, Grid, Gem, Layers, Zap, Target, Flame, ChevronRight } from 'lucide-react';
 import { haptics } from '../../telegram/telegram';
 import { sound } from '../../utils/sound';
+import { DuelLobby } from '../../games/pvp/DuelLobby';
 
 type CategoryFilter = 'puzzles' | 'arcade' | 'pvp';
 
@@ -206,15 +207,7 @@ export const GameCatalog: React.FC = () => {
       {/* Grouped Game Cards */}
       <div className="space-y-3">
         {selectedCategory === 'pvp' ? (
-          <div className="p-8 text-center rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] shadow-sm space-y-2">
-            <div className="w-12 h-12 mx-auto rounded-2xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center text-2xl">
-              ⚔️
-            </div>
-            <h3 className="font-extrabold text-tg-text text-sm">Сетевые Дуэли со ставками</h3>
-            <p className="text-xs text-tg-hint max-w-xs mx-auto leading-relaxed">
-              Шахматы онлайн, Подкидной дурак и Морской бой на подходе! Готовься к игре со ставками.
-            </p>
-          </div>
+          <DuelLobby />
         ) : (
           filteredGames.map((game) => (
           <div

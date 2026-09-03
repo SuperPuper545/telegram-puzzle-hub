@@ -65,6 +65,39 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_scores_user_game ON scores (user_id, game_id);
   CREATE INDEX IF NOT EXISTS idx_referrals_inviter ON referrals (inviter_id);
   CREATE INDEX IF NOT EXISTS idx_purchases_user ON purchases (user_id);
+
+  CREATE TABLE IF NOT EXISTS duel_rooms (
+    id TEXT PRIMARY KEY,
+    game_type TEXT NOT NULL,
+    bet_amount INTEGER DEFAULT 0,
+    host_user_id INTEGER NOT NULL,
+    guest_user_id INTEGER,
+    status TEXT DEFAULT 'waiting',
+    winner_user_id INTEGER,
+    is_draw INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    finished_at DATETIME,
+    FOREIGN KEY (host_user_id) REFERENCES users (id)
+  );
+
+  CREATE TABLE IF NOT EXISTS duel_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    room_id TEXT NOT NULL,
+    player1_id INTEGER NOT NULL,
+    player2_id INTEGER NOT NULL,
+    game_type TEXT NOT NULL,
+    bet_amount INTEGER DEFAULT 0,
+    winner_id INTEGER,
+    is_draw INTEGER DEFAULT 0,
+    commission INTEGER DEFAULT 0,
+    player1_payout INTEGER DEFAULT 0,
+    player2_payout INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_duel_rooms_status ON duel_rooms (status);
+  CREATE INDEX IF NOT EXISTS idx_duel_history_p1 ON duel_history (player1_id);
+  CREATE INDEX IF NOT EXISTS idx_duel_history_p2 ON duel_history (player2_id);
 `);
 
 // Safe migrations for existing SQLite database
@@ -644,3 +677,136 @@ export function equipShopItem(userId, itemId) {
 
 export default db;
 
+// ─── DUEL FUNCTIONS ──────────────────────────────────────────────────────────
+
+/**
+ * Freeze (deduct) bet coins from a user at duel start.
+ * Returns { success, remainingCoins } or { success: false, error }
+ */
+export function freezeCoins(userId, amount) {
+  if (!amount || amount <= 0) return { success: true, remainingCoins: null };
+
+  const user = db.prepare('SELECT id, coins FROM users WHERE id = ?').get(userId);
+  if (!user) return { success: false, error: 'User not found' };
+  if ((user.coins || 0) < amount) {
+    return { success: false, error: 'Недостаточно монет', coinsHave: user.coins || 0 };
+  }
+
+  const updated = db.prepare(`
+    UPDATE users SET coins = coins - ? WHERE id = ? AND coins >= ?
+    RETURNING id, coins
+  `).get(amount, userId, amount);
+
+  if (!updated) return { success: false, error: 'Недостаточно монет' };
+  return { success: true, remainingCoins: updated.coins };
+}
+
+/**
+ * Settle a finished duel: award winner 90% of pot, burn 10% commission.
+ * On draw: refund both players fully (no commission).
+ * On 0-bet friendly match: no money movement.
+ */
+export function settleDuel(roomId, player1Id, player2Id, winnerId, betAmount, isDraw = false) {
+  if (!betAmount || betAmount <= 0) {
+    // Friendly match — just record history
+    db.prepare(`
+      INSERT OR IGNORE INTO duel_history
+        (room_id, player1_id, player2_id, game_type, bet_amount, winner_id, is_draw, commission, player1_payout, player2_payout)
+      SELECT id, ?, ?, game_type, 0, ?, ?, 0, 0, 0 FROM duel_rooms WHERE id = ?
+    `).run(player1Id, player2Id, isDraw ? null : winnerId, isDraw ? 1 : 0, roomId);
+
+    db.prepare(`UPDATE duel_rooms SET status='finished', winner_user_id=?, is_draw=?, finished_at=CURRENT_TIMESTAMP WHERE id=?`)
+      .run(isDraw ? null : winnerId, isDraw ? 1 : 0, roomId);
+
+    return { success: true, payout: 0, commission: 0 };
+  }
+
+  const pot = betAmount * 2;
+
+  if (isDraw) {
+    // Refund both players
+    const tx = db.transaction(() => {
+      db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').run(betAmount, player1Id);
+      db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').run(betAmount, player2Id);
+      db.prepare(`
+        INSERT OR IGNORE INTO duel_history
+          (room_id, player1_id, player2_id, game_type, bet_amount, winner_id, is_draw, commission, player1_payout, player2_payout)
+        SELECT id, ?, ?, game_type, ?, null, 1, 0, ?, ? FROM duel_rooms WHERE id = ?
+      `).run(player1Id, player2Id, betAmount, betAmount, betAmount, roomId);
+      db.prepare(`UPDATE duel_rooms SET status='finished', is_draw=1, finished_at=CURRENT_TIMESTAMP WHERE id=?`)
+        .run(roomId);
+    });
+    tx();
+    return { success: true, payout: betAmount, commission: 0, isDraw: true };
+  }
+
+  // Winner takes 90%
+  const commission = Math.floor(pot * 0.10);
+  const payout = pot - commission;
+  const loserId = winnerId === player1Id ? player2Id : player1Id;
+  const winnerPayout = payout;
+  const loserPayout = 0;
+
+  const tx = db.transaction(() => {
+    db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').run(winnerPayout, winnerId);
+    db.prepare(`
+      INSERT OR IGNORE INTO duel_history
+        (room_id, player1_id, player2_id, game_type, bet_amount, winner_id, is_draw, commission, player1_payout, player2_payout)
+      SELECT id, ?, ?, game_type, ?, ?, 0, ?, ?, ? FROM duel_rooms WHERE id = ?
+    `).run(player1Id, player2Id, betAmount, winnerId, commission,
+           winnerId === player1Id ? winnerPayout : loserPayout,
+           winnerId === player2Id ? winnerPayout : loserPayout,
+           roomId);
+    db.prepare(`UPDATE duel_rooms SET status='finished', winner_user_id=?, finished_at=CURRENT_TIMESTAMP WHERE id=?`)
+      .run(winnerId, roomId);
+  });
+  tx();
+
+  return { success: true, payout: winnerPayout, commission, loserId };
+}
+
+/**
+ * Get duel history for a user (last N matches)
+ */
+export function getDuelHistory(userId, limit = 20) {
+  return db.prepare(`
+    SELECT
+      dh.id, dh.room_id, dh.game_type, dh.bet_amount,
+      dh.winner_id, dh.is_draw, dh.commission,
+      dh.player1_payout, dh.player2_payout, dh.created_at,
+      u1.first_name as p1_name, u1.username as p1_username, u1.telegram_id as p1_tg_id,
+      u2.first_name as p2_name, u2.username as p2_username, u2.telegram_id as p2_tg_id
+    FROM duel_history dh
+    JOIN users u1 ON dh.player1_id = u1.id
+    JOIN users u2 ON dh.player2_id = u2.id
+    WHERE dh.player1_id = ? OR dh.player2_id = ?
+    ORDER BY dh.created_at DESC
+    LIMIT ?
+  `).all(userId, userId, limit);
+}
+
+/**
+ * Create a duel room record in the database
+ */
+export function createDuelRoom(roomId, gameType, betAmount, hostUserId) {
+  db.prepare(`
+    INSERT OR IGNORE INTO duel_rooms (id, game_type, bet_amount, host_user_id, status)
+    VALUES (?, ?, ?, ?, 'waiting')
+  `).run(roomId, gameType, betAmount, hostUserId);
+}
+
+/**
+ * Get user duel stats summary
+ */
+export function getDuelStats(userId) {
+  const stats = db.prepare(`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN winner_id = ? THEN 1 ELSE 0 END) as wins,
+      SUM(CASE WHEN is_draw = 1 THEN 1 ELSE 0 END) as draws,
+      SUM(CASE WHEN winner_id IS NOT NULL AND winner_id != ? AND is_draw = 0 THEN 1 ELSE 0 END) as losses
+    FROM duel_history
+    WHERE player1_id = ? OR player2_id = ?
+  `).get(userId, userId, userId, userId);
+  return stats || { total: 0, wins: 0, draws: 0, losses: 0 };
+}

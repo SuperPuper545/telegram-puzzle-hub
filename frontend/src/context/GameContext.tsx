@@ -116,6 +116,7 @@ interface GameContextType {
   leaderboards: Record<string, LeaderboardEntry[]>;
   fetchLeaderboard: (gameId: GameId) => Promise<void>;
   isLoadingLeaderboard: boolean;
+  refreshProfile: () => Promise<void>;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -259,7 +260,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })
       .catch(err => console.log('Using local offline cache for profile:', err));
 
-    // 2. Check for start_param referral deep link
+    // 2. Check for start_param referral or duel deep link
     const startParam = getTelegramStartParam();
     if (startParam && startParam.startsWith('ref_')) {
       fetch('/api/referrals/claim', {
@@ -280,6 +281,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         })
         .catch(err => console.warn('Referral claim error:', err));
+    } else if (startParam && startParam.startsWith('duel_')) {
+      // Store duel room ID for DuelLobby to join automatically
+      try { localStorage.setItem('hub_pending_duel_room', startParam.slice(5)); } catch { /* ignore */ }
     }
   }, []);
 
@@ -296,6 +300,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       closeGame();
     });
   }, [closeGame]);
+
+  const refreshProfile = useCallback(async () => {
+    try {
+      const initData = getTelegramInitData();
+      const currentUser = getTelegramUser();
+      const headers = { 'Authorization': `tma ${initData}`, 'x-mock-user-id': String(currentUser.id), 'x-mock-username': currentUser.first_name || 'Player' };
+      const res = await fetch('/api/me', { headers });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data?.user && typeof data.user.coins === 'number') {
+        setCoins(data.user.coins);
+        localStorage.setItem(LOCAL_COINS_KEY, String(data.user.coins));
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   // Stable submitScore using functional state updates
   const submitScore = useCallback(async (gameId: GameId, score: number, duration: number = 0) => {
@@ -650,6 +669,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         leaderboards,
         fetchLeaderboard,
         isLoadingLeaderboard,
+        refreshProfile,
       }}
     >
       {children}
