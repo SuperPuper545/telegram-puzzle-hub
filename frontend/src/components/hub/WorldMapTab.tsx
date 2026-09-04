@@ -107,6 +107,51 @@ export const WorldMapTab: React.FC = () => {
   const MAP_ROWS = 60;
   const BASE_CELL_SIZE = 12;
 
+  // Fit scale calculation for 80x60 grid
+  const getFitScale = useCallback((viewWidth: number, viewHeight: number) => {
+    const scaleX = viewWidth / (MAP_COLS * BASE_CELL_SIZE);
+    const scaleY = viewHeight / (MAP_ROWS * BASE_CELL_SIZE);
+    return Math.min(scaleX, scaleY);
+  }, []);
+
+  // Clamps scale & offset strictly inside map bounds (no endless drifting into void)
+  const clampTransform = useCallback((
+    scale: number,
+    offsetX: number,
+    offsetY: number,
+    viewWidth: number,
+    viewHeight: number
+  ) => {
+    const fitScale = getFitScale(viewWidth, viewHeight);
+    const minScale = Math.max(0.2, fitScale * 0.92);
+    const maxScale = 4.0;
+    const clampedScale = Math.min(maxScale, Math.max(minScale, scale));
+
+    const mapWidth = MAP_COLS * BASE_CELL_SIZE * clampedScale;
+    const mapHeight = MAP_ROWS * BASE_CELL_SIZE * clampedScale;
+
+    let clampedX = offsetX;
+    let clampedY = offsetY;
+
+    if (mapWidth <= viewWidth) {
+      clampedX = (viewWidth - mapWidth) / 2;
+    } else {
+      const minX = viewWidth - mapWidth - 12;
+      const maxX = 12;
+      clampedX = Math.min(maxX, Math.max(minX, offsetX));
+    }
+
+    if (mapHeight <= viewHeight) {
+      clampedY = (viewHeight - mapHeight) / 2;
+    } else {
+      const minY = viewHeight - mapHeight - 12;
+      const maxY = 12;
+      clampedY = Math.min(maxY, Math.max(minY, offsetY));
+    }
+
+    return { scale: clampedScale, offsetX: clampedX, offsetY: clampedY };
+  }, [getFitScale]);
+
   // Format countdown
   const formatCountdown = (seconds: number) => {
     if (seconds <= 0) return 'Расчёт цикла...';
@@ -266,18 +311,23 @@ export const WorldMapTab: React.FC = () => {
     const avgX = myCells.reduce((sum, c) => sum + c.x, 0) / myCells.length;
     const avgY = myCells.reduce((sum, c) => sum + c.y, 0) / myCells.length;
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const container = containerRef.current;
+    if (!container) return;
+    const viewWidth = container.clientWidth;
+    const viewHeight = container.clientHeight;
 
-    const targetScale = 2.5;
+    const fitScale = getFitScale(viewWidth, viewHeight);
+    const targetScale = Math.max(1.8, fitScale * 2.5);
     const pixelX = avgX * BASE_CELL_SIZE * targetScale;
     const pixelY = avgY * BASE_CELL_SIZE * targetScale;
 
-    transformRef.current = {
-      scale: targetScale,
-      offsetX: canvas.width / (2 * (window.devicePixelRatio || 1)) - pixelX,
-      offsetY: canvas.height / (2 * (window.devicePixelRatio || 1)) - pixelY,
-    };
+    transformRef.current = clampTransform(
+      targetScale,
+      viewWidth / 2 - pixelX,
+      viewHeight / 2 - pixelY,
+      viewWidth,
+      viewHeight
+    );
 
     renderCanvas();
   };
@@ -285,19 +335,19 @@ export const WorldMapTab: React.FC = () => {
   const handleResetView = () => {
     sound.playUiTap();
     haptics.selection();
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const dpr = window.devicePixelRatio || 1;
-    const width = canvas.width / dpr;
-    const height = canvas.height / dpr;
+    const container = containerRef.current;
+    if (!container) return;
+    const viewWidth = container.clientWidth;
+    const viewHeight = container.clientHeight;
 
-    const fitScale = width / (MAP_COLS * BASE_CELL_SIZE);
-    const scale = Math.max(fitScale, 0.8);
-    transformRef.current = {
-      scale,
-      offsetX: (width - (MAP_COLS * BASE_CELL_SIZE * scale)) / 2,
-      offsetY: (height - (MAP_ROWS * BASE_CELL_SIZE * scale)) / 2,
-    };
+    const fitScale = getFitScale(viewWidth, viewHeight);
+    transformRef.current = clampTransform(
+      fitScale,
+      (viewWidth - MAP_COLS * BASE_CELL_SIZE * fitScale) / 2,
+      (viewHeight - MAP_ROWS * BASE_CELL_SIZE * fitScale) / 2,
+      viewWidth,
+      viewHeight
+    );
     renderCanvas();
   };
 
@@ -455,18 +505,31 @@ export const WorldMapTab: React.FC = () => {
 
       const dpr = window.devicePixelRatio || 1;
       const width = container.clientWidth;
-      const height = container.clientHeight || 450;
+      const height = container.clientHeight;
+      if (!width || !height) return;
 
       canvas.width = width * dpr;
       canvas.height = height * dpr;
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
 
+      const fitScale = getFitScale(width, height);
       if (transformRef.current.scale === 1 && transformRef.current.offsetX === 0) {
-        const fitScale = width / (MAP_COLS * BASE_CELL_SIZE);
-        transformRef.current.scale = Math.max(fitScale, 0.8);
-        transformRef.current.offsetX = (width - (MAP_COLS * BASE_CELL_SIZE * transformRef.current.scale)) / 2;
-        transformRef.current.offsetY = (height - (MAP_ROWS * BASE_CELL_SIZE * transformRef.current.scale)) / 2;
+        transformRef.current = clampTransform(
+          fitScale,
+          (width - MAP_COLS * BASE_CELL_SIZE * fitScale) / 2,
+          (height - MAP_ROWS * BASE_CELL_SIZE * fitScale) / 2,
+          width,
+          height
+        );
+      } else {
+        transformRef.current = clampTransform(
+          transformRef.current.scale,
+          transformRef.current.offsetX,
+          transformRef.current.offsetY,
+          width,
+          height
+        );
       }
 
       renderCanvas();
@@ -475,7 +538,7 @@ export const WorldMapTab: React.FC = () => {
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [renderCanvas]);
+  }, [renderCanvas, getFitScale, clampTransform]);
 
   const handleCanvasClick = (clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
@@ -532,19 +595,25 @@ export const WorldMapTab: React.FC = () => {
   const handleZoom = (delta: number) => {
     sound.playUiTap();
     haptics.selection();
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    const fitScale = getFitScale(width, height);
+    const minScale = Math.max(0.2, fitScale * 0.92);
+    const maxScale = 4.0;
 
     const currentScale = transformRef.current.scale;
-    const newScale = Math.min(8, Math.max(0.8, currentScale + delta));
+    const newScale = Math.min(maxScale, Math.max(minScale, currentScale + delta));
 
-    const cx = canvas.width / (2 * (window.devicePixelRatio || 1));
-    const cy = canvas.height / (2 * (window.devicePixelRatio || 1));
+    const cx = width / 2;
+    const cy = height / 2;
 
-    transformRef.current.offsetX = cx - ((cx - transformRef.current.offsetX) * (newScale / currentScale));
-    transformRef.current.offsetY = cy - ((cy - transformRef.current.offsetY) * (newScale / currentScale));
-    transformRef.current.scale = newScale;
+    const newOffsetX = cx - ((cx - transformRef.current.offsetX) * (newScale / currentScale));
+    const newOffsetY = cy - ((cy - transformRef.current.offsetY) * (newScale / currentScale));
 
+    transformRef.current = clampTransform(newScale, newOffsetX, newOffsetY, width, height);
     renderCanvas();
   };
 
@@ -620,9 +689,9 @@ export const WorldMapTab: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-full pb-20 select-none animate-fade-in text-tg-text">
+    <div className="flex flex-col h-full w-full select-none animate-fade-in text-tg-text overflow-hidden relative">
       {/* Top Navigation Switcher */}
-      <div className="sticky top-0 z-20 bg-tg-bg/95 backdrop-blur-md px-4 py-2 border-b border-[var(--tg-theme-section-separator-color)]">
+      <div className="shrink-0 z-30 bg-tg-bg/95 backdrop-blur-md px-4 py-2 border-b border-[var(--tg-theme-section-separator-color)]">
         <div className="flex p-1 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)]">
           <button
             onClick={() => {
@@ -659,18 +728,18 @@ export const WorldMapTab: React.FC = () => {
 
       {/* SUB-SCREEN 1: WORLD MAP */}
       {activeSubTab === 'map' && (
-        <div className="flex-1 flex flex-col relative">
+        <div className="flex-1 flex flex-col relative w-full h-full overflow-hidden">
           {actionNotice && (
-            <div className="absolute top-3 left-4 right-4 z-30 p-3 rounded-2xl bg-emerald-500/90 text-white text-xs font-bold text-center shadow-lg animate-pop">
+            <div className="absolute top-3 left-4 right-4 z-40 p-2.5 rounded-2xl bg-emerald-500/95 text-white text-xs font-bold text-center shadow-xl animate-pop backdrop-blur-md">
               {actionNotice}
             </div>
           )}
 
           {selectedAction && (
-            <div className="bg-amber-500/20 border-b border-amber-400/30 p-2.5 px-4 flex items-center justify-between text-xs font-bold text-amber-400 animate-pulse">
-              <div className="flex items-center gap-2">
-                <Crosshair className="w-4 h-4 animate-spin" />
-                <span>
+            <div className="absolute top-3 left-4 right-4 z-40 bg-amber-500/90 text-white backdrop-blur-md p-2.5 px-4 rounded-2xl flex items-center justify-between text-xs font-bold shadow-xl animate-pulse">
+              <div className="flex items-center gap-2 truncate">
+                <Crosshair className="w-4 h-4 animate-spin shrink-0" />
+                <span className="truncate">
                   {selectedAction === 'capture' && 'Выберите клетку для захвата (1 токен)'}
                   {selectedAction === 'fortify' && 'Выберите свою клетку для укрепления (2 токена)'}
                   {selectedAction === 'sabotage' && 'Выберите клетку врага для диверсии (1 токен)'}
@@ -680,7 +749,7 @@ export const WorldMapTab: React.FC = () => {
               </div>
               <button
                 onClick={() => setSelectedAction(null)}
-                className="px-2 py-1 rounded-lg bg-black/40 text-white text-[10px] cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-black/40 text-white text-[10px] shrink-0 active:scale-95 cursor-pointer"
               >
                 Отмена
               </button>
@@ -689,7 +758,7 @@ export const WorldMapTab: React.FC = () => {
 
           <div
             ref={containerRef}
-            className="w-full h-[54dvh] min-h-[380px] bg-slate-950 relative overflow-hidden touch-none"
+            className="w-full h-full flex-1 bg-slate-950 relative overflow-hidden touch-none"
             onMouseDown={(e) => {
               gestureRef.current.isDragging = true;
               gestureRef.current.startX = e.clientX;
@@ -700,11 +769,20 @@ export const WorldMapTab: React.FC = () => {
             }}
             onMouseMove={(e) => {
               if (!gestureRef.current.isDragging) return;
+              const container = containerRef.current;
+              if (!container) return;
               const dx = e.clientX - gestureRef.current.startX;
               const dy = e.clientY - gestureRef.current.startY;
               if (Math.hypot(dx, dy) > 4) gestureRef.current.hasMoved = true;
-              transformRef.current.offsetX = gestureRef.current.startOffsetX + dx;
-              transformRef.current.offsetY = gestureRef.current.startOffsetY + dy;
+              const clamped = clampTransform(
+                transformRef.current.scale,
+                gestureRef.current.startOffsetX + dx,
+                gestureRef.current.startOffsetY + dy,
+                container.clientWidth,
+                container.clientHeight
+              );
+              transformRef.current.offsetX = clamped.offsetX;
+              transformRef.current.offsetY = clamped.offsetY;
               renderCanvas();
             }}
             onMouseUp={(e) => {
@@ -729,15 +807,29 @@ export const WorldMapTab: React.FC = () => {
                 );
                 gestureRef.current.initialDistance = dist;
                 gestureRef.current.initialScale = transformRef.current.scale;
+                gestureRef.current.startOffsetX = transformRef.current.offsetX;
+                gestureRef.current.startOffsetY = transformRef.current.offsetY;
               }
             }}
             onTouchMove={(e) => {
+              const container = containerRef.current;
+              if (!container) return;
+              const viewWidth = container.clientWidth;
+              const viewHeight = container.clientHeight;
+
               if (e.touches.length === 1 && gestureRef.current.isDragging) {
                 const dx = e.touches[0].clientX - gestureRef.current.startX;
                 const dy = e.touches[0].clientY - gestureRef.current.startY;
                 if (Math.hypot(dx, dy) > 4) gestureRef.current.hasMoved = true;
-                transformRef.current.offsetX = gestureRef.current.startOffsetX + dx;
-                transformRef.current.offsetY = gestureRef.current.startOffsetY + dy;
+                const clamped = clampTransform(
+                  transformRef.current.scale,
+                  gestureRef.current.startOffsetX + dx,
+                  gestureRef.current.startOffsetY + dy,
+                  viewWidth,
+                  viewHeight
+                );
+                transformRef.current.offsetX = clamped.offsetX;
+                transformRef.current.offsetY = clamped.offsetY;
                 renderCanvas();
               } else if (e.touches.length === 2 && gestureRef.current.initialDistance > 0) {
                 const dist = Math.hypot(
@@ -745,8 +837,19 @@ export const WorldMapTab: React.FC = () => {
                   e.touches[0].clientY - e.touches[1].clientY
                 );
                 const ratio = dist / gestureRef.current.initialDistance;
-                const newScale = Math.min(8, Math.max(0.8, gestureRef.current.initialScale * ratio));
-                transformRef.current.scale = newScale;
+                const fitScale = getFitScale(viewWidth, viewHeight);
+                const minScale = Math.max(0.2, fitScale * 0.92);
+                const maxScale = 4.0;
+                const newScale = Math.min(maxScale, Math.max(minScale, gestureRef.current.initialScale * ratio));
+
+                const rect = container.getBoundingClientRect();
+                const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+                const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+
+                const newOffsetX = midX - ((midX - gestureRef.current.startOffsetX) * (newScale / gestureRef.current.initialScale));
+                const newOffsetY = midY - ((midY - gestureRef.current.startOffsetY) * (newScale / gestureRef.current.initialScale));
+
+                transformRef.current = clampTransform(newScale, newOffsetX, newOffsetY, viewWidth, viewHeight);
                 renderCanvas();
               }
             }}
@@ -766,119 +869,118 @@ export const WorldMapTab: React.FC = () => {
               </div>
             )}
 
+            {/* Top-Left Floating Info Pill */}
+            <div className="absolute left-3 top-3 px-2.5 py-1 rounded-xl bg-black/70 backdrop-blur-md border border-white/10 text-[10px] text-white/90 flex items-center gap-2 shadow-lg pointer-events-none z-10">
+              <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Карта 80×60 • 4 800 кл.{cells.length > 0 ? ` • ${cells.filter(c => c.group_id).length} занято` : ''}</span>
+            </div>
+
+            {/* Top-Right Floating Camera Controls */}
             <div className="absolute right-3 top-3 flex flex-col gap-2 z-10">
               <button
-                onClick={() => handleZoom(0.6)}
-                className="w-10 h-10 rounded-2xl bg-black/70 backdrop-blur-md border border-white/10 text-white flex items-center justify-center shadow-lg active:scale-95 cursor-pointer"
+                onClick={() => handleZoom(0.5)}
+                className="w-9 h-9 rounded-xl bg-black/70 backdrop-blur-md border border-white/15 text-white flex items-center justify-center shadow-lg active:scale-95 cursor-pointer"
                 title="Приблизить"
               >
-                <Plus className="w-5 h-5" />
+                <Plus className="w-4 h-4" />
               </button>
               <button
-                onClick={() => handleZoom(-0.6)}
-                className="w-10 h-10 rounded-2xl bg-black/70 backdrop-blur-md border border-white/10 text-white flex items-center justify-center shadow-lg active:scale-95 cursor-pointer"
+                onClick={() => handleZoom(-0.5)}
+                className="w-9 h-9 rounded-xl bg-black/70 backdrop-blur-md border border-white/15 text-white flex items-center justify-center shadow-lg active:scale-95 cursor-pointer"
                 title="Отдалить"
               >
-                <Minus className="w-5 h-5" />
+                <Minus className="w-4 h-4" />
               </button>
               <button
                 onClick={handleResetView}
-                className="w-10 h-10 rounded-2xl bg-black/70 backdrop-blur-md border border-white/10 text-white flex items-center justify-center shadow-lg active:scale-95 cursor-pointer"
-                title="Вся карта"
+                className="w-9 h-9 rounded-xl bg-black/70 backdrop-blur-md border border-white/15 text-white flex items-center justify-center shadow-lg active:scale-95 cursor-pointer"
+                title="Вся карта целиком"
               >
-                <Globe className="w-5 h-5" />
+                <Globe className="w-4 h-4" />
               </button>
               <button
                 onClick={handleFindMyGroup}
-                className="w-10 h-10 rounded-2xl bg-indigo-600/90 text-white flex items-center justify-center shadow-lg shadow-indigo-600/30 active:scale-95 cursor-pointer"
+                className="w-9 h-9 rounded-xl bg-indigo-600/90 text-white flex items-center justify-center shadow-lg shadow-indigo-600/30 active:scale-95 cursor-pointer"
                 title="Найти мою группу"
               >
-                <Compass className="w-5 h-5" />
+                <Compass className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="absolute left-3 bottom-3 px-3 py-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-[10px] text-white/80 flex items-center gap-2">
-              <span className="inline-block w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-              <span>Карта 80×60 • 4 800 клеток{cells.length > 0 ? ` • ${cells.filter(c => c.group_id).length} занято` : ''}</span>
-            </div>
-          </div>
-
-          <div className="p-4 space-y-3">
-            {selectedCell ? (
-              selectedCell.is_land === 0 ? (
-                /* Water Cell Card */
-                <div className="p-3.5 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] shadow-sm animate-pop">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <span className="text-xl">🌊</span>
-                      <div>
-                        <h3 className="text-xs font-black text-tg-text">
-                          Нейтральные воды
-                        </h3>
-                        <p className="text-[11px] text-sky-400 font-medium">
-                          Клетка ({selectedCell.x}, {selectedCell.y})
-                        </p>
+            {/* FLOATING BOTTOM OVERLAY: SELECTED CELL CARD */}
+            {selectedCell && (
+              <div className="absolute bottom-3 left-3 right-3 z-30 p-3.5 rounded-2xl bg-tg-secondaryBg/95 backdrop-blur-xl border border-[var(--tg-theme-section-separator-color)] shadow-2xl animate-pop space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  {selectedCell.is_land === 0 ? (
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xl shrink-0">🌊</span>
+                      <div className="min-w-0">
+                        <h3 className="text-xs font-black text-tg-text truncate">Нейтральные воды</h3>
+                        <p className="text-[10px] text-sky-400 font-medium">Клетка ({selectedCell.x}, {selectedCell.y}) • Не захватывается</p>
                       </div>
                     </div>
-                    <span className="text-[11px] px-2.5 py-1 rounded-xl bg-sky-500/15 text-sky-400 font-bold border border-sky-500/20">
-                      Не захватывается
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                /* Land Cell Card: Only Group & Status */
-                <div className="p-4 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] shadow-sm animate-pop space-y-3">
-                  <div className="flex items-center justify-between gap-2">
-                    {/* Occupying Group Name instead of country */}
-                    <div className="flex items-center gap-2.5 min-w-0">
+                  ) : (
+                    <div className="flex items-center gap-2 min-w-0">
                       <span
-                        className="w-4 h-4 rounded-full shrink-0 shadow-sm border border-black/10 dark:border-white/20"
+                        className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm border border-black/10 dark:border-white/20"
                         style={{ backgroundColor: selectedCell.group_color || '#154228' }}
                       />
                       <div className="min-w-0">
-                        <h3 className="text-sm font-black text-tg-text truncate">
-                          {selectedCell.group_name ? `Клан «${selectedCell.group_name}»` : 'Свободная клетка'}
+                        <h3 className="text-xs font-black text-tg-text truncate">
+                          {selectedCell.group_name ? `Клан «${selectedCell.group_name}»` : 'Свободная земля'}
                         </h3>
-                        <p className="text-[11px] text-tg-hint">
+                        <p className="text-[10px] text-tg-hint truncate">
                           Клетка ({selectedCell.x}, {selectedCell.y})
                         </p>
                       </div>
                     </div>
+                  )}
 
-                    {/* Status Badge */}
-                    <span className="text-[11px] px-2.5 py-1 rounded-xl bg-black/5 dark:bg-white/10 font-bold shrink-0">
-                      {selectedCell.is_monument ? (
-                        <span className="text-amber-400">🏛️ Монумент</span>
-                      ) : selectedCell.level >= 2 ? (
-                        <span className="text-emerald-400">🛡️ Укреплена (Lvl 2)</span>
-                      ) : selectedCell.level === 1 ? (
-                        <span className="text-indigo-400">🚩 Захвачена (Lvl 1)</span>
-                      ) : (
-                        <span className="text-emerald-500">🟢 Свободна</span>
-                      )}
-                    </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {selectedCell.is_land !== 0 && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-lg bg-black/5 dark:bg-white/10 font-bold shrink-0">
+                        {selectedCell.is_monument ? (
+                          <span className="text-amber-400">🏛️ Монумент</span>
+                        ) : selectedCell.level >= 2 ? (
+                          <span className="text-emerald-400">🛡️ Lvl 2</span>
+                        ) : selectedCell.level === 1 ? (
+                          <span className="text-indigo-400">🚩 Lvl 1</span>
+                        ) : (
+                          <span className="text-emerald-500">🟢 Свободна</span>
+                        )}
+                      </span>
+                    )}
+                    <button
+                      onClick={() => setSelectedCell(null)}
+                      className="p-1 rounded-lg text-tg-hint hover:text-tg-text active:scale-95 cursor-pointer"
+                      title="Закрыть"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
+                </div>
 
-                  {selectedCell.shield_until && new Date(selectedCell.shield_until).getTime() > Date.now() && (
-                    <div className="p-2 rounded-xl bg-sky-500/10 border border-sky-500/20 text-xs text-sky-400 font-bold flex items-center gap-1.5">
-                      <Shield className="w-3.5 h-3.5" />
-                      <span>Защищена щитом Звёзд</span>
-                    </div>
-                  )}
+                {selectedCell.shield_until && new Date(selectedCell.shield_until).getTime() > Date.now() && (
+                  <div className="p-1.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-[10px] text-sky-400 font-bold flex items-center gap-1.5">
+                    <Shield className="w-3 h-3 shrink-0" />
+                    <span>Защищена щитом Звёзд</span>
+                  </div>
+                )}
 
-                  {actionError && (
-                    <p className="text-xs text-rose-500 font-bold">{actionError}</p>
-                  )}
+                {actionError && (
+                  <p className="text-[11px] text-rose-500 font-bold">{actionError}</p>
+                )}
 
-                  {/* Action Buttons */}
-                  <div className="flex flex-wrap gap-2 pt-1">
+                {/* Action Buttons in Cell Card */}
+                {selectedCell.is_land !== 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
                     {myGroup?.isCommander && (
                       <>
                         {(!selectedCell.group_id || selectedCell.group_id !== myGroup.group?.id) && (
                           <button
                             disabled={actionLoading}
                             onClick={() => executeAction('capture', selectedCell.x, selectedCell.y)}
-                            className="flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50 shadow-md shadow-indigo-600/20"
+                            className="flex-1 py-2 px-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50 shadow-md shadow-indigo-600/20"
                           >
                             <Flag className="w-3.5 h-3.5" />
                             <span>Захват (1 🪙)</span>
@@ -888,7 +990,7 @@ export const WorldMapTab: React.FC = () => {
                           <button
                             disabled={actionLoading}
                             onClick={() => executeAction('fortify', selectedCell.x, selectedCell.y)}
-                            className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50 shadow-md shadow-emerald-600/20"
+                            className="flex-1 py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50 shadow-md shadow-emerald-600/20"
                           >
                             <Shield className="w-3.5 h-3.5" />
                             <span>Укрепить (2 🪙)</span>
@@ -898,7 +1000,7 @@ export const WorldMapTab: React.FC = () => {
                           <button
                             disabled={actionLoading}
                             onClick={() => executeAction('sabotage', selectedCell.x, selectedCell.y)}
-                            className="flex-1 py-2 px-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50 shadow-md shadow-rose-600/20"
+                            className="flex-1 py-2 px-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50 shadow-md shadow-rose-600/20"
                           >
                             <Bomb className="w-3.5 h-3.5" />
                             <span>Диверсия (1 🪙)</span>
@@ -911,102 +1013,101 @@ export const WorldMapTab: React.FC = () => {
                       <button
                         disabled={actionLoading || coins < 3000}
                         onClick={() => executeAction('emergency', selectedCell.x, selectedCell.y)}
-                        className="py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-black text-xs flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-40 shadow-md shadow-amber-500/20"
+                        className="py-2 px-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-black text-xs flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-40 shadow-md shadow-amber-500/20"
                       >
                         <Coins className="w-3.5 h-3.5" />
-                        <span>Экстренный захват (3 000 🪙)</span>
+                        <span>Экстренный (3 000 🪙)</span>
                       </button>
                     )}
                   </div>
-                </div>
-              )
-            ) : (
-              <div className="p-3.5 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] flex items-center gap-3 text-xs text-tg-hint">
-                <Crosshair className="w-5 h-5 text-indigo-400 shrink-0" />
-                <span>Нажмите на клетку карты, чтобы увидеть статус и клан-владелец</span>
+                )}
               </div>
             )}
 
-            {myGroup?.isCommander && (
-              <div className="p-4 rounded-3xl bg-gradient-to-br from-indigo-950/40 via-purple-950/20 to-transparent border border-indigo-500/30 shadow-lg space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Crown className="w-5 h-5 text-amber-400" />
-                    <div>
-                      <h4 className="text-xs font-black text-tg-text">Панель Командора</h4>
-                      <p className="text-[10px] text-tg-hint">Группа «{myGroup.group?.name}»</p>
-                    </div>
+            {/* FLOATING BOTTOM COMMANDER BAR (When NO cell is selected) */}
+            {!selectedCell && myGroup?.isCommander && (
+              <div className="absolute bottom-3 left-3 right-3 z-20 p-2.5 rounded-2xl bg-tg-secondaryBg/95 backdrop-blur-xl border border-indigo-500/30 shadow-2xl space-y-1.5 animate-fade-in">
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span className="text-[11px] font-black text-tg-text truncate">Панель Командора «{myGroup.group?.name}»</span>
                   </div>
-                  <div className="px-3 py-1 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-400 font-black text-xs">
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-400 border border-amber-400/30 shrink-0">
                     {myGroup.group?.treasuryTokens || 0} 🪙 токенов
-                  </div>
+                  </span>
                 </div>
-
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-4 gap-1.5">
                   <button
                     onClick={() => {
                       sound.playUiTap();
                       haptics.selection();
-                      setSelectedAction('capture');
+                      setSelectedAction(selectedAction === 'capture' ? null : 'capture');
                     }}
-                    className={`p-2.5 rounded-2xl border text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    className={`py-1.5 px-1 rounded-xl border text-[10px] font-black flex flex-col items-center gap-0.5 transition-all cursor-pointer ${
                       selectedAction === 'capture'
-                        ? 'bg-indigo-600 border-indigo-400 text-white'
-                        : 'bg-tg-secondaryBg border-[var(--tg-theme-section-separator-color)] hover:border-indigo-400 text-tg-text'
+                        ? 'bg-indigo-600 border-indigo-400 text-white shadow-sm'
+                        : 'bg-tg-bg/70 border-[var(--tg-theme-section-separator-color)] text-tg-text hover:border-indigo-400'
                     }`}
                   >
-                    <Flag className="w-4 h-4 text-indigo-400" />
-                    Захват (1 🪙)
+                    <Flag className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Захват</span>
                   </button>
 
                   <button
                     onClick={() => {
                       sound.playUiTap();
                       haptics.selection();
-                      setSelectedAction('fortify');
+                      setSelectedAction(selectedAction === 'fortify' ? null : 'fortify');
                     }}
-                    className={`p-2.5 rounded-2xl border text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    className={`py-1.5 px-1 rounded-xl border text-[10px] font-black flex flex-col items-center gap-0.5 transition-all cursor-pointer ${
                       selectedAction === 'fortify'
-                        ? 'bg-emerald-600 border-emerald-400 text-white'
-                        : 'bg-tg-secondaryBg border-[var(--tg-theme-section-separator-color)] hover:border-emerald-400 text-tg-text'
+                        ? 'bg-emerald-600 border-emerald-400 text-white shadow-sm'
+                        : 'bg-tg-bg/70 border-[var(--tg-theme-section-separator-color)] text-tg-text hover:border-emerald-400'
                     }`}
                   >
-                    <Shield className="w-4 h-4 text-emerald-400" />
-                    Укрепление (2 🪙)
+                    <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Защита</span>
                   </button>
 
                   <button
                     onClick={() => {
                       sound.playUiTap();
                       haptics.selection();
-                      setSelectedAction('sabotage');
+                      setSelectedAction(selectedAction === 'sabotage' ? null : 'sabotage');
                     }}
-                    className={`p-2.5 rounded-2xl border text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    className={`py-1.5 px-1 rounded-xl border text-[10px] font-black flex flex-col items-center gap-0.5 transition-all cursor-pointer ${
                       selectedAction === 'sabotage'
-                        ? 'bg-rose-600 border-rose-400 text-white'
-                        : 'bg-tg-secondaryBg border-[var(--tg-theme-section-separator-color)] hover:border-rose-400 text-tg-text'
+                        ? 'bg-rose-600 border-rose-400 text-white shadow-sm'
+                        : 'bg-tg-bg/70 border-[var(--tg-theme-section-separator-color)] text-tg-text hover:border-rose-400'
                     }`}
                   >
-                    <Bomb className="w-4 h-4 text-rose-400" />
-                    Диверсия (1 🪙)
+                    <Bomb className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Диверсия</span>
                   </button>
 
                   <button
                     onClick={() => {
                       sound.playUiTap();
                       haptics.selection();
-                      setSelectedAction('monument');
+                      setSelectedAction(selectedAction === 'monument' ? null : 'monument');
                     }}
-                    className={`p-2.5 rounded-2xl border text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    className={`py-1.5 px-1 rounded-xl border text-[10px] font-black flex flex-col items-center gap-0.5 transition-all cursor-pointer ${
                       selectedAction === 'monument'
-                        ? 'bg-amber-600 border-amber-400 text-white'
-                        : 'bg-tg-secondaryBg border-[var(--tg-theme-section-separator-color)] hover:border-amber-400 text-tg-text'
+                        ? 'bg-amber-600 border-amber-400 text-white shadow-sm'
+                        : 'bg-tg-bg/70 border-[var(--tg-theme-section-separator-color)] text-tg-text hover:border-amber-400'
                     }`}
                   >
-                    <Layers className="w-4 h-4 text-amber-400" />
-                    Монумент 3×3 (5 🪙)
+                    <Layers className="w-3.5 h-3.5 text-amber-400" />
+                    <span>3×3</span>
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* FLOATING HINT (When NO cell selected & user is not commander) */}
+            {!selectedCell && !myGroup?.isCommander && (
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-3.5 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-[10px] text-white/80 pointer-events-none shadow-lg whitespace-nowrap">
+                Тапните по клетке для разведки
               </div>
             )}
           </div>
@@ -1015,7 +1116,7 @@ export const WorldMapTab: React.FC = () => {
 
       {/* SUB-SCREEN 2: GROUP LEADERBOARD */}
       {activeSubTab === 'leaderboard' && (
-        <div className="p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-20">
           <div className="p-4 rounded-3xl bg-gradient-to-r from-indigo-900/40 via-purple-900/30 to-slate-900/50 border border-indigo-500/30 shadow-lg flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-2xl bg-indigo-500/20 text-indigo-400">

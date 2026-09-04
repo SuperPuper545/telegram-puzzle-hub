@@ -15,7 +15,7 @@ import { authMiddleware, validateTelegramInitData } from './auth.js';
 import {
   getUserBestScores, recordScore, getLeaderboard, getUserRank, upsertUser,
   getUserById, getDailyRewardStatus, claimDailyReward, processReferral,
-  getReferralsInfo, spendCoins, getShopCatalog, buyShopItem, equipShopItem,
+  getReferralsInfo, spendCoins, awardCoins, getShopCatalog, buyShopItem, equipShopItem,
   freezeCoins, settleDuel, getDuelHistory, createDuelRoom, getDuelStats,
   getGroupById, getGroupByTelegramChatId, getGroupByUsername, createGroup,
   joinGroup, getUserGroup, getGroupLeaderboard, updateGroupColor,
@@ -115,6 +115,7 @@ app.post('/api/referrals/claim', authMiddleware, (req, res) => { const {startPar
 app.get('/api/daily-reward/status', authMiddleware, (req, res) => { const s=getDailyRewardStatus(req.user.id); if(!s) return res.status(404).json({error:'not found'}); res.json(s); });
 app.post('/api/daily-reward/claim', authMiddleware, (req, res) => { const r=claimDailyReward(req.user.id); if(!r.success) return res.status(400).json(r); res.json(r); });
 app.post('/api/coins/spend', authMiddleware, (req, res) => { const {amount,reason}=req.body; const r=spendCoins(req.user.id,amount,reason); if(!r.success) return res.status(400).json(r); res.json(r); });
+app.post('/api/coins/award', authMiddleware, (req, res) => { const {amount,reason}=req.body; const r=awardCoins(req.user.id,amount,reason); if(!r.success) return res.status(400).json(r); res.json(r); });
 app.get('/api/shop/items', authMiddleware, (req, res) => { const c=getShopCatalog(req.user.id); if(!c) return res.status(404).json({error:'not found'}); res.json(c); });
 app.post('/api/shop/buy', authMiddleware, (req, res) => { const {itemId}=req.body; if(!itemId) return res.status(400).json({error:'required'}); const r=buyShopItem(req.user.id,itemId); if(!r.success) return res.status(400).json(r); res.json(r); });
 app.post('/api/shop/equip', authMiddleware, (req, res) => { const {itemId}=req.body; if(!itemId) return res.status(400).json({error:'required'}); const r=equipShopItem(req.user.id,itemId); if(!r.success) return res.status(400).json(r); res.json(r); });

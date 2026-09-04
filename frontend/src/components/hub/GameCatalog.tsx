@@ -18,7 +18,7 @@ interface CategoryMeta {
 }
 
 export const GameCatalog: React.FC = () => {
-  const { openGame, bestScores, isScoreBoosterActive, scoreBoosterRemainingSeconds, activateBooster, coins } = useGameBridge();
+  const { openGame, bestScores, isScoreBoosterActive, scoreBoosterRemainingSeconds, activateBooster, coins, shareChallenge } = useGameBridge();
   const [isActivatingBooster, setIsActivatingBooster] = useState<boolean>(false);
   const [boosterError, setBoosterError] = useState<string | null>(null);
 
@@ -417,17 +417,32 @@ export const GameCatalog: React.FC = () => {
                   В бой ⚔️
                 </button>
               ) : game.available ? (
-                <button
-                  onClick={() => {
-                    haptics.medium();
-                    sound.playUiTap();
-                    openGame(game.id as GameId);
-                  }}
-                  className="flex items-center gap-1.5 px-5 py-2 rounded-xl tg-btn-primary font-bold text-xs shadow-md shadow-indigo-600/25 cursor-pointer shrink-0 active:scale-95 transition-transform"
-                >
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  Играть
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {game.bestScore > 0 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        sound.playUiTap();
+                        shareChallenge(game.id as GameId, game.bestScore, game.title);
+                      }}
+                      className="p-2 rounded-xl bg-purple-500/15 border border-purple-400/30 text-purple-400 hover:bg-purple-500/25 active:scale-95 transition-all cursor-pointer"
+                      title="Бросить вызов другу в Telegram"
+                    >
+                      <Swords className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      haptics.medium();
+                      sound.playUiTap();
+                      openGame(game.id as GameId);
+                    }}
+                    className="flex items-center gap-1.5 px-5 py-2 rounded-xl tg-btn-primary font-bold text-xs shadow-md shadow-indigo-600/25 cursor-pointer active:scale-95 transition-transform"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    Играть
+                  </button>
+                </div>
               ) : (
                 <span className="px-3 py-1.5 rounded-xl bg-tg-bg text-tg-hint font-semibold text-xs border border-[var(--tg-theme-section-separator-color)] shrink-0">
                   Скоро

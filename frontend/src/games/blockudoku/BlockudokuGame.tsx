@@ -23,8 +23,10 @@ import {
   Dices,
   RotateCw,
   Zap,
+  Swords,
 } from 'lucide-react';
 
+import { ChallengeBanner } from '../../components/hub/ChallengeBanner';
 import { COLOR_ID_CLASSES } from './shapes';
 
 // Progressive one-handed ergonomic vertical lift:
@@ -73,7 +75,7 @@ function getBlockSkinClass(skinId: string, cellVal?: number, pieceColorClass?: s
 }
 
 export const BlockudokuGame: React.FC = () => {
-  const { closeGame, bestScores, submitScore, coins, spendCoins, equippedBlockSkin, isScoreBoosterActive } = useGameBridge();
+  const { closeGame, bestScores, submitScore, coins, spendCoins, equippedBlockSkin, isScoreBoosterActive, shareChallenge } = useGameBridge();
   const currentBest = bestScores['blockudoku'] || 0;
 
   const {
@@ -429,6 +431,8 @@ export const BlockudokuGame: React.FC = () => {
       onPointerUp={handlePointerUp}
       onPointerCancel={() => setDragState(null)}
     >
+      <ChallengeBanner currentScore={score} />
+
       {/* 1. Fixed Header & Score HUD (h-14) */}
       <header className="h-14 shrink-0 px-4 flex items-center justify-between border-b border-slate-800/60 bg-tg-secondaryBg/80 backdrop-blur-md z-10">
         <button
@@ -804,6 +808,18 @@ export const BlockudokuGame: React.FC = () => {
                 >
                   <Dices className="w-4 h-4" />
                   Спасти игру (Смена фигур за 50 🪙)
+                </button>
+              )}
+              {score > 0 && (
+                <button
+                  onClick={() => {
+                    sound.playUiTap();
+                    shareChallenge('blockudoku', score, 'Blockudoku');
+                  }}
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white font-black text-xs shadow-lg shadow-purple-500/25 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Swords className="w-4 h-4" />
+                  Бросить вызов другу в чат
                 </button>
               )}
               <button

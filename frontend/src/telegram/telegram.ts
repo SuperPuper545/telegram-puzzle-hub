@@ -307,3 +307,31 @@ export function getTelegramStartParam(): string | null {
   return null;
 }
 
+export interface ChallengeData {
+  gameId: string;
+  targetScore: number;
+  challengerName?: string;
+}
+
+export function parseChallengeParam(param: string | null): ChallengeData | null {
+  if (!param || !param.startsWith('challenge_')) return null;
+  const parts = param.split('_');
+  if (parts.length >= 3) {
+    const gameId = parts[1];
+    const targetScore = parseInt(parts[2], 10);
+    const challengerName = parts.slice(3).join('_') || undefined;
+    if (!isNaN(targetScore) && targetScore > 0) {
+      return { gameId, targetScore, challengerName };
+    }
+  }
+  return null;
+}
+
+export function createChallengeShareUrl(botUsername: string, gameId: string, gameTitle: string, score: number, userName?: string): string {
+  const safeName = (userName || 'Игрок').replace(/[^a-zA-Z0-9а-яА-ЯёЁ_]/g, '');
+  const startParam = `challenge_${gameId}_${score}_${encodeURIComponent(safeName)}`;
+  const challengeLink = `https://t.me/${botUsername}?startapp=${startParam}`;
+  const shareText = `⚔️ Я набрал ${score.toLocaleString()} очков в игре «${gameTitle}» в TapTap Hub!\nСможешь побить мой рекорд? Залетай и забери бонус! 🔥`;
+  return `https://t.me/share/url?url=${encodeURIComponent(challengeLink)}&text=${encodeURIComponent(shareText)}`;
+}
+

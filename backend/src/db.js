@@ -670,6 +670,26 @@ export function spendCoins(userId, amount, reason = 'booster') {
   };
 }
 
+export function awardCoins(userId, amount, reason = 'bonus') {
+  const safeAmount = Math.max(0, parseInt(amount, 10) || 0);
+  if (safeAmount <= 0) {
+    return { success: false, error: 'Invalid amount' };
+  }
+  const updated = db.prepare(`
+    UPDATE users 
+    SET coins = coins + ? 
+    WHERE id = ?
+    RETURNING id, coins
+  `).get(safeAmount, userId);
+
+  return {
+    success: true,
+    awarded: safeAmount,
+    reason,
+    coins: updated?.coins ?? 0,
+  };
+}
+
 export function getShopCatalog(userId) {
   const user = db.prepare(`
     SELECT id, coins, equipped_block_skin, equipped_gem_skin, equipped_tile_skin,

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useGameBridge } from '../../context/GameContext';
-import { Trophy, Gamepad2, Share2, Play, Flame, Coins, Gift, ShoppingBag, Globe } from 'lucide-react';
+import { Trophy, Gamepad2, Share2, Play, Flame, Coins, ShoppingBag, Globe } from 'lucide-react';
 import { haptics, getTelegramWebApp } from '../../telegram/telegram';
 import { sound } from '../../utils/sound';
 
@@ -254,29 +254,6 @@ export const ProfileTab: React.FC = () => {
           </div>
         </div>
         <div className="px-2.5 py-1 rounded-xl bg-purple-500/20 text-xs font-bold text-purple-400 border border-purple-400/30">
-          Открыть
-        </div>
-      </div>
-
-      {/* Referrals Promo Card */}
-      <div 
-        onClick={() => {
-          sound.playUiTap();
-          haptics.selection();
-          setActiveTab('friends');
-        }}
-        className="p-3.5 rounded-2xl bg-gradient-to-r from-indigo-500/15 via-purple-500/10 to-tg-secondaryBg border border-indigo-500/25 flex items-center justify-between cursor-pointer active:scale-98 transition-transform shadow-sm"
-      >
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400">
-            <Gift className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-tg-text">Приглашай друзей — получай 500 🪙</p>
-            <p className="text-[10px] text-tg-hint">Твоя реферальная ссылка и статистика</p>
-          </div>
-        </div>
-        <div className="px-2.5 py-1 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-xs font-bold text-tg-text">
           Открыть
         </div>
       </div>

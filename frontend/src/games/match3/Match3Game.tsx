@@ -17,10 +17,12 @@ import {
   Coins,
   Bomb,
   Hourglass,
+  Swords,
 } from 'lucide-react';
+import { ChallengeBanner } from '../../components/hub/ChallengeBanner';
 
 export const Match3Game: React.FC = () => {
-  const { closeGame, bestScores, submitScore, coins, spendCoins, equippedGemSkin } = useGameBridge();
+  const { closeGame, bestScores, submitScore, coins, spendCoins, equippedGemSkin, shareChallenge } = useGameBridge();
   const currentBest = bestScores['match3'] || 0;
 
   const {
@@ -213,6 +215,8 @@ export const Match3Game: React.FC = () => {
 
   return (
     <div className="w-full h-full min-h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col justify-between bg-tg-bg text-tg-text select-none game-viewport-lock">
+      <ChallengeBanner currentScore={score} />
+
       {/* 1. Header with Scores (h-14) */}
       <header className="h-14 shrink-0 px-4 flex items-center justify-between border-b border-[var(--tg-theme-section-separator-color)] bg-tg-secondaryBg/80 backdrop-blur-md z-10">
         <button
@@ -465,6 +469,19 @@ export const Match3Game: React.FC = () => {
                 <Zap className="w-4 h-4" />
                 Продлить игру (+5 ходов за 100 🪙)
               </button>
+
+              {score > 0 && (
+                <button
+                  onClick={() => {
+                    sound.playUiTap();
+                    shareChallenge('match3', score, 'Match-3');
+                  }}
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 text-white font-black text-xs shadow-lg shadow-pink-500/25 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Swords className="w-4 h-4" />
+                  Бросить вызов другу в чат
+                </button>
+              )}
 
               <button
                 onClick={handleRestart}

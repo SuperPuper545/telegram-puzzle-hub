@@ -7,7 +7,11 @@ import {
   haptics, 
   initTelegramApp,
   type TgUser,
-  getTelegramStartParam
+  getTelegramStartParam,
+  parseChallengeParam,
+  createChallengeShareUrl,
+  type ChallengeData,
+  getTelegramWebApp
 } from '../telegram/telegram';
 
 export type GameId = 'blockudoku' | 'match3' | '2048' | 'flappy' | 'stack' | 'knife';
@@ -156,6 +160,11 @@ interface GameContextType {
   isScoreBoosterActive: boolean;
   scoreBoosterRemainingSeconds: number;
   activateBooster: () => Promise<{ success: boolean; error?: string; boosterUntil?: string }>;
+  activeChallenge: ChallengeData | null;
+  isChallengeCompleted: boolean;
+  dismissChallenge: () => void;
+  awardBonusCoins: (amount: number, reason: string) => void;
+  shareChallenge: (gameId: GameId, score: number, gameTitle: string) => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -169,6 +178,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<TgUser>(() => getTelegramUser());
   const [currentGame, setCurrentGame] = useState<GameId | null>(null);
   const [activeTab, setActiveTab] = useState<HubTab>('catalog');
+  const [activeChallenge, setActiveChallenge] = useState<ChallengeData | null>(null);
+  const [isChallengeCompleted, setIsChallengeCompleted] = useState<boolean>(false);
   const [bestScores, setBestScores] = useState<Record<string, number>>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_SCORES_KEY);
@@ -360,8 +371,59 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } else if (startParam && startParam.startsWith('duel_')) {
       // Store duel room ID for DuelLobby to join automatically
       try { localStorage.setItem('hub_pending_duel_room', startParam.slice(5)); } catch { /* ignore */ }
+    } else if (startParam && startParam.startsWith('challenge_')) {
+      const challenge = parseChallengeParam(startParam);
+      if (challenge) {
+        setActiveChallenge(challenge);
+        setIsChallengeCompleted(false);
+        const validGames: GameId[] = ['blockudoku', 'match3', '2048', 'flappy', 'stack', 'knife'];
+        if (validGames.includes(challenge.gameId as GameId)) {
+          setTimeout(() => {
+            setCurrentGame(challenge.gameId as GameId);
+          }, 400);
+        }
+      }
     }
   }, []);
+
+  const dismissChallenge = useCallback(() => {
+    setActiveChallenge(null);
+    setIsChallengeCompleted(false);
+  }, []);
+
+  const awardBonusCoins = useCallback((amount: number, reason: string) => {
+    setCoins((prev) => {
+      const updated = prev + amount;
+      try { localStorage.setItem(LOCAL_COINS_KEY, String(updated)); } catch (_) {}
+      return updated;
+    });
+
+    try {
+      const initData = getTelegramInitData();
+      const currentUser = getTelegramUser();
+      fetch('/api/coins/award', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `tma ${initData}`,
+          'x-mock-user-id': String(currentUser.id),
+        },
+        body: JSON.stringify({ amount, reason }),
+      }).catch(() => {});
+    } catch (_) {}
+  }, []);
+
+  const shareChallenge = useCallback((gameId: GameId, score: number, gameTitle: string) => {
+    haptics.medium();
+    const botUser = referralsData?.botUsername || 'taptaphub_bot';
+    const shareUrl = createChallengeShareUrl(botUser, gameId, gameTitle, score, user.first_name);
+    const tg = getTelegramWebApp();
+    if (tg?.openTelegramLink) {
+      tg.openTelegramLink(shareUrl);
+    } else {
+      window.open(shareUrl, '_blank');
+    }
+  }, [referralsData, user.first_name]);
 
   const closeGame = useCallback(() => {
     haptics.selection();
@@ -517,6 +579,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             groupCycleScore: prev.groupCycleScore + data.score,
           } : null);
         }
+        // Challenge completion check
+        if (activeChallenge && activeChallenge.gameId === gameId && score > activeChallenge.targetScore && !isChallengeCompleted) {
+          setIsChallengeCompleted(true);
+          awardBonusCoins(150, `Вызов побит: ${score} > ${activeChallenge.targetScore}`);
+          haptics.success();
+        }
+
         return {
           isNewRecord: data.isNewRecord ?? isNewRecord,
           bestScore: data.bestScore ?? data.highScore ?? newBest,
@@ -528,8 +597,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn('Could not post score to server (offline mode):', err);
     }
 
+    if (activeChallenge && activeChallenge.gameId === gameId && score > activeChallenge.targetScore && !isChallengeCompleted) {
+      setIsChallengeCompleted(true);
+      awardBonusCoins(150, `Вызов побит: ${score} > ${activeChallenge.targetScore}`);
+      haptics.success();
+    }
+
     return { isNewRecord, bestScore: newBest, score, isBoosterActive: isScoreBoosterActive };
-  }, [isScoreBoosterActive]);
+  }, [isScoreBoosterActive, activeChallenge, isChallengeCompleted, awardBonusCoins]);
 
   const fetchLeaderboard = useCallback(async (gameId: GameId) => {
     setIsLoadingLeaderboard(true);
@@ -839,6 +914,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isScoreBoosterActive,
         scoreBoosterRemainingSeconds,
         activateBooster,
+        activeChallenge,
+        isChallengeCompleted,
+        dismissChallenge,
+        awardBonusCoins,
+        shareChallenge,
       }}
     >
       {children}
