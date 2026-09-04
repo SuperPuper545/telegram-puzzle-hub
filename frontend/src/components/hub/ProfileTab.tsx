@@ -1,6 +1,6 @@
 import React from 'react';
 import { useGameBridge } from '../../context/GameContext';
-import { Trophy, Gamepad2, Share2, Play, Flame, Coins, Gift, ShoppingBag } from 'lucide-react';
+import { Trophy, Gamepad2, Share2, Play, Flame, Coins, Gift, ShoppingBag, Globe } from 'lucide-react';
 import { haptics, getTelegramWebApp } from '../../telegram/telegram';
 import { sound } from '../../utils/sound';
 
@@ -14,7 +14,8 @@ export const ProfileTab: React.FC = () => {
     setIsDailyModalOpen,
     setIsShopModalOpen,
     setActiveTab, 
-    openGame 
+    openGame,
+    myGroup
   } = useGameBridge();
 
   const totalScore = Object.values(bestScores).reduce((acc, s) => acc + s, 0);
@@ -177,7 +178,64 @@ export const ProfileTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Customization & Skins Shop Promo Card */}
+      {/* 1. Clan / Group Promo Card */}
+      {myGroup && myGroup.group ? (
+        <div 
+          onClick={() => {
+            sound.playUiTap();
+            haptics.selection();
+            setActiveTab('world');
+          }}
+          className="p-3.5 rounded-2xl bg-gradient-to-r from-indigo-500/15 via-blue-500/10 to-tg-secondaryBg border border-indigo-500/30 flex items-center justify-between cursor-pointer active:scale-98 transition-all hover:border-indigo-400 shadow-sm"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div 
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold text-white shadow-sm shrink-0"
+              style={{ backgroundColor: myGroup.group.color || '#6366f1' }}
+            >
+              {myGroup.group.name.slice(0, 1).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <p className="text-xs font-bold text-tg-text truncate">{myGroup.group.name}</p>
+                {myGroup.isCommander && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[9px] font-black shrink-0">
+                    Командир
+                  </span>
+                )}
+              </div>
+              <p className="text-[10px] text-tg-hint truncate">Вклад: {myGroup.userCycleScore || 0} ⚡ • Казна: {myGroup.group.treasuryTokens || 0} 🪙</p>
+            </div>
+          </div>
+          <div className="px-2.5 py-1 rounded-xl bg-indigo-500/20 text-xs font-bold text-indigo-400 border border-indigo-400/30 shrink-0">
+            В клан
+          </div>
+        </div>
+      ) : (
+        <div 
+          onClick={() => {
+            sound.playUiTap();
+            haptics.selection();
+            setActiveTab('world');
+          }}
+          className="p-3.5 rounded-2xl bg-gradient-to-r from-indigo-500/15 via-blue-500/10 to-tg-secondaryBg border border-indigo-500/30 flex items-center justify-between cursor-pointer active:scale-98 transition-all hover:border-indigo-400 shadow-sm"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400 shrink-0">
+              <Globe className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-tg-text">Вступи в группу</p>
+              <p className="text-[10px] text-tg-hint">Захватывай клетки мира вместе с кланом</p>
+            </div>
+          </div>
+          <div className="px-2.5 py-1 rounded-xl bg-indigo-500/20 text-xs font-bold text-indigo-400 border border-indigo-400/30 shrink-0">
+            Войти
+          </div>
+        </div>
+      )}
+
+      {/* 2. Customization & Skins Shop Promo Card */}
       <div 
         onClick={() => {
           sound.playUiTap();

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useGameBridge, type GameId } from '../../context/GameContext';
 import { Play, Sparkles, Grid, Gem, Layers, Zap, Target, Flame, ChevronRight, Crown, Swords, Crosshair } from 'lucide-react';
+import confetti from 'canvas-confetti';
 import { haptics } from '../../telegram/telegram';
 import { sound } from '../../utils/sound';
 import { DuelLobby } from '../../games/pvp/DuelLobby';
@@ -17,7 +18,40 @@ interface CategoryMeta {
 }
 
 export const GameCatalog: React.FC = () => {
-  const { openGame, bestScores } = useGameBridge();
+  const { openGame, bestScores, isScoreBoosterActive, scoreBoosterRemainingSeconds, activateBooster, coins } = useGameBridge();
+  const [isActivatingBooster, setIsActivatingBooster] = useState<boolean>(false);
+  const [boosterError, setBoosterError] = useState<string | null>(null);
+
+  const boosterRemaining = scoreBoosterRemainingSeconds;
+
+  const formatSeconds = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const handleBuyBooster = async () => {
+    sound.playUiTap();
+    haptics.selection();
+    setIsActivatingBooster(true);
+    setBoosterError(null);
+    const res = await activateBooster();
+    setIsActivatingBooster(false);
+    if (!res.success) {
+      haptics.error();
+      setBoosterError(res.error || 'Не удалось активировать');
+      setTimeout(() => setBoosterError(null), 3000);
+    } else {
+      haptics.success();
+      sound.playScore();
+      confetti({
+        particleCount: 70,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#f59e0b', '#fbbf24', '#f97316'],
+      });
+    }
+  };
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>(() => {
     try {
       const saved = localStorage.getItem('hub_selected_category');
@@ -262,6 +296,49 @@ export const GameCatalog: React.FC = () => {
         </div>
       </div>
 
+      {/* Score Booster Banner */}
+      {isScoreBoosterActive ? (
+        <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 animate-fade-in shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-500">
+              <Zap className="w-4 h-4 fill-amber-500" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-black text-amber-500">Бустер ×2 активен</span>
+                <span className="text-[11px] font-bold px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-400 font-mono">
+                  {formatSeconds(boosterRemaining)}
+                </span>
+              </div>
+              <p className="text-[11px] text-tg-hint mt-0.5">Очки удваиваются во всех играх</p>
+            </div>
+          </div>
+          <span className="text-xs font-mono font-bold text-amber-400 bg-black/20 dark:bg-white/10 px-2.5 py-1.5 rounded-xl border border-amber-500/20 shrink-0">
+            {formatSeconds(boosterRemaining)}
+          </span>
+        </div>
+      ) : (
+        <div className="p-3.5 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] hover:border-amber-500/30 transition-colors shadow-sm flex items-center justify-between gap-3 animate-fade-in">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-amber-500/15 text-amber-500">
+              <Zap className="w-4 h-4 fill-amber-500" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-tg-text">Бустер очков ×2</p>
+              <p className="text-[11px] text-tg-hint mt-0.5">Удваивает счет на 30 минут</p>
+              {boosterError && <p className="text-[11px] text-rose-500 mt-0.5 font-semibold">{boosterError}</p>}
+            </div>
+          </div>
+          <button
+            onClick={handleBuyBooster}
+            disabled={isActivatingBooster || coins < 500}
+            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-40 text-white font-black text-xs shadow-md shadow-amber-500/20 cursor-pointer active:scale-95 transition-all shrink-0 flex items-center gap-1"
+          >
+            <span>{isActivatingBooster ? '...' : '500 🪙'}</span>
+          </button>
+        </div>
+      )}
+
       {/* Grouped Game Cards in 100% Unified Style */}
       <div className="space-y-3">
         {filteredGames.map((game) => (
@@ -295,7 +372,14 @@ export const GameCatalog: React.FC = () => {
               {/* Right Column: Title, Subtitle, Description */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
-                  <h3 className="font-bold text-sm text-tg-text truncate">{game.title}</h3>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <h3 className="font-bold text-sm text-tg-text truncate">{game.title}</h3>
+                    {boosterRemaining > 0 && !game.isPvp && (
+                      <span className="px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[9px] font-black shrink-0 animate-pulse">
+                        ×2
+                      </span>
+                    )}
+                  </div>
                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-tg-bg text-tg-hint border border-[var(--tg-theme-section-separator-color)] shrink-0">
                     {game.badge}
                   </span>
