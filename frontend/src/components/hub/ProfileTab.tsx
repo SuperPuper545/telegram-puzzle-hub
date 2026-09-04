@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useGameBridge } from '../../context/GameContext';
-import { Trophy, Gamepad2, Share2, Play, Flame, Coins, Gift, ShoppingBag, Globe, ChevronRight, Copy, Check } from 'lucide-react';
+import { Trophy, Gamepad2, Share2, Play, Flame, Coins, Gift, ShoppingBag } from 'lucide-react';
 import { haptics, getTelegramWebApp } from '../../telegram/telegram';
 import { sound } from '../../utils/sound';
 
@@ -14,58 +14,8 @@ export const ProfileTab: React.FC = () => {
     setIsDailyModalOpen,
     setIsShopModalOpen,
     setActiveTab, 
-    openGame,
-    myGroup,
-    referralsData,
-    fetchReferrals,
+    openGame 
   } = useGameBridge();
-
-  const [copied, setCopied] = useState(false);
-  const [showFriendsList, setShowFriendsList] = useState(false);
-
-  useEffect(() => {
-    fetchReferrals();
-  }, [fetchReferrals]);
-
-  const tgId = referralsData?.telegramId || String(user.id);
-  const botUsername = referralsData?.botUsername || 'taptaphub_bot';
-  const inviteLink = `https://t.me/${botUsername}?start=ref_${tgId}`;
-
-  const handleCopyLink = async () => {
-    sound.playUiTap();
-    haptics.selection();
-    try {
-      if (navigator.clipboard) {
-        await navigator.clipboard.writeText(inviteLink);
-      } else {
-        const textarea = document.createElement('textarea');
-        textarea.value = inviteLink;
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-      }
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  const handleShareInvite = () => {
-    sound.playUiTap();
-    haptics.medium();
-    const shareText = `🎮 Залетай в TapTap Hub! Играй в любимые головоломки прямо в Telegram и забирай +500 🪙 стартового бонуса! 🔥`;
-    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent(shareText)}`;
-
-    const tg = getTelegramWebApp();
-    if (tg?.openTelegramLink) {
-      tg.openTelegramLink(shareUrl);
-    } else {
-      window.open(shareUrl, '_blank');
-    }
-  };
 
   const totalScore = Object.values(bestScores).reduce((acc, s) => acc + s, 0);
   const initials = (user.first_name || 'U').slice(0, 2).toUpperCase();
@@ -181,7 +131,7 @@ export const ProfileTab: React.FC = () => {
             <Coins className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-xs text-tg-hint font-medium">Баланс монет</span>
+            <span className="text-[11px] text-tg-hint font-medium">Баланс монет</span>
             <p className="text-base font-black text-amber-500">{coins.toLocaleString()} 🪙</p>
           </div>
         </div>
@@ -199,7 +149,7 @@ export const ProfileTab: React.FC = () => {
             <Flame className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-xs text-tg-hint font-medium">Серия входов</span>
+            <span className="text-[11px] text-tg-hint font-medium">Серия входов</span>
             <p className="text-base font-black text-orange-500">{dailyStreak} дн. 🔥</p>
           </div>
         </div>
@@ -210,7 +160,7 @@ export const ProfileTab: React.FC = () => {
             <Gamepad2 className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-xs text-tg-hint font-medium">Сыграно игр</span>
+            <span className="text-[11px] text-tg-hint font-medium">Сыграно игр</span>
             <p className="text-base font-extrabold text-tg-text">{totalGamesPlayed}</p>
           </div>
         </div>
@@ -221,96 +171,11 @@ export const ProfileTab: React.FC = () => {
             <Trophy className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-xs text-tg-hint font-medium">Суммарный счет</span>
+            <span className="text-[11px] text-tg-hint font-medium">Суммарный счет</span>
             <p className="text-base font-extrabold text-purple-500">{totalScore.toLocaleString()}</p>
           </div>
         </div>
       </div>
-
-      {/* Group Section */}
-      {myGroup?.group ? (
-        <div className="rounded-3xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-4 shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div
-                className="w-10 h-10 rounded-2xl flex items-center justify-center text-white font-black text-sm shadow-md overflow-hidden shrink-0"
-                style={{ backgroundColor: myGroup.group.color || '#6366f1' }}
-              >
-                {myGroup.group.photoUrl ? (
-                  <img src={myGroup.group.photoUrl} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  myGroup.group.name.slice(0, 2).toUpperCase()
-                )}
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-bold text-tg-text truncate">{myGroup.group.name}</span>
-                  {myGroup.isCommander && (
-                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
-                      Командир
-                    </span>
-                  )}
-                </div>
-                <p className="text-[11px] text-tg-hint flex items-center gap-2">
-                  <span>{myGroup.group.memberCount} уч.</span>
-                  <span>•</span>
-                  <span className="text-amber-400 font-medium">{myGroup.groupCycleScore.toLocaleString()} очков в цикле</span>
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => {
-                sound.playUiTap();
-                haptics.selection();
-                setActiveTab('world');
-              }}
-              className="px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 text-xs font-bold flex items-center gap-1 cursor-pointer active:scale-95 transition-all shrink-0 ml-2"
-            >
-              <span>Карта</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[var(--tg-theme-section-separator-color)]">
-            <div className="p-2 rounded-xl bg-tg-bg/50 border border-[var(--tg-theme-section-separator-color)] text-center">
-              <span className="text-[10px] text-tg-hint">Мой вклад в цикл</span>
-              <p className="text-xs font-extrabold text-tg-text">
-                {myGroup.userCycleScore ? myGroup.userCycleScore.toLocaleString() : 0} ⚡
-              </p>
-            </div>
-            <div className="p-2 rounded-xl bg-tg-bg/50 border border-[var(--tg-theme-section-separator-color)] text-center">
-              <span className="text-[10px] text-tg-hint">Токены казны</span>
-              <p className="text-xs font-extrabold text-amber-400">
-                {myGroup.group.treasuryTokens || 0} 🪙
-              </p>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div 
-          onClick={() => {
-            sound.playUiTap();
-            haptics.selection();
-            setActiveTab('world');
-          }}
-          className="p-4 rounded-3xl bg-gradient-to-r from-indigo-500/15 via-purple-500/10 to-tg-secondaryBg border border-indigo-500/30 flex items-center justify-between cursor-pointer active:scale-98 transition-all hover:border-indigo-400 shadow-sm"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-indigo-500/20 text-indigo-400 shrink-0">
-              <Globe className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-tg-text">Вступи в группу</p>
-              <p className="text-[10px] text-tg-hint">Захватывай клетки мира вместе с кланом</p>
-            </div>
-          </div>
-          <div className="px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold shadow-md shadow-indigo-600/30 flex items-center gap-1 shrink-0">
-            <span>Войти</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </div>
-        </div>
-      )}
 
       {/* Customization & Skins Shop Promo Card */}
       <div 
@@ -335,91 +200,27 @@ export const ProfileTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Referrals Section: Приглашай друзей — получай 500 🪙 */}
-      <div className="rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-4 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-amber-500/15 text-amber-500">
-              <Gift className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-extrabold text-tg-text">
-                Приглашай друзей
-              </h3>
-              <p className="text-xs text-amber-500 font-bold">
-                +500 🪙 каждому
-              </p>
-            </div>
+      {/* Referrals Promo Card */}
+      <div 
+        onClick={() => {
+          sound.playUiTap();
+          haptics.selection();
+          setActiveTab('friends');
+        }}
+        className="p-3.5 rounded-2xl bg-gradient-to-r from-indigo-500/15 via-purple-500/10 to-tg-secondaryBg border border-indigo-500/25 flex items-center justify-between cursor-pointer active:scale-98 transition-transform shadow-sm"
+      >
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400">
+            <Gift className="w-5 h-5" />
           </div>
-          <div className="text-right">
-            <span className="text-xs font-black text-tg-text">
-              {referralsData?.invitedCount || 0} друзей
-            </span>
-            <p className="text-[11px] text-tg-hint">
-              +{(referralsData?.totalEarned || 0).toLocaleString()} 🪙
-            </p>
+          <div>
+            <p className="text-xs font-bold text-tg-text">Приглашай друзей — получай 500 🪙</p>
+            <p className="text-[10px] text-tg-hint">Твоя реферальная ссылка и статистика</p>
           </div>
         </div>
-
-        {/* Action Buttons: 1-Tap Telegram Share & Copy Link */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleShareInvite}
-            className="flex-1 py-2.5 px-3 rounded-xl tg-btn-primary font-black text-xs flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer shadow-md shadow-indigo-600/20 transition-all"
-          >
-            <Share2 className="w-4 h-4" />
-            <span>Позвать друга</span>
-          </button>
-
-          <button
-            onClick={handleCopyLink}
-            className="py-2.5 px-3 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 border border-[var(--tg-theme-section-separator-color)] text-xs font-bold text-tg-text flex items-center gap-1.5 active:scale-95 cursor-pointer transition-all"
-          >
-            {copied ? (
-              <>
-                <Check className="w-4 h-4 text-emerald-500 stroke-[3]" />
-                <span className="text-emerald-500 font-bold">Скопировано</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-4 h-4" />
-                <span>Ссылка</span>
-              </>
-            )}
-          </button>
+        <div className="px-2.5 py-1 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-xs font-bold text-tg-text">
+          Открыть
         </div>
-
-        {/* Collapsible Friends List if any */}
-        {(referralsData?.referrals && referralsData.referrals.length > 0) && (
-          <div className="pt-2 border-t border-[var(--tg-theme-section-separator-color)]">
-            <button
-              onClick={() => setShowFriendsList(!showFriendsList)}
-              className="w-full flex items-center justify-between text-xs text-tg-hint hover:text-tg-text py-1 cursor-pointer font-semibold"
-            >
-              <span>Приглашённые друзья ({referralsData.referrals.length})</span>
-              <ChevronRight className={`w-4 h-4 transition-transform ${showFriendsList ? 'rotate-90' : ''}`} />
-            </button>
-
-            {showFriendsList && (
-              <div className="space-y-1.5 pt-2 max-h-48 overflow-y-auto pr-1">
-                {referralsData.referrals.map((ref) => (
-                  <div
-                    key={ref.id}
-                    className="flex items-center justify-between p-2 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-xs"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-7 h-7 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-[11px] shrink-0">
-                        {(ref.firstName || 'U').slice(0, 1).toUpperCase()}
-                      </div>
-                      <span className="font-bold text-tg-text truncate">{ref.firstName} {ref.lastName || ''}</span>
-                    </div>
-                    <span className="text-emerald-500 font-black shrink-0">+{ref.bonusPoints} 🪙</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Grouped Records Section */}
@@ -438,7 +239,7 @@ export const ProfileTab: React.FC = () => {
                 <span className="text-lg">{game.icon}</span>
                 <div>
                   <p className="text-xs font-bold text-tg-text">{game.name}</p>
-                  <span className="text-xs text-tg-hint">{game.subtitle}</span>
+                  <span className="text-[10px] text-tg-hint">{game.subtitle}</span>
                 </div>
               </div>
 

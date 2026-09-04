@@ -289,13 +289,13 @@ export const ShopModal: React.FC = () => {
                     <button
                       onClick={() => handleBuyStars(item)}
                       disabled={isLoading || isPurchasingStars !== null}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-md bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-black active:scale-95 shadow-amber-500/25 hover:brightness-105 disabled:opacity-50"
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-md bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white active:scale-95 shadow-amber-500/25 disabled:opacity-50"
                     >
                       {isLoading ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
                       ) : (
                         <>
-                          <Star className="w-3.5 h-3.5 fill-black text-black" />
+                          <Star className="w-3.5 h-3.5 fill-white text-white" />
                           <span>{item.stars}</span>
                         </>
                       )}

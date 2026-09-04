@@ -6,6 +6,7 @@ import { GameCatalog } from './components/hub/GameCatalog';
 import { LeaderboardTab } from './components/hub/LeaderboardTab';
 import { ProfileTab } from './components/hub/ProfileTab';
 import { WorldMapTab } from './components/hub/WorldMapTab';
+import { FriendsTab } from './components/hub/FriendsTab';
 import { DailyRewardModal } from './components/hub/DailyRewardModal';
 import { ShopModal } from './components/hub/ShopModal';
 import { BlockudokuGame } from './games/blockudoku/BlockudokuGame';
@@ -28,7 +29,8 @@ const HubContent: React.FC = () => {
         if (e.key === '1') setActiveTab('catalog');
         if (e.key === '2') setActiveTab('leaderboard');
         if (e.key === '3') setActiveTab('world');
-        if (e.key === '4') setActiveTab('profile');
+        if (e.key === '4') setActiveTab('friends');
+        if (e.key === '5') setActiveTab('profile');
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -106,7 +108,8 @@ const HubContent: React.FC = () => {
           {activeTab === 'catalog' && <GameCatalog />}
           {activeTab === 'leaderboard' && <LeaderboardTab />}
           {activeTab === 'world' && <WorldMapTab />}
-          {(activeTab === 'profile' || activeTab === 'friends') && <ProfileTab />}
+          {activeTab === 'friends' && <FriendsTab />}
+          {activeTab === 'profile' && <ProfileTab />}
         </main>
 
         {/* Daily Streak Reward Modal */}
