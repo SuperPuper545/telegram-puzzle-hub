@@ -11,7 +11,39 @@ import {
 } from '../telegram/telegram';
 
 export type GameId = 'blockudoku' | 'match3' | '2048' | 'flappy' | 'stack' | 'knife';
-export type HubTab = 'catalog' | 'leaderboard' | 'friends' | 'profile';
+export type HubTab = 'catalog' | 'leaderboard' | 'world' | 'friends' | 'profile';
+
+export interface GroupMember {
+  id: number;
+  telegram_id: string;
+  first_name: string;
+  username: string | null;
+  photo_url: string | null;
+  cycle_score: number;
+  is_commander: number | boolean;
+}
+
+export interface UserGroupData {
+  group: {
+    id: number;
+    name: string;
+    username: string | null;
+    photoUrl: string | null;
+    color: string;
+    treasuryTokens: number;
+    tokensExpireAt: string | null;
+    scoreBoostUntil: string | null;
+    memberCount: number;
+    commanderUserId: number | null;
+    commanderName: string | null;
+    commanderUsername: string | null;
+    createdAt: string;
+  } | null;
+  isCommander: boolean;
+  userCycleScore: number;
+  groupCycleScore: number;
+  members: GroupMember[];
+}
 
 export interface LeaderboardEntry {
   rank: number;
@@ -112,11 +144,18 @@ interface GameContextType {
   spendCoins: (amount: number, reason: string) => Promise<boolean>;
   openGame: (gameId: GameId) => void;
   closeGame: () => void;
-  submitScore: (gameId: GameId, score: number, duration?: number) => Promise<{ isNewRecord: boolean; bestScore: number }>;
+  submitScore: (gameId: GameId, score: number, duration?: number) => Promise<{ isNewRecord: boolean; bestScore: number; score?: number }>;
   leaderboards: Record<string, LeaderboardEntry[]>;
   fetchLeaderboard: (gameId: GameId) => Promise<void>;
   isLoadingLeaderboard: boolean;
   refreshProfile: () => Promise<void>;
+  myGroup: UserGroupData | null;
+  fetchMyGroup: () => Promise<void>;
+  joinGroup: (chatId: string) => Promise<{ success: boolean; error?: string; group?: UserGroupData }>;
+  scoreBoosterUntil: string | null;
+  isScoreBoosterActive: boolean;
+  scoreBoosterRemainingSeconds: number;
+  activateBooster: () => Promise<{ success: boolean; error?: string; boosterUntil?: string }>;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -187,6 +226,36 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isShopModalOpen, setIsShopModalOpen] = useState<boolean>(false);
   const [shopCatalog, setShopCatalog] = useState<ShopCatalog | null>(null);
 
+  // Group Wars & Booster state
+  const [myGroup, setMyGroup] = useState<UserGroupData | null>(null);
+  const [scoreBoosterUntil, setScoreBoosterUntil] = useState<string | null>(() => {
+    return localStorage.getItem('tma_hub_booster_until') || null;
+  });
+  const [scoreBoosterRemainingSeconds, setScoreBoosterRemainingSeconds] = useState<number>(0);
+
+  // Timezone-safe Booster Countdown Effect
+  useEffect(() => {
+    if (!scoreBoosterUntil) {
+      setScoreBoosterRemainingSeconds(0);
+      return;
+    }
+    const update = () => {
+      let targetMs = 0;
+      try {
+        const s = scoreBoosterUntil;
+        const iso = (s.endsWith('Z') || s.includes('+')) ? s : (s.replace(' ', 'T') + 'Z');
+        targetMs = new Date(iso).getTime();
+      } catch (_) {}
+      const diff = Math.max(0, Math.floor((targetMs - Date.now()) / 1000));
+      setScoreBoosterRemainingSeconds(diff);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [scoreBoosterUntil]);
+
+  const isScoreBoosterActive = scoreBoosterRemainingSeconds > 0;
+
   // Initialize TMA on mount
   useEffect(() => {
     initTelegramApp();
@@ -216,7 +285,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setTotalGamesPlayed(data.totalGamesPlayed);
             localStorage.setItem(LOCAL_TOTAL_PLAYED_KEY, String(data.totalGamesPlayed));
           }
+          if (data.group) {
+            setMyGroup(data.group);
+          }
           if (data.user) {
+            if (data.user.scoreBoosterUntil) {
+              setScoreBoosterUntil(data.user.scoreBoosterUntil);
+              try { localStorage.setItem('tma_hub_booster_until', data.user.scoreBoosterUntil); } catch (_) {}
+            }
             if (typeof data.user.coins === 'number') {
               setCoins(data.user.coins);
               localStorage.setItem(LOCAL_COINS_KEY, String(data.user.coins));
@@ -313,7 +389,83 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCoins(data.user.coins);
         localStorage.setItem(LOCAL_COINS_KEY, String(data.user.coins));
       }
+      if (data?.user?.scoreBoosterUntil) {
+        setScoreBoosterUntil(data.user.scoreBoosterUntil);
+        try { localStorage.setItem('tma_hub_booster_until', data.user.scoreBoosterUntil); } catch (_) {}
+      }
+      if (data?.group) {
+        setMyGroup(data.group);
+      }
     } catch { /* ignore */ }
+  }, []);
+
+  const fetchMyGroup = useCallback(async () => {
+    try {
+      const initData = getTelegramInitData();
+      const currentUser = getTelegramUser();
+      const headers = { 'Authorization': `tma ${initData}`, 'x-mock-user-id': String(currentUser.id), 'x-mock-username': currentUser.first_name || 'Player' };
+      const res = await fetch('/api/groups/my', { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setMyGroup(data.group || null);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch group:', err);
+    }
+  }, []);
+
+  const joinGroup = useCallback(async (telegramChatId: string) => {
+    try {
+      const initData = getTelegramInitData();
+      const currentUser = getTelegramUser();
+      const res = await fetch('/api/groups/join', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `tma ${initData}`,
+          'x-mock-user-id': String(currentUser.id),
+          'x-mock-username': currentUser.first_name || 'Player',
+        },
+        body: JSON.stringify({ telegramChatId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMyGroup(data.group);
+        return { success: true, group: data.group };
+      }
+      return { success: false, error: data.error || 'Ошибка при вступлении в группу' };
+    } catch (err) {
+      return { success: false, error: 'Ошибка соединения с сервером' };
+    }
+  }, []);
+
+  const activateBooster = useCallback(async () => {
+    try {
+      const initData = getTelegramInitData();
+      const currentUser = getTelegramUser();
+      const res = await fetch('/api/booster/activate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `tma ${initData}`,
+          'x-mock-user-id': String(currentUser.id),
+          'x-mock-username': currentUser.first_name || 'Player',
+        },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setScoreBoosterUntil(data.scoreBoosterUntil);
+        try { localStorage.setItem('tma_hub_booster_until', data.scoreBoosterUntil); } catch (_) {}
+        if (typeof data.remainingCoins === 'number') {
+          setCoins(data.remainingCoins);
+          try { localStorage.setItem(LOCAL_COINS_KEY, String(data.remainingCoins)); } catch (_) {}
+        }
+        return { success: true, boosterUntil: data.scoreBoosterUntil };
+      }
+      return { success: false, error: data.error || 'Ошибка активации бустера' };
+    } catch {
+      return { success: false, error: 'Ошибка соединения с сервером' };
+    }
   }, []);
 
   // Stable submitScore using functional state updates
@@ -357,17 +509,27 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (res.ok) {
         const data = await res.json();
+        // Update userCycleScore in myGroup if active
+        if (data.score) {
+          setMyGroup((prev) => prev ? {
+            ...prev,
+            userCycleScore: prev.userCycleScore + data.score,
+            groupCycleScore: prev.groupCycleScore + data.score,
+          } : null);
+        }
         return {
           isNewRecord: data.isNewRecord ?? isNewRecord,
-          bestScore: data.highScore ?? newBest,
+          bestScore: data.bestScore ?? data.highScore ?? newBest,
+          score: data.score ?? score,
+          isBoosterActive: !!data.isBoosterActive,
         };
       }
     } catch (err) {
       console.warn('Could not post score to server (offline mode):', err);
     }
 
-    return { isNewRecord, bestScore: newBest };
-  }, []);
+    return { isNewRecord, bestScore: newBest, score, isBoosterActive: isScoreBoosterActive };
+  }, [isScoreBoosterActive]);
 
   const fetchLeaderboard = useCallback(async (gameId: GameId) => {
     setIsLoadingLeaderboard(true);
@@ -670,6 +832,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetchLeaderboard,
         isLoadingLeaderboard,
         refreshProfile,
+        myGroup,
+        fetchMyGroup,
+        joinGroup,
+        scoreBoosterUntil,
+        isScoreBoosterActive,
+        scoreBoosterRemainingSeconds,
+        activateBooster,
       }}
     >
       {children}

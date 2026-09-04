@@ -22,6 +22,7 @@ import {
   Coins,
   Dices,
   RotateCw,
+  Zap,
 } from 'lucide-react';
 
 import { COLOR_ID_CLASSES } from './shapes';
@@ -72,7 +73,7 @@ function getBlockSkinClass(skinId: string, cellVal?: number, pieceColorClass?: s
 }
 
 export const BlockudokuGame: React.FC = () => {
-  const { closeGame, bestScores, submitScore, coins, spendCoins, equippedBlockSkin } = useGameBridge();
+  const { closeGame, bestScores, submitScore, coins, spendCoins, equippedBlockSkin, isScoreBoosterActive } = useGameBridge();
   const currentBest = bestScores['blockudoku'] || 0;
 
   const {
@@ -91,9 +92,11 @@ export const BlockudokuGame: React.FC = () => {
     restartGame,
     rerollTray,
     rotateTrayPiece,
+    continueGame,
   } = useBlockudoku(currentBest);
 
   const [boosterNotice, setBoosterNotice] = useState<string | null>(null);
+  const [hasUsedContinue, setHasUsedContinue] = useState(false);
 
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [selectedTrayIndex, setSelectedTrayIndex] = useState<number | null>(null);
@@ -363,6 +366,7 @@ export const BlockudokuGame: React.FC = () => {
     setSelectedTrayIndex(null);
     setHoverBoardCell(null);
     hasSubmittedRef.current = false;
+    setHasUsedContinue(false);
     restartGame();
   };
 
@@ -441,9 +445,17 @@ export const BlockudokuGame: React.FC = () => {
         {/* Centered Scores */}
         <div className="flex items-center gap-5">
           <div className="text-center relative">
-            <span className="text-[10px] uppercase tracking-wider text-tg-hint font-semibold block leading-none mb-1">
-              Счет
-            </span>
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <span className="text-[10px] uppercase tracking-wider text-tg-hint font-semibold block leading-none">
+                Счет
+              </span>
+              {isScoreBoosterActive && (
+                <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-400/40 animate-pulse flex items-center gap-0.5">
+                  <Zap className="w-2.5 h-2.5 fill-amber-400" />
+                  ×2
+                </span>
+              )}
+            </div>
             <span className="text-2xl font-black text-indigo-400 tracking-tight leading-none">
               {score}
             </span>
@@ -731,6 +743,13 @@ export const BlockudokuGame: React.FC = () => {
               </span>
               <p className="text-3xl font-black text-indigo-500 mt-1">{score}</p>
 
+              {isScoreBoosterActive && (
+                <div className="mt-1.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-400 text-xs font-black animate-pulse">
+                  <Zap className="w-3.5 h-3.5 fill-amber-400" />
+                  <span>Бустер ×2 активен (очки удвоены!)</span>
+                </div>
+              )}
+
               {isNewRecordAchieved && (
                 <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-500 text-xs font-extrabold animate-bounce">
                   <Sparkles className="w-3.5 h-3.5" /> Новый личный рекорд!
@@ -739,6 +758,31 @@ export const BlockudokuGame: React.FC = () => {
             </div>
 
             <div className="space-y-2">
+              {score > 0 && !hasUsedContinue && (
+                <button
+                  onClick={async () => {
+                    if (coins >= 200) {
+                      const success = await spendCoins(200, 'game_continue');
+                      if (success) {
+                        sound.playScore();
+                        haptics.success();
+                        setHasUsedContinue(true);
+                        hasSubmittedRef.current = false;
+                        continueGame();
+                        showBoosterNotice('Игра продолжена! Поле расчищено');
+                      }
+                    } else {
+                      sound.playUiTap();
+                      haptics.error();
+                      showBoosterNotice('Нужно 200 🪙 для продолжения!');
+                    }
+                  }}
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white font-black text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Продолжить игру (200 🪙)
+                </button>
+              )}
               {score > 0 && (
                 <button
                   onClick={async () => {

@@ -1,12 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { useGameBridge } from '../../context/GameContext';
-import { X, Check, Sparkles, Coins, ShoppingBag, Palette, Gem, Layers, Zap, Target } from 'lucide-react';
+import { X, Check, Sparkles, Coins, ShoppingBag, Palette, Gem, Layers, Zap, Target, Star, Loader2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { sound } from '../../utils/sound';
-import { haptics } from '../../telegram/telegram';
+import { haptics, getTelegramInitData, getTelegramUser } from '../../telegram/telegram';
 import { useLockBodyScroll } from '../../utils/useLockBodyScroll';
 
-type ShopCategory = 'block_skin' | 'gem_skin' | 'tile_skin' | 'bird_skin' | 'stack_skin' | 'knife_skin';
+type ShopCategory = 'stars' | 'block_skin' | 'gem_skin' | 'tile_skin' | 'bird_skin' | 'stack_skin' | 'knife_skin';
+
+interface StarsProductItem {
+  id: string;
+  name: string;
+  stars: number;
+  icon: string;
+  description: string;
+  badge?: string;
+}
+
+const STARS_CATALOG: StarsProductItem[] = [
+  { id: 'coins_s', name: 'Пакет монет S', stars: 25, icon: '🪙', description: '+2 500 монет на баланс' },
+  { id: 'coins_m', name: 'Пакет монет M', stars: 75, icon: '💰', description: '+10 000 монет на баланс', badge: 'Выгодно' },
+  { id: 'coins_l', name: 'Пакет монет L', stars: 200, icon: '🏦', description: '+30 000 монет на баланс', badge: 'Хит 🔥' },
+  { id: 'group_boost', name: 'Групповой буст ×1.5', stars: 100, icon: '🚀', description: '+50% ко всем очкам клана на 24 часа' },
+  { id: 'extra_tokens', name: 'Экстра токены (+3)', stars: 80, icon: '💎', description: '+3 токена в казну группы на 7 дней' },
+  { id: 'cell_shield', name: 'Щит клетки (7 дней)', stars: 30, icon: '🛡️', description: 'Защита клетки карты от атак и саботажа' },
+  { id: 'group_color', name: 'Цвет группы', stars: 50, icon: '🎨', description: 'Уникальный цвет клана на карте мира' },
+  { id: 'monument_5x5', name: 'Монумент 5x5', stars: 150, icon: '🏛️', description: 'Строительство мега-монумента 5x5 клеток' },
+];
 
 export const ShopModal: React.FC = () => {
   const {
@@ -23,10 +43,14 @@ export const ShopModal: React.FC = () => {
     equippedBirdSkin,
     equippedStackSkin,
     equippedKnifeSkin,
+    refreshProfile,
+    fetchMyGroup,
   } = useGameBridge();
 
-  const [activeCategory, setActiveCategory] = useState<ShopCategory>('block_skin');
+  const [activeCategory, setActiveCategory] = useState<ShopCategory>('stars');
   const [loadingItemId, setLoadingItemId] = useState<string | null>(null);
+  const [isPurchasingStars, setIsPurchasingStars] = useState<string | null>(null);
+  const [starsMessage, setStarsMessage] = useState<string | null>(null);
 
   useLockBodyScroll(isShopModalOpen);
 
@@ -41,6 +65,7 @@ export const ShopModal: React.FC = () => {
   const items = shopCatalog?.items.filter((item) => item.category === activeCategory) || [];
 
   const categoriesList: { id: ShopCategory; label: string; icon: React.ReactNode; activeColor: string }[] = [
+    { id: 'stars', label: 'Звёзды ⭐', icon: <Star className="w-3.5 h-3.5 fill-amber-300" />, activeColor: 'bg-amber-500' },
     { id: 'block_skin', label: 'Блоки', icon: <Palette className="w-3.5 h-3.5" />, activeColor: 'bg-indigo-600' },
     { id: 'gem_skin', label: 'Кристаллы', icon: <Gem className="w-3.5 h-3.5" />, activeColor: 'bg-purple-600' },
     { id: 'tile_skin', label: '2048', icon: <Layers className="w-3.5 h-3.5" />, activeColor: 'bg-amber-600' },
@@ -87,6 +112,67 @@ export const ShopModal: React.FC = () => {
       await equipShopItem(itemId);
     } finally {
       setLoadingItemId(null);
+    }
+  };
+
+  const handleBuyStars = async (product: StarsProductItem) => {
+    sound.playUiTap();
+    haptics.selection();
+    setIsPurchasingStars(product.id);
+    setStarsMessage(null);
+
+    try {
+      const initData = getTelegramInitData();
+      const currentUser = getTelegramUser();
+      const res = await fetch('/api/stars/create-invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `tma ${initData}`,
+          'x-mock-user-id': String(currentUser.id),
+          'x-mock-username': currentUser.first_name || 'Player',
+        },
+        body: JSON.stringify({ productId: product.id }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.invoiceLink) {
+        throw new Error(data.error || 'Ошибка создания инвойса');
+      }
+
+      const tg = (window as any).Telegram?.WebApp;
+      if (tg?.openInvoice) {
+        tg.openInvoice(data.invoiceLink, (status: string) => {
+          if (status === 'paid') {
+            sound.playScore();
+            haptics.success();
+            confetti({
+              particleCount: 80,
+              spread: 80,
+              origin: { y: 0.6 },
+              colors: ['#f59e0b', '#ec4899', '#8b5cf6', '#10b981'],
+            });
+            refreshProfile();
+            fetchMyGroup();
+            setStarsMessage('Оплата успешно завершена!');
+            setTimeout(() => setStarsMessage(null), 4000);
+          } else if (status === 'cancelled') {
+            setStarsMessage('Оплата отменена');
+            setTimeout(() => setStarsMessage(null), 3000);
+          } else if (status === 'failed') {
+            haptics.error();
+            setStarsMessage('Ошибка проведения платежа');
+            setTimeout(() => setStarsMessage(null), 3000);
+          }
+        });
+      } else {
+        window.open(data.invoiceLink, '_blank');
+      }
+    } catch (err: any) {
+      haptics.error();
+      setStarsMessage(err.message || 'Ошибка сети');
+      setTimeout(() => setStarsMessage(null), 3000);
+    } finally {
+      setIsPurchasingStars(null);
     }
   };
 
@@ -162,10 +248,65 @@ export const ShopModal: React.FC = () => {
           })}
         </div>
 
+        {starsMessage && (
+          <div className="mb-2.5 p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-xs font-bold text-amber-400 text-center animate-fade-in shrink-0">
+            {starsMessage}
+          </div>
+        )}
+
         {/* Items List */}
         <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 -mr-1 overscroll-contain touch-pan-y">
-          {items.map((item) => {
-            const isEquipped =
+          {activeCategory === 'stars' ? (
+            STARS_CATALOG.map((item) => {
+              const isLoading = isPurchasingStars === item.id;
+              return (
+                <div
+                  key={item.id}
+                  className="p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 bg-gradient-to-r from-amber-500/10 via-black/[0.02] dark:via-tg-bg to-black/[0.03] dark:to-tg-bg border-amber-500/25 shadow-sm"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-xl shadow-md shrink-0">
+                      {item.icon}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs font-extrabold text-tg-text truncate">
+                          {item.name}
+                        </p>
+                        {item.badge && (
+                          <span className="px-1.5 py-0.5 rounded-full bg-amber-500/20 text-[9px] font-black text-amber-400 border border-amber-500/30 shrink-0">
+                            {item.badge}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-tg-hint truncate mt-0.5">
+                        {item.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0">
+                    <button
+                      onClick={() => handleBuyStars(item)}
+                      disabled={isLoading || isPurchasingStars !== null}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-md bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-black active:scale-95 shadow-amber-500/25 hover:brightness-105 disabled:opacity-50"
+                    >
+                      {isLoading ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
+                      ) : (
+                        <>
+                          <Star className="w-3.5 h-3.5 fill-black text-black" />
+                          <span>{item.stars}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            items.map((item) => {
+              const isEquipped =
               item.id === equippedBlockSkin ||
               item.id === equippedGemSkin ||
               item.id === equippedTileSkin ||
@@ -243,7 +384,7 @@ export const ShopModal: React.FC = () => {
                 </div>
               </div>
             );
-          })}
+          }))}
         </div>
       </div>
     </div>

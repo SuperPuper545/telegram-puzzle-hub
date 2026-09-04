@@ -1,6 +1,6 @@
 import React from 'react';
 import { useGameBridge, type HubTab } from '../../context/GameContext';
-import { Gamepad2, Trophy, Users, User } from 'lucide-react';
+import { Gamepad2, Trophy, Globe, User } from 'lucide-react';
 import { haptics } from '../../telegram/telegram';
 import { sound } from '../../utils/sound';
 
@@ -25,9 +25,9 @@ export const BottomNavigation: React.FC = () => {
       icon: <Trophy className="w-5 h-5" />,
     },
     {
-      id: 'friends',
-      label: 'Друзья',
-      icon: <Users className="w-5 h-5" />,
+      id: 'world',
+      label: 'Мир',
+      icon: <Globe className="w-5 h-5" />,
     },
     {
       id: 'profile',

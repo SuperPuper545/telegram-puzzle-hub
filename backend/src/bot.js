@@ -8,7 +8,10 @@ import {
   processReferral, 
   getReferralsInfo, 
   getDailyRewardStatus, 
-  getUserById 
+  getUserById,
+  processStarsPayment,
+  getCycleMetadata,
+  runCycleCalculation
 } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -466,6 +469,9 @@ let isPolling = false;
 let lastUpdateId = 0;
 
 export async function startBotPolling() {
+  // Always start cycle cron check (even if bot token not set in dev)
+  startCycleCron();
+
   if (!BOT_TOKEN) {
     console.log('Bot: BOT_TOKEN not configured, skipping bot polling.');
     return;
@@ -488,8 +494,40 @@ export async function startBotPolling() {
       if (data.ok && Array.isArray(data.result)) {
         for (const update of data.result) {
           lastUpdateId = Math.max(lastUpdateId, update.update_id);
+
+          // 1. Handle Telegram Stars pre-checkout query (Must respond within 10s)
+          if (update.pre_checkout_query) {
+            await tgCall('answerPreCheckoutQuery', {
+              pre_checkout_query_id: update.pre_checkout_query.id,
+              ok: true,
+            });
+          }
+
+          // 2. Handle Messages
           if (update.message) {
-            await handleMessage(update.message);
+            // Stars successful payment
+            if (update.message.successful_payment) {
+              const sp = update.message.successful_payment;
+              try {
+                const payload = JSON.parse(sp.invoice_payload);
+                processStarsPayment({
+                  userId: payload.userId,
+                  productId: payload.productId,
+                  starsAmount: sp.total_amount,
+                  chargeId: sp.telegram_payment_charge_id,
+                  payload: payload.extra || {},
+                });
+                await tgCall('sendMessage', {
+                  chat_id: update.message.chat.id,
+                  text: `⭐ <b>Оплата прошла успешно!</b>\nБонусы уже начислены на ваш аккаунт в TapTap Hub! 🚀`,
+                  parse_mode: 'HTML',
+                });
+              } catch (e) {
+                console.error('Stars payment handling error:', e);
+              }
+            } else {
+              await handleMessage(update.message);
+            }
           } else if (update.callback_query) {
             await handleCallback(update.callback_query);
           }
@@ -503,4 +541,106 @@ export async function startBotPolling() {
 
 export function stopBotPolling() {
   isPolling = false;
+  if (cycleInterval) {
+    clearInterval(cycleInterval);
+    cycleInterval = null;
+  }
 }
+
+export async function fetchTelegramChat(chatIdOrUsername) {
+  if (!BOT_TOKEN) {
+    const clean = String(chatIdOrUsername).replace(/^@/, '').trim();
+    return {
+      id: `dev_${clean}`,
+      title: clean.charAt(0).toUpperCase() + clean.slice(1) + ' Group',
+      username: clean,
+      photo_url: null,
+    };
+  }
+
+  const clean = String(chatIdOrUsername).trim();
+  const res = await tgCall('getChat', {
+    chat_id: clean.startsWith('@') ? clean : (clean.match(/^-?\d+$/) ? parseInt(clean, 10) : `@${clean}`)
+  });
+
+  if (!res || !res.ok || !res.result) {
+    return null;
+  }
+
+  const chat = res.result;
+  let photoUrl = null;
+  if (chat.photo?.small_file_id || chat.photo?.big_file_id) {
+    const fileId = chat.photo.small_file_id || chat.photo.big_file_id;
+    const fileRes = await tgCall('getFile', { file_id: fileId });
+    if (fileRes && fileRes.ok && fileRes.result?.file_path) {
+      photoUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileRes.result.file_path}`;
+    }
+  }
+
+  return {
+    id: String(chat.id),
+    title: chat.title || chat.username || clean,
+    username: chat.username || null,
+    photo_url: photoUrl,
+  };
+}
+
+export async function createStarsInvoiceLink({ title, description, payload, starsAmount }) {
+  if (!BOT_TOKEN) {
+    return `https://t.me/${BOT_USERNAME}?start=invoice_mock_${payload.productId}`;
+  }
+
+  const data = {
+    title,
+    description,
+    payload: JSON.stringify(payload),
+    currency: 'XTR',
+    prices: [{ label: title, amount: starsAmount }],
+  };
+
+  const res = await tgCall('createInvoiceLink', data);
+  if (res && res.ok && res.result) {
+    return res.result;
+  }
+  return null;
+}
+
+export async function notifyCommander(telegramId, { groupName, rank, tokensAwarded }) {
+  if (!BOT_TOKEN || !telegramId) return;
+  const text = `👑 <b>Поздравляем! Вы назначены Командором группы «${groupName}»!</b>\n\n` +
+    `В прошлом 72-часовом цикле вы набрали наибольший счёт среди соклановцев.\n` +
+    `Группа заняла <b>#${rank}</b> место и получила <b>${tokensAwarded} 🪙 токенов</b> в казну!\n\n` +
+    `Откройте вкладку <b>«Мир»</b> в TapTap Hub, чтобы захватывать и укреплять территории на Карте Мира. 🌍`;
+  await tgCall('sendMessage', {
+    chat_id: telegramId,
+    text,
+    parse_mode: 'HTML',
+  });
+}
+
+let cycleInterval = null;
+
+export function startCycleCron() {
+  if (cycleInterval) return;
+  console.log('⏰ 72-hour cycle cron active (monitoring every 60s)...');
+  cycleInterval = setInterval(async () => {
+    try {
+      const meta = getCycleMetadata();
+      const startMs = new Date(meta.cycle_start_at).getTime();
+      const elapsed = Date.now() - startMs;
+      // 72 hours = 72 * 60 * 60 * 1000 = 259,200,000 ms
+      if (elapsed >= 72 * 60 * 60 * 1000) {
+        console.log('[Cron] 72 hours elapsed since cycle start. Triggering cycle end calculation...');
+        const res = runCycleCalculation();
+        for (const award of res.awards) {
+          if (award.commanderTelegramId) {
+            await notifyCommander(award.commanderTelegramId, award);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[Cron] Cycle check error:', err);
+    }
+  }, 60000);
+}
+

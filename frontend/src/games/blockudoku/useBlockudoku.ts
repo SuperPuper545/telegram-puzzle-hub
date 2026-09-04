@@ -470,6 +470,26 @@ export function useBlockudoku(initialBestScore: number = 0) {
     return true;
   }, [grid, trayPieces]);
 
+  // Continue Game (200 coins) - frees field and resets tray
+  const continueGame = useCallback(() => {
+    // Clear center 3x3 box (rows 3..5, cols 3..5) to give ample space
+    const nextGrid = grid.map((r, rIdx) =>
+      rIdx >= 3 && rIdx <= 5
+        ? r.map((c, cIdx) => (cIdx >= 3 && cIdx <= 5 ? (0 as GridCell) : c))
+        : [...r]
+    );
+    const newShapes = generateTrayShapes();
+    setGrid(nextGrid);
+    setTrayPieces(newShapes);
+    if (gameOverTimerRef.current) {
+      clearTimeout(gameOverTimerRef.current);
+      gameOverTimerRef.current = null;
+    }
+    setIsStuck(false);
+    setIsGameOver(false);
+    return true;
+  }, [grid]);
+
   return {
     grid,
     trayPieces,
@@ -488,5 +508,6 @@ export function useBlockudoku(initialBestScore: number = 0) {
     rerollTray,
     rotateTrayPiece,
     hammerClearCell,
+    continueGame,
   };
 }

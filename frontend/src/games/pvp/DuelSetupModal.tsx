@@ -18,7 +18,7 @@ interface Props {
   serverConnected: boolean;
 }
 
-const BETS = [0, 50, 100, 250, 500];
+const BETS = [0, 50, 100, 300, 500];
 
 const GAME_TITLES: Record<DuelGameType, { title: string; subtitle: string; icon: string; badge: string }> = {
   chess: { title: 'Шахматы 1v1', subtitle: 'Интеллектуальная дуэль с таймером', icon: '♟️', badge: 'Блиц' },
@@ -269,14 +269,23 @@ export const DuelSetupModal: React.FC<Props> = ({
                         haptics.selection();
                         setSelectedBet(bet);
                       }}
-                      className={`py-2 px-1 rounded-xl text-xs font-extrabold flex flex-col items-center justify-center gap-0.5 border transition-all active:scale-95 cursor-pointer ${
+                      className={`py-2 px-1 rounded-xl text-xs font-extrabold flex flex-col items-center justify-center gap-0.5 border transition-all active:scale-95 cursor-pointer relative ${
                         active
-                          ? 'bg-amber-500/20 border-amber-500 text-amber-400 shadow-sm'
+                          ? bet === 300 
+                            ? 'bg-gradient-to-b from-amber-500/30 to-amber-600/20 border-amber-400 text-amber-300 shadow-md shadow-amber-500/20'
+                            : 'bg-amber-500/20 border-amber-500 text-amber-400 shadow-sm'
+                          : bet === 300
+                          ? 'bg-amber-500/10 border-amber-500/40 text-amber-400 hover:border-amber-400'
                           : isAvailable
                           ? 'bg-tg-bg border-[var(--tg-theme-section-separator-color)] text-tg-text hover:border-amber-500/30'
                           : 'bg-tg-bg/50 border-[var(--tg-theme-section-separator-color)] text-tg-hint/40 opacity-50'
                       }`}
                     >
+                      {bet === 300 && (
+                        <span className="absolute -top-1.5 px-1 py-0.2 rounded-full bg-amber-500 text-black text-[8px] font-black uppercase tracking-wider shadow-sm">
+                          Ранг
+                        </span>
+                      )}
                       <span>{bet === 0 ? '0' : bet}</span>
                       <span className="text-[9px] font-normal leading-none opacity-80">
                         {bet === 0 ? 'Фан' : '🪙'}
@@ -288,7 +297,18 @@ export const DuelSetupModal: React.FC<Props> = ({
 
               {/* Pot banner */}
               <div className="mt-2 text-center">
-                {selectedBet > 0 ? (
+                {selectedBet === 300 ? (
+                  <div className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/30 space-y-0.5 animate-fade-in">
+                    <span className="text-[11px] font-extrabold text-amber-400 flex items-center justify-center gap-1">
+                      <span>🏆 Рейтинговая Дуэль</span>
+                      <span>•</span>
+                      <span>Банк: {potentialWin} 🪙</span>
+                    </span>
+                    <p className="text-[10px] text-tg-hint">
+                      Победитель приносит <strong>+150 очков</strong> в копилку своей группы!
+                    </p>
+                  </div>
+                ) : selectedBet > 0 ? (
                   <span className="text-[11px] font-medium text-emerald-400">
                     Банк победителя: <strong className="font-extrabold">{potentialWin} 🪙</strong> (комиссия 10%)
                   </span>

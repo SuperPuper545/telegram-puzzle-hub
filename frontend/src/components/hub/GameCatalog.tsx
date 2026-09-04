@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useGameBridge, type GameId } from '../../context/GameContext';
-import { Play, Sparkles, Grid, Gem, Layers, Zap, Target, Flame, ChevronRight, Crown, Swords, Crosshair } from 'lucide-react';
+import { Play, Sparkles, Grid, Gem, Layers, Zap, Target, Crown, Swords, Crosshair } from 'lucide-react';
+import confetti from 'canvas-confetti';
 import { haptics } from '../../telegram/telegram';
 import { sound } from '../../utils/sound';
 import { DuelLobby } from '../../games/pvp/DuelLobby';
@@ -8,16 +9,14 @@ import type { DuelGameType } from '../../games/pvp/types';
 
 type CategoryFilter = 'puzzles' | 'arcade' | 'pvp';
 
-interface CategoryMeta {
+interface CategoryTab {
   id: CategoryFilter;
   title: string;
-  badge: string;
-  description: string;
-  icon: React.ReactNode;
+  emoji: string;
 }
 
 export const GameCatalog: React.FC = () => {
-  const { openGame, bestScores } = useGameBridge();
+  const { openGame, bestScores, isScoreBoosterActive, scoreBoosterRemainingSeconds, activateBooster, coins } = useGameBridge();
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>(() => {
     try {
       const saved = localStorage.getItem('hub_selected_category');
@@ -31,46 +30,45 @@ export const GameCatalog: React.FC = () => {
   });
 
   const [selectedPvpGame, setSelectedPvpGame] = useState<DuelGameType | null>(null);
+  const [isActivatingBooster, setIsActivatingBooster] = useState<boolean>(false);
+  const [boosterError, setBoosterError] = useState<string | null>(null);
 
-  const categories: CategoryMeta[] = [
-    {
-      id: 'puzzles',
-      title: 'Головоломки',
-      badge: 'Логика и комбо',
-      description: 'Тренируй логику, очищай поле, собирай кристаллы и ставь рекорды!',
-      icon: <Grid className="w-24 h-24 text-indigo-400" />,
-    },
-    {
-      id: 'arcade',
-      title: 'Аркады',
-      badge: 'Скорость и реакция',
-      description: 'Быстрые раунды: полёт птицы, строитель башни и метание клинков!',
-      icon: <Zap className="w-24 h-24 text-emerald-400" />,
-    },
-    {
-      id: 'pvp',
-      title: 'Сетевые Дуэли',
-      badge: 'Битва со ставками',
-      description: 'Шахматы онлайн, Подкидной дурак и Морской бой на ставки в реальном времени!',
-      icon: <Flame className="w-24 h-24 text-rose-400" />,
-    },
-  ];
+  const boosterRemaining = scoreBoosterRemainingSeconds;
 
-  const currentCategoryIndex = categories.findIndex((c) => c.id === selectedCategory);
-  const currentCategory = categories[currentCategoryIndex] || categories[0];
+  const formatSeconds = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
-  const handleNextCategory = () => {
+  const handleBuyBooster = async () => {
     sound.playUiTap();
     haptics.selection();
-    const nextIdx = (currentCategoryIndex + 1) % categories.length;
-    const nextCat = categories[nextIdx].id;
-    setSelectedCategory(nextCat);
-    try {
-      localStorage.setItem('hub_selected_category', nextCat);
-    } catch {
-      // ignore
+    setIsActivatingBooster(true);
+    setBoosterError(null);
+    const res = await activateBooster();
+    setIsActivatingBooster(false);
+    if (!res.success) {
+      haptics.error();
+      setBoosterError(res.error || 'Не удалось активировать');
+      setTimeout(() => setBoosterError(null), 3000);
+    } else {
+      haptics.success();
+      sound.playScore();
+      confetti({
+        particleCount: 70,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#f59e0b', '#fbbf24', '#f97316'],
+      });
     }
   };
+
+  const categories: CategoryTab[] = [
+    { id: 'puzzles', title: 'Головоломки', emoji: '🧩' },
+    { id: 'arcade', title: 'Аркады', emoji: '⚡' },
+    { id: 'pvp', title: 'Дуэли', emoji: '⚔️' },
+  ];
 
   const games: {
     id: GameId | string;
@@ -230,125 +228,153 @@ export const GameCatalog: React.FC = () => {
   const filteredGames = games.filter((g) => g.category === selectedCategory);
 
   return (
-    <div className="p-4 space-y-4">
-      {/* Featured Banner with Single Dedicated Switch Button on Right Edge */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500/15 via-purple-500/10 to-tg-secondaryBg p-4 border border-indigo-500/25 shadow-md">
-        <div className="relative z-10 flex items-center justify-between gap-3">
-          {/* Left info column */}
-          <div className="flex-1 min-w-0 pr-1">
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-400/30 mb-1.5">
-              <Sparkles className="w-3 h-3" /> {currentCategory.badge}
-            </span>
-            <h2 className="text-lg font-black text-tg-text tracking-tight truncate">
-              {currentCategory.title}
-            </h2>
-            <p className="text-xs text-tg-hint mt-0.5 leading-relaxed line-clamp-2">
-              {currentCategory.description}
-            </p>
-          </div>
-
-          {/* Single right-edge loop switcher button */}
-          <button
-            onClick={handleNextCategory}
-            className="p-3 rounded-2xl bg-tg-bg/90 hover:bg-tg-bg border border-[var(--tg-theme-section-separator-color)] text-tg-text hover:text-indigo-400 shadow-md active:scale-90 transition-all cursor-pointer flex items-center justify-center shrink-0 z-20"
-            title="Сменить жанр"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="absolute right-14 -bottom-2 opacity-10 pointer-events-none">
-          {currentCategory.icon}
-        </div>
+    <div className="p-4 space-y-3.5">
+      {/* Clean Casual Category Tabs */}
+      <div className="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-black/[0.04] dark:bg-white/[0.05] border border-[var(--tg-theme-section-separator-color)]">
+        {categories.map((cat) => {
+          const isActive = selectedCategory === cat.id;
+          return (
+            <button
+              key={cat.id}
+              onClick={() => {
+                sound.playUiTap();
+                haptics.selection();
+                setSelectedCategory(cat.id);
+                try {
+                  localStorage.setItem('hub_selected_category', cat.id);
+                } catch {
+                  // ignore
+                }
+              }}
+              className={`py-2 px-1 rounded-xl text-xs font-bold transition-all cursor-pointer text-center flex items-center justify-center gap-1.5 active:scale-95 ${
+                isActive
+                  ? 'bg-tg-secondaryBg text-tg-text shadow-sm border border-[var(--tg-theme-section-separator-color)] font-extrabold'
+                  : 'text-tg-hint hover:text-tg-text'
+              }`}
+            >
+              <span className="text-sm">{cat.emoji}</span>
+              <span>{cat.title}</span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Grouped Game Cards in 100% Unified Style */}
-      <div className="space-y-3">
+      {/* Score Booster Banner */}
+      {isScoreBoosterActive ? (
+        <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 animate-fade-in">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-500">
+              <Zap className="w-4 h-4 fill-amber-500" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-black text-amber-500">Бустер ×2 активен</span>
+                <span className="text-[11px] font-bold px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-400 font-mono">
+                  {formatSeconds(boosterRemaining)}
+                </span>
+              </div>
+              <p className="text-[11px] text-tg-hint mt-0.5">Очки удваиваются во всех играх</p>
+            </div>
+          </div>
+          <span className="text-xs font-mono font-bold text-amber-400 bg-black/20 dark:bg-white/10 px-2.5 py-1.5 rounded-xl border border-amber-500/20 shrink-0">
+            {formatSeconds(boosterRemaining)}
+          </span>
+        </div>
+      ) : (
+        <div className="p-3.5 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] hover:border-amber-500/30 transition-colors shadow-sm flex items-center justify-between gap-3 animate-fade-in">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-amber-500/15 text-amber-500">
+              <Zap className="w-4 h-4 fill-amber-500" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-tg-text">Бустер очков ×2</p>
+              <p className="text-[11px] text-tg-hint mt-0.5">Удваивает счет на 30 минут</p>
+              {boosterError && <p className="text-[11px] text-rose-500 mt-0.5 font-semibold">{boosterError}</p>}
+            </div>
+          </div>
+          <button
+            onClick={handleBuyBooster}
+            disabled={isActivatingBooster || coins < 500}
+            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-40 text-white font-black text-xs shadow-md shadow-amber-500/20 cursor-pointer active:scale-95 transition-all shrink-0 flex items-center gap-1"
+          >
+            <span>{isActivatingBooster ? '...' : '500 🪙'}</span>
+          </button>
+        </div>
+      )}
+
+      {/* Grouped Game Cards in Clean Casual Style */}
+      <div className="space-y-2.5">
         {filteredGames.map((game) => (
           <div
             key={game.id}
-            className={`rounded-2xl bg-tg-secondaryBg border ${game.borderColor} p-4 shadow-sm transition-all duration-200`}
+            className="rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] p-3.5 shadow-sm transition-all hover:border-indigo-500/30"
           >
-            <div className="flex items-start gap-3.5">
-              {/* Left Column: Icon */}
-              <div className="flex flex-col items-center gap-1.5 shrink-0 w-12">
-                <div className="p-2.5 rounded-xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] flex items-center justify-center shadow-inner">
+            <div className="flex items-center justify-between gap-3">
+              {/* Left Column: Icon & Info */}
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-12 h-12 rounded-2xl bg-tg-bg border border-[var(--tg-theme-section-separator-color)] flex items-center justify-center text-xl shrink-0 shadow-sm">
                   {game.icon}
                 </div>
-                {game.bestScore > 0 && !game.isPvp && (
-                  <div className="text-center w-full px-0.5">
-                    <span className="block text-[9px] uppercase tracking-wider text-tg-hint leading-none font-semibold mb-0.5">
-                      Рекорд
-                    </span>
-                    <span className="text-[11px] font-black text-amber-500 leading-none">
-                      {game.bestScore.toLocaleString()}
-                    </span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="font-extrabold text-sm text-tg-text truncate">{game.title}</h3>
+                    {game.badge && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-black/5 dark:bg-white/10 text-tg-hint shrink-0">
+                        {game.badge}
+                      </span>
+                    )}
+                    {boosterRemaining > 0 && !game.isPvp && (
+                      <span className="px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[9px] font-black shrink-0 animate-pulse">
+                        ×2
+                      </span>
+                    )}
                   </div>
-                )}
-                {game.isPvp && (
-                  <span className="text-[9px] uppercase tracking-wider text-amber-400 font-extrabold px-1 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 leading-none">
-                    PvP 1v1
-                  </span>
-                )}
-              </div>
-
-              {/* Right Column: Title, Subtitle, Description */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="font-bold text-sm text-tg-text truncate">{game.title}</h3>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-tg-bg text-tg-hint border border-[var(--tg-theme-section-separator-color)] shrink-0">
-                    {game.badge}
-                  </span>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-xs text-tg-hint truncate">{game.subtitle}</span>
+                    {game.bestScore > 0 && !game.isPvp && (
+                      <>
+                        <span className="text-tg-hint text-xs">•</span>
+                        <span className="text-xs font-extrabold text-amber-500 flex items-center gap-0.5 shrink-0">
+                          🏆 {game.bestScore.toLocaleString()}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <p className="text-[11px] text-tg-hint font-medium mt-0.5">{game.subtitle}</p>
-                <p className="text-xs text-tg-hint mt-1.5 leading-relaxed">
-                  {game.description}
-                </p>
               </div>
-            </div>
 
-            {/* Bottom Row: Tags on left, Action Button on right */}
-            <div className="mt-3.5 pt-3 border-t border-[var(--tg-theme-section-separator-color)] flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {game.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="text-[10px] text-tg-hint bg-tg-bg border border-[var(--tg-theme-section-separator-color)] px-2 py-0.5 rounded-md"
+              {/* Right Column: Play / Fight Button */}
+              <div className="shrink-0">
+                {game.isPvp ? (
+                  <button
+                    onClick={() => {
+                      haptics.medium();
+                      sound.playUiTap();
+                      setSelectedPvpGame(game.pvpType || 'chess');
+                    }}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-extrabold text-xs shadow-md shadow-amber-500/20 cursor-pointer active:scale-95 transition-all"
                   >
-                    #{tag}
+                    <Swords className="w-3.5 h-3.5" />
+                    <span>В бой</span>
+                  </button>
+                ) : game.available ? (
+                  <button
+                    onClick={() => {
+                      haptics.medium();
+                      sound.playUiTap();
+                      openGame(game.id as GameId);
+                    }}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl tg-btn-primary font-extrabold text-xs shadow-md shadow-indigo-600/20 cursor-pointer active:scale-95 transition-transform"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>Играть</span>
+                  </button>
+                ) : (
+                  <span className="px-3 py-1.5 rounded-xl bg-tg-bg text-tg-hint font-semibold text-xs border border-[var(--tg-theme-section-separator-color)]">
+                    Скоро
                   </span>
-                ))}
+                )}
               </div>
-
-              {game.isPvp ? (
-                <button
-                  onClick={() => {
-                    haptics.medium();
-                    sound.playUiTap();
-                    setSelectedPvpGame(game.pvpType || 'chess');
-                  }}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-extrabold text-xs shadow-md shadow-amber-500/20 cursor-pointer shrink-0 active:scale-95 transition-all"
-                >
-                  <Swords className="w-3.5 h-3.5" />
-                  В бой ⚔️
-                </button>
-              ) : game.available ? (
-                <button
-                  onClick={() => {
-                    haptics.medium();
-                    sound.playUiTap();
-                    openGame(game.id as GameId);
-                  }}
-                  className="flex items-center gap-1.5 px-5 py-2 rounded-xl tg-btn-primary font-bold text-xs shadow-md shadow-indigo-600/25 cursor-pointer shrink-0 active:scale-95 transition-transform"
-                >
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  Играть
-                </button>
-              ) : (
-                <span className="px-3 py-1.5 rounded-xl bg-tg-bg text-tg-hint font-semibold text-xs border border-[var(--tg-theme-section-separator-color)] shrink-0">
-                  Скоро
-                </span>
-              )}
             </div>
           </div>
         ))}

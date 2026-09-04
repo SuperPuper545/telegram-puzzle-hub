@@ -4,8 +4,8 @@ import { HubHeader } from './components/hub/HubHeader';
 import { BottomNavigation } from './components/hub/BottomNavigation';
 import { GameCatalog } from './components/hub/GameCatalog';
 import { LeaderboardTab } from './components/hub/LeaderboardTab';
-import { FriendsTab } from './components/hub/FriendsTab';
 import { ProfileTab } from './components/hub/ProfileTab';
+import { WorldMapTab } from './components/hub/WorldMapTab';
 import { DailyRewardModal } from './components/hub/DailyRewardModal';
 import { ShopModal } from './components/hub/ShopModal';
 import { BlockudokuGame } from './games/blockudoku/BlockudokuGame';
@@ -27,7 +27,7 @@ const HubContent: React.FC = () => {
       if (!currentGame) {
         if (e.key === '1') setActiveTab('catalog');
         if (e.key === '2') setActiveTab('leaderboard');
-        if (e.key === '3') setActiveTab('friends');
+        if (e.key === '3') setActiveTab('world');
         if (e.key === '4') setActiveTab('profile');
       }
     };
@@ -99,14 +99,14 @@ const HubContent: React.FC = () => {
     <div className="min-h-screen bg-tg-bg flex flex-col items-center justify-start">
       {/* Centered responsive container */}
       <div className="w-full max-w-md mx-auto min-h-screen flex flex-col relative bg-tg-bg md:shadow-2xl md:border-x md:border-[var(--tg-theme-section-separator-color)]">
-        {/* HubHeader shown in Catalog, Leaderboard and Friends, hidden in Profile */}
+        {/* HubHeader shown in Catalog, Leaderboard and World, hidden in Profile */}
         {activeTab !== 'profile' && <HubHeader />}
 
         <main className={`flex-1 pb-24 ${activeTab !== 'profile' ? 'pt-[56px]' : ''}`}>
           {activeTab === 'catalog' && <GameCatalog />}
           {activeTab === 'leaderboard' && <LeaderboardTab />}
-          {activeTab === 'friends' && <FriendsTab />}
-          {activeTab === 'profile' && <ProfileTab />}
+          {activeTab === 'world' && <WorldMapTab />}
+          {(activeTab === 'profile' || activeTab === 'friends') && <ProfileTab />}
         </main>
 
         {/* Daily Streak Reward Modal */}

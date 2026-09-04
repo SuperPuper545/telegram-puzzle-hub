@@ -17,8 +17,12 @@ import {
   getUserById, getDailyRewardStatus, claimDailyReward, processReferral,
   getReferralsInfo, spendCoins, getShopCatalog, buyShopItem, equipShopItem,
   freezeCoins, settleDuel, getDuelHistory, createDuelRoom, getDuelStats,
+  getGroupById, getGroupByTelegramChatId, getGroupByUsername, createGroup,
+  joinGroup, getUserGroup, getGroupLeaderboard, updateGroupColor,
+  getWorldMapCells, getWorldMapDiff, executeMapAction, activateScoreBooster,
+  STARS_PRODUCTS, processStarsPayment, runCycleCalculation,
 } from './db.js';
-import { startBotPolling } from './bot.js';
+import { startBotPolling, fetchTelegramChat, createStarsInvoiceLink } from './bot.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -26,6 +30,30 @@ app.use(cors());
 app.use(express.json());
 if (process.env.NODE_ENV !== 'production') {
   app.use((req, res, next) => { console.log(`[${req.method}] ${req.url}`); next(); });
+}
+
+// ─── WORLD MAP CACHE & WS BROADCAST ──────────────────────────────────────────
+const allConnectedSockets = new Set();
+let worldMapCache = null;
+let worldMapCacheTime = 0;
+
+function getCachedWorldMap() {
+  const now = Date.now();
+  if (!worldMapCache || now - worldMapCacheTime > 10000) {
+    worldMapCache = getWorldMapCells();
+    worldMapCacheTime = now;
+  }
+  return worldMapCache;
+}
+
+function broadcastMapUpdate(cells) {
+  worldMapCache = null; // Invalidate cache
+  const msg = JSON.stringify({ type: 'map_update', cells });
+  for (const client of allConnectedSockets) {
+    if (client.readyState === WebSocket.OPEN) {
+      try { client.send(msg); } catch (_) {}
+    }
+  }
 }
 
 // ─── REST ─────────────────────────────────────────────────────────────────────
@@ -40,9 +68,30 @@ app.get('/api/me', authMiddleware, (req, res) => {
   const u = getUserById(req.user.id) || req.user;
   const scores = getUserBestScores(req.user.id);
   const daily = getDailyRewardStatus(req.user.id);
+  const userGroupInfo = getUserGroup(req.user.id);
   const sm = {}; let total = 0;
   for (const item of scores) { sm[item.game_id] = item.best_score; total += item.games_played; }
-  res.json({ user:{...req.user,coins:u.coins||0,dailyStreak:u.daily_streak||0,referrerId:u.referrer_id||null,equippedBlockSkin:u.equipped_block_skin||'block_classic',equippedGemSkin:u.equipped_gem_skin||'gem_classic',equippedTileSkin:u.equipped_tile_skin||'tile_classic',equippedBirdSkin:u.equipped_bird_skin||'bird_classic',equippedStackSkin:u.equipped_stack_skin||'stack_classic',equippedKnifeSkin:u.equipped_knife_skin||'knife_classic'}, scores:sm, totalGamesPlayed:total, dailyReward:daily });
+  res.json({
+    user: {
+      ...req.user,
+      coins: u.coins || 0,
+      dailyStreak: u.daily_streak || 0,
+      referrerId: u.referrer_id || null,
+      groupId: u.group_id || null,
+      groupJoinedAt: u.group_joined_at || null,
+      scoreBoosterUntil: u.score_booster_until ? ((u.score_booster_until.endsWith('Z') || u.score_booster_until.includes('+')) ? u.score_booster_until : (u.score_booster_until.replace(' ', 'T') + 'Z')) : null,
+      equippedBlockSkin: u.equipped_block_skin || 'block_classic',
+      equippedGemSkin: u.equipped_gem_skin || 'gem_classic',
+      equippedTileSkin: u.equipped_tile_skin || 'tile_classic',
+      equippedBirdSkin: u.equipped_bird_skin || 'bird_classic',
+      equippedStackSkin: u.equipped_stack_skin || 'stack_classic',
+      equippedKnifeSkin: u.equipped_knife_skin || 'knife_classic'
+    },
+    scores: sm,
+    totalGamesPlayed: total,
+    dailyReward: daily,
+    group: userGroupInfo
+  });
 });
 app.post('/api/scores', authMiddleware, (req, res) => {
   const { gameId, score, duration } = req.body;
@@ -70,6 +119,176 @@ app.get('/api/shop/items', authMiddleware, (req, res) => { const c=getShopCatalo
 app.post('/api/shop/buy', authMiddleware, (req, res) => { const {itemId}=req.body; if(!itemId) return res.status(400).json({error:'required'}); const r=buyShopItem(req.user.id,itemId); if(!r.success) return res.status(400).json(r); res.json(r); });
 app.post('/api/shop/equip', authMiddleware, (req, res) => { const {itemId}=req.body; if(!itemId) return res.status(400).json({error:'required'}); const r=equipShopItem(req.user.id,itemId); if(!r.success) return res.status(400).json(r); res.json(r); });
 app.get('/api/duel/history', authMiddleware, (req, res) => { res.json({ history:getDuelHistory(req.user.id,20), stats:getDuelStats(req.user.id) }); });
+
+// ─── GROUPS API ─────────────────────────────────────────────────────────────
+app.post('/api/groups/join', authMiddleware, async (req, res) => {
+  try {
+    const { telegramChatId } = req.body;
+    if (!telegramChatId) {
+      return res.status(400).json({ error: 'Укажите @username или ссылку на группу' });
+    }
+
+    let input = String(telegramChatId).trim();
+    if (input.includes('t.me/')) {
+      const match = input.match(/t\.me\/(\+?[a-zA-Z0-9_]+)/);
+      if (match) input = match[1];
+    }
+    const cleanUsername = input.replace(/^@/, '');
+
+    let group = getGroupByTelegramChatId(input) || getGroupByUsername(cleanUsername);
+
+    if (!group) {
+      const chatInfo = await fetchTelegramChat(input);
+      if (!chatInfo) {
+        return res.status(404).json({ error: 'Чат не найден в Telegram или бот не имеет к нему доступа' });
+      }
+
+      group = getGroupByTelegramChatId(chatInfo.id) || createGroup({
+        telegramChatId: chatInfo.id,
+        name: chatInfo.title,
+        username: chatInfo.username,
+        photoUrl: chatInfo.photo_url,
+        creatorUserId: req.user.id,
+      });
+    }
+
+    const joinResult = joinGroup(req.user.id, group.id);
+    if (!joinResult.success) {
+      return res.status(400).json(joinResult);
+    }
+
+    const fullGroupInfo = getUserGroup(req.user.id);
+    res.json({ success: true, group: fullGroupInfo });
+  } catch (err) {
+    console.error('Group join error:', err);
+    res.status(500).json({ error: 'Ошибка при вступлении в группу' });
+  }
+});
+
+app.get('/api/groups/my', authMiddleware, (req, res) => {
+  const group = getUserGroup(req.user.id);
+  res.json({ group });
+});
+
+app.get('/api/groups/leaderboard', (req, res) => {
+  const lb = getGroupLeaderboard();
+  res.json(lb);
+});
+
+app.get('/api/groups/:id', (req, res) => {
+  const group = getGroupById(req.params.id);
+  if (!group) return res.status(404).json({ error: 'Группа не найдена' });
+  res.json({ group });
+});
+
+app.post('/api/groups/color', authMiddleware, (req, res) => {
+  const { color } = req.body;
+  const user = getUserById(req.user.id);
+  if (!user || !user.group_id) return res.status(400).json({ error: 'Вы не состоите в группе' });
+  const grp = getGroupById(user.group_id);
+  if (grp.commander_user_id !== req.user.id) {
+    return res.status(403).json({ error: 'Только Командор может менять цвет' });
+  }
+  const r = updateGroupColor(user.group_id, color);
+  if (!r.success) return res.status(400).json(r);
+  res.json(r);
+});
+
+// ─── WORLD MAP API ──────────────────────────────────────────────────────────
+app.get('/api/world-map', (req, res) => {
+  const cells = getCachedWorldMap();
+  res.json({ width: 80, height: 60, cells });
+});
+
+app.get('/api/world-map/diff', (req, res) => {
+  const since = req.query.since || new Date(0).toISOString();
+  const diff = getWorldMapDiff(since);
+  res.json({ diff });
+});
+
+app.post('/api/world-map/action', authMiddleware, (req, res) => {
+  const { action, x, y, size, isEmergency, monumentName } = req.body;
+  if (!action || x === undefined || y === undefined) {
+    return res.status(400).json({ error: 'action, x, y обязательны' });
+  }
+
+  const result = executeMapAction({
+    userId: req.user.id,
+    action,
+    x: parseInt(x, 10),
+    y: parseInt(y, 10),
+    size: size ? parseInt(size, 10) : 3,
+    isEmergency: !!isEmergency,
+    monumentName,
+  });
+
+  if (!result.success) {
+    return res.status(400).json(result);
+  }
+
+  if (result.updatedCells && result.updatedCells.length > 0) {
+    broadcastMapUpdate(result.updatedCells);
+  }
+
+  res.json(result);
+});
+
+// ─── SCORE BOOSTER API ──────────────────────────────────────────────────────
+app.post('/api/booster/activate', authMiddleware, (req, res) => {
+  const result = activateScoreBooster(req.user.id);
+  if (!result.success) return res.status(400).json(result);
+  res.json(result);
+});
+
+// ─── TELEGRAM STARS API ─────────────────────────────────────────────────────
+app.get('/api/stars/products', (req, res) => {
+  res.json({ products: STARS_PRODUCTS });
+});
+
+app.post('/api/stars/create-invoice', authMiddleware, async (req, res) => {
+  const { productId, extra } = req.body;
+  const product = STARS_PRODUCTS[productId];
+  if (!product) return res.status(400).json({ error: 'Неизвестный продукт' });
+
+  try {
+    const invoiceLink = await createStarsInvoiceLink({
+      title: product.name,
+      description: `Покупка «${product.name}» в TapTap Hub`,
+      payload: {
+        userId: req.user.id,
+        productId,
+        extra: extra || {},
+      },
+      starsAmount: product.stars,
+    });
+
+    if (!invoiceLink) {
+      return res.status(500).json({ error: 'Не удалось создать ссылку на оплату Stars' });
+    }
+
+    res.json({ success: true, invoiceLink, product });
+  } catch (err) {
+    console.error('Invoice create error:', err);
+    res.status(500).json({ error: 'Ошибка создания инвойса Stars' });
+  }
+});
+
+app.post('/api/stars/webhook', authMiddleware, (req, res) => {
+  const { productId, extra } = req.body;
+  const product = STARS_PRODUCTS[productId];
+  if (!product) return res.status(400).json({ error: 'Неизвестный продукт' });
+
+  const result = processStarsPayment({
+    userId: req.user.id,
+    productId,
+    starsAmount: product.stars,
+    chargeId: `sim_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    payload: extra || {},
+  });
+
+  res.json(result);
+});
+
 
 const frontendDist = path.resolve(__dirname, '../../frontend/dist');
 if (fs.existsSync(frontendDist)) {
@@ -760,10 +979,18 @@ server.on('upgrade',(request,socket,head)=>{
       }
     }
     console.log(`[WS] + ${user.firstName}(${user.id})`);
+    allConnectedSockets.add(ws);
     onReconnect(ws,user);
     ws.on('message',(msg)=>dispatch(ws,user,msg));
-    ws.on('close',()=>{console.log(`[WS] - ${user.firstName}(${user.id})`);onDisconnect(ws,user);});
-    ws.on('error',(e)=>console.error(`[WS] err ${user.id}:`,e.message));
+    ws.on('close',()=>{
+      allConnectedSockets.delete(ws);
+      console.log(`[WS] - ${user.firstName}(${user.id})`);
+      onDisconnect(ws,user);
+    });
+    ws.on('error',(e)=>{
+      allConnectedSockets.delete(ws);
+      console.error(`[WS] err ${user.id}:`,e.message);
+    });
   });
 });
 
