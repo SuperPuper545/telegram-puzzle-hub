@@ -285,25 +285,72 @@ export function removeBackButton() {
   tg.BackButton.hide();
 }
 
+export function createClanInviteShareUrl(botUsername: string, groupId: number, clanName: string): { inviteLink: string; shareUrl: string } {
+  const cleanBot = botUsername.replace(/^@/, '');
+  // Using start=clan_${groupId} ensures 100% compatibility with all Telegram clients, web & mobile
+  const inviteLink = `https://t.me/${cleanBot}?start=clan_${groupId}`;
+  const shareText = `Присоединяйся к нашему клану «${clanName}» на Карте Мира в TapTap Hub! 🌍⚔️`;
+  const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent(shareText)}`;
+  return { inviteLink, shareUrl };
+}
+
 export function getTelegramStartParam(): string | null {
   const tg = getTelegramWebApp();
+
+  // 1. Direct from Telegram WebApp object
   if (tg?.initDataUnsafe?.start_param) {
     return tg.initDataUnsafe.start_param;
   }
-  if (typeof window !== 'undefined') {
-    // 1. Check URL query params
-    const urlParams = new URLSearchParams(window.location.search);
-    let param = urlParams.get('tgWebAppStartParam') || urlParams.get('startapp') || urlParams.get('start_param');
-    if (param) return param;
 
-    // 2. Check URL hash params (standard Telegram WebApp startapp format)
-    const hash = window.location.hash ? window.location.hash.substring(1) : '';
-    if (hash) {
-      const hashParams = new URLSearchParams(hash);
-      param = hashParams.get('tgWebAppStartParam') || hashParams.get('startapp') || hashParams.get('start_param');
-      if (param) return param;
-    }
+  // 2. Parse from raw tg.initData query string
+  if (tg?.initData) {
+    try {
+      const initDataParams = new URLSearchParams(tg.initData);
+      const p = initDataParams.get('start_param') || initDataParams.get('startapp');
+      if (p) return p;
+    } catch (_) {}
   }
+
+  if (typeof window !== 'undefined') {
+    // 3. Check URL query params
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      let param = urlParams.get('tgWebAppStartParam') || 
+                  urlParams.get('startapp') || 
+                  urlParams.get('start_param') || 
+                  urlParams.get('start');
+      if (param) return param;
+
+      const rawWebAppData = urlParams.get('tgWebAppData');
+      if (rawWebAppData) {
+        const inner = new URLSearchParams(rawWebAppData);
+        const p = inner.get('start_param') || inner.get('startapp');
+        if (p) return p;
+      }
+    } catch (_) {}
+
+    // 4. Check URL hash params (#tgWebAppData=... or #tgWebAppStartParam=...)
+    try {
+      const hash = window.location.hash ? window.location.hash.substring(1) : '';
+      if (hash) {
+        const hashParams = new URLSearchParams(hash);
+        let param = hashParams.get('tgWebAppStartParam') || 
+                    hashParams.get('startapp') || 
+                    hashParams.get('start_param') || 
+                    hashParams.get('start');
+        if (param) return param;
+
+        // In Telegram Android/iOS WebApp, start_param is encoded inside tgWebAppData in the hash!
+        const rawWebAppData = hashParams.get('tgWebAppData');
+        if (rawWebAppData) {
+          const inner = new URLSearchParams(rawWebAppData);
+          const p = inner.get('start_param') || inner.get('startapp');
+          if (p) return p;
+        }
+      }
+    } catch (_) {}
+  }
+
   return null;
 }
 
@@ -335,12 +382,5 @@ export function createChallengeShareUrl(botUsername: string, gameId: string, gam
   return `https://t.me/share/url?url=${encodeURIComponent(challengeLink)}&text=${encodeURIComponent(shareText)}`;
 }
 
-export function createClanInviteShareUrl(botUsername: string, groupId: number, clanName: string): { inviteLink: string; shareUrl: string } {
-  const startParam = `clan_${groupId}`;
-  const inviteLink = `https://t.me/${botUsername}?startapp=${startParam}`;
-  const shareText = `🛡️ Присоединяйся к нашему клану «${clanName}» в Telegram Puzzle Hub!\n⚔️ Собирай очки в головоломках и захватывай мир на глобальной карте!`;
-  const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent(shareText)}`;
-  return { inviteLink, shareUrl };
-}
 
 

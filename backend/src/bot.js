@@ -10,6 +10,7 @@ import {
   getDailyRewardStatus, 
   getUserById,
   getGroupById,
+  joinGroup,
   processStarsPayment,
   getCycleMetadata,
   runCycleCalculation
@@ -90,28 +91,43 @@ async function handleMessage(msg) {
     const startArg = parts[1] || '';
     let referralNotice = '';
 
-    if (startArg && dbUser) {
-      try {
-        const refResult = processReferral(dbUser.id, startArg);
-        if (refResult.success) {
-          referralNotice = `🎁 <b>Вам начислен приветственный бонус: +500 🪙!</b>\n` +
-            `Вас пригласил игрок <b>${refResult.inviter.firstName || 'друг'}</b>.\n\n`;
+    if (startArg && (startArg.startsWith('clan_') || startArg.startsWith('group_'))) {
+      const clanTarget = startArg.replace(/^(clan_|group_)/, '');
+      const groupRow = getGroupById(Number(clanTarget));
+      const clanName = groupRow?.name ? `«${groupRow.name}»` : 'клан';
+      const clanAppUrl = `${WEBAPP_URL}?startapp=clan_${clanTarget}`;
 
-          if (refResult.inviter.telegramId) {
-            const inviterMsg = `🎉 <b>У вас новый реферал!</b>\n\n` +
-              `Игрок <b>${tgUser?.first_name || 'Новый игрок'}</b> (@${tgUser?.username || 'user'}) присоединился по вашей ссылке.\n` +
-              `Вам начислено <b>+500 🪙</b>! 💰`;
-
-            await tgCall('sendMessage', {
-              chat_id: refResult.inviter.telegramId,
-              text: inviterMsg,
-              parse_mode: 'HTML',
-            });
+      let joinNotice = '';
+      if (dbUser && groupRow) {
+        try {
+          const joinResult = joinGroup(dbUser.id, groupRow.id);
+          if (joinResult.success) {
+            joinNotice = `\n\n✅ <b>Вы успешно вступили в ${clanName}!</b>`;
+          } else if (joinResult.error) {
+            joinNotice = `\n\nℹ️ <i>${joinResult.error}</i>`;
           }
+        } catch (e) {
+          console.error('Error auto-joining clan from bot /start:', e);
         }
-      } catch (err) {
-        console.warn('Referral processing error in bot:', err);
       }
+
+      const clanMsg = `🏰 <b>Вас пригласили в ${clanName}!</b>\n\n` +
+        `Объединяйте силы с соклановцами, зарабатывайте очки в любимых играх и побеждайте в битвах за территории на Карте Мира!` +
+        joinNotice + `\n\n` +
+        `Нажмите кнопку ниже, чтобы открыть игру и перейти к клану: 👇`;
+
+      await tgCall('sendMessage', {
+        chat_id: chatId,
+        text: clanMsg,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: `🏰 Открыть ${clanName}`, web_app: { url: clanAppUrl } }],
+            [{ text: '🎮 Открыть TapTap Hub', web_app: { url: WEBAPP_URL } }],
+          ],
+        },
+      });
+      return;
     }
 
     if (startArg && startArg.startsWith('duel_')) {
@@ -135,28 +151,28 @@ async function handleMessage(msg) {
       return;
     }
 
-    if (startArg && (startArg.startsWith('clan_') || startArg.startsWith('group_'))) {
-      const clanTarget = startArg.replace(/^(clan_|group_)/, '');
-      const groupRow = getGroupById(Number(clanTarget));
-      const clanName = groupRow?.name ? `«${groupRow.name}»` : 'клан';
-      const clanAppUrl = `${WEBAPP_URL}?startapp=clan_${clanTarget}`;
+    if (startArg && dbUser) {
+      try {
+        const refResult = processReferral(dbUser.id, startArg);
+        if (refResult.success) {
+          referralNotice = `🎁 <b>Вам начислен приветственный бонус: +500 🪙!</b>\n` +
+            `Вас пригласил игрок <b>${refResult.inviter.firstName || 'друг'}</b>.\n\n`;
 
-      const clanMsg = `🏰 <b>Вас пригласили в ${clanName}!</b>\n\n` +
-        `Объединяйте силы с соклановцами, зарабатывайте очки в любимых играх и побеждайте в битвах за территории на Карте Мира!\n\n` +
-        `Нажмите кнопку ниже, чтобы принять приглашение и войти в игру: 👇`;
+          if (refResult.inviter.telegramId) {
+            const inviterMsg = `🎉 <b>У вас новый реферал!</b>\n\n` +
+              `Игрок <b>${tgUser?.first_name || 'Новый игрок'}</b> (@${tgUser?.username || 'user'}) присоединился по вашей ссылке.\n` +
+              `Вам начислено <b>+500 🪙</b>! 💰`;
 
-      await tgCall('sendMessage', {
-        chat_id: chatId,
-        text: clanMsg,
-        parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: `⚔️ Вступить в ${clanName}`, web_app: { url: clanAppUrl } }],
-            [{ text: '🎮 Открыть TapTap Hub', web_app: { url: WEBAPP_URL } }],
-          ],
-        },
-      });
-      return;
+            await tgCall('sendMessage', {
+              chat_id: refResult.inviter.telegramId,
+              text: inviterMsg,
+              parse_mode: 'HTML',
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Referral processing error in bot:', err);
+      }
     }
 
     const welcome = `👋 <b>Привет, ${tgUser?.first_name || 'Игрок'}!</b>\n\n` +

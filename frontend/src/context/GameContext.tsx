@@ -343,6 +343,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setTimeout(() => setIsDailyModalOpen(true), 600);
             }
           }
+          if (data.group) {
+            setMyGroup(data.group);
+          }
         }
       })
       .catch(err => console.log('Using local offline cache for profile:', err));
@@ -374,6 +377,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } else if (startParam && (startParam.startsWith('clan_') || startParam.startsWith('group_'))) {
       const target = startParam.replace(/^(clan_|group_)/, '');
       const payload = /^\d+$/.test(target) ? { groupId: Number(target) } : { telegramChatId: target };
+      console.log('Processing clan invite on app launch:', payload);
       fetch('/api/groups/join', {
         method: 'POST',
         headers: {
@@ -382,14 +386,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
         body: JSON.stringify(payload),
       })
-        .then(res => res.ok ? res.json() : null)
+        .then(res => res.json())
         .then(data => {
+          console.log('Clan join API response:', data);
           if (data?.success && data?.group) {
             setMyGroup(data.group);
             setActiveTab('world');
+          } else {
+            // Even if already in group or switch cooldown, load clan and switch to world tab
+            fetchMyGroup().then(() => setActiveTab('world'));
           }
         })
-        .catch(err => console.warn('Clan join error from link:', err));
+        .catch(err => {
+          console.warn('Clan join error from link:', err);
+          fetchMyGroup().then(() => setActiveTab('world'));
+        });
     } else if (startParam && startParam.startsWith('challenge_')) {
       const challenge = parseChallengeParam(startParam);
       if (challenge) {
