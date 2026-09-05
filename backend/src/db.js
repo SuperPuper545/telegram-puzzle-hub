@@ -1187,6 +1187,13 @@ export function createCustomGroup(userId) {
   db.prepare('UPDATE users SET group_id = ?, group_joined_at = CURRENT_TIMESTAMP WHERE id = ?')
     .run(newGroupId, userId);
 
+  // Retroactively assign creator's referrals who don't have a clan yet
+  db.prepare(`
+    UPDATE users 
+    SET group_id = ?, group_joined_at = CURRENT_TIMESTAMP 
+    WHERE referrer_id = ? AND group_id IS NULL
+  `).run(newGroupId, userId);
+
   return { success: true, group: getGroupById(newGroupId) };
 }
 
@@ -1244,6 +1251,74 @@ export function joinGroup(userId, groupId) {
   }
 
   return { success: true, group: getGroupById(groupId) };
+}
+
+export function kickGroupMember(commanderId, targetUserId) {
+  const commander = getUserById(commanderId);
+  if (!commander || !commander.group_id) {
+    return { success: false, error: 'Вы не состоите в клане' };
+  }
+
+  const group = getGroupById(commander.group_id);
+  if (!group) {
+    return { success: false, error: 'Клан не найден' };
+  }
+
+  if (group.commander_user_id !== commanderId) {
+    return { success: false, error: 'Только Командор может исключать участников' };
+  }
+
+  if (commanderId === targetUserId) {
+    return { success: false, error: 'Командор не может исключить самого себя' };
+  }
+
+  const target = getUserById(targetUserId);
+  if (!target || target.group_id !== group.id) {
+    return { success: false, error: 'Пользователь не состоит в вашем клане' };
+  }
+
+  db.prepare('UPDATE users SET group_id = NULL, group_joined_at = NULL WHERE id = ?').run(targetUserId);
+
+  return { success: true };
+}
+
+export function leaveGroup(userId) {
+  const user = getUserById(userId);
+  if (!user || !user.group_id) {
+    return { success: false, error: 'Вы не состоите в клане' };
+  }
+
+  const group = getGroupById(user.group_id);
+  if (!group) {
+    db.prepare('UPDATE users SET group_id = NULL, group_joined_at = NULL WHERE id = ?').run(userId);
+    return { success: true };
+  }
+
+  if (group.commander_user_id === userId) {
+    // Find next eligible commander
+    const nextMember = db.prepare(`
+      SELECT id FROM users 
+      WHERE group_id = ? AND id != ?
+      ORDER BY id ASC
+      LIMIT 1
+    `).get(group.id, userId);
+
+    if (nextMember) {
+      db.prepare('UPDATE groups SET commander_user_id = ? WHERE id = ?').run(nextMember.id, group.id);
+    } else {
+      // Last member leaves -> release territory and clean up group
+      db.prepare(`
+        UPDATE world_map 
+        SET group_id = NULL, level = 0, is_monument = 0, monument_id = NULL, shield_until = NULL 
+        WHERE group_id = ?
+      `).run(group.id);
+      db.prepare('DELETE FROM monuments WHERE group_id = ?').run(group.id);
+      db.prepare('DELETE FROM groups WHERE id = ?').run(group.id);
+    }
+  }
+
+  db.prepare('UPDATE users SET group_id = NULL, group_joined_at = NULL WHERE id = ?').run(userId);
+  return { success: true };
 }
 
 export function getUserGroup(userId) {
@@ -1344,8 +1419,8 @@ export function getGroupLeaderboard() {
 
   let rank = 1;
   const leaderboard = rows.map((g) => {
-    const isEligible = g.memberCount >= 3;
-    const currentRank = isEligible ? rank++ : null;
+    const isEligible = g.memberCount >= 1;
+    const currentRank = rank++;
     return {
       ...g,
       rank: currentRank,
@@ -1748,7 +1823,7 @@ export function runCycleCalculation() {
     JOIN users u ON u.group_id = g.id
     LEFT JOIN scores s ON s.user_id = u.id AND s.created_at >= ?
     GROUP BY g.id
-    HAVING member_count >= 3
+    HAVING member_count >= 1
     ORDER BY total_score DESC
   `).all(cycleStart);
 

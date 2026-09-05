@@ -159,6 +159,8 @@ interface GameContextType {
   createCustomClan: () => Promise<{ success: boolean; error?: string; group?: UserGroupData }>;
   checkClanRename: (newName: string) => Promise<{ valid: boolean; error?: string; name?: string }>;
   createRenameInvoice: (newName: string) => Promise<{ success: boolean; error?: string; invoiceLink?: string }>;
+  kickGroupMember: (targetUserId: number) => Promise<{ success: boolean; error?: string }>;
+  leaveClan: () => Promise<{ success: boolean; error?: string }>;
   scoreBoosterUntil: string | null;
   isScoreBoosterActive: boolean;
   scoreBoosterRemainingSeconds: number;
@@ -617,6 +619,55 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  const kickGroupMember = useCallback(async (targetUserId: number) => {
+    try {
+      const initData = getTelegramInitData();
+      const currentUser = getTelegramUser();
+      const res = await fetch('/api/groups/kick', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `tma ${initData}`,
+          'x-mock-user-id': String(currentUser.id),
+          'x-mock-username': currentUser.first_name || 'Player',
+        },
+        body: JSON.stringify({ targetUserId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMyGroup(data.group);
+        return { success: true };
+      }
+      return { success: false, error: data.error || 'Ошибка при исключении' };
+    } catch (err) {
+      return { success: false, error: 'Ошибка соединения с сервером' };
+    }
+  }, []);
+
+  const leaveClan = useCallback(async () => {
+    try {
+      const initData = getTelegramInitData();
+      const currentUser = getTelegramUser();
+      const res = await fetch('/api/groups/leave', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `tma ${initData}`,
+          'x-mock-user-id': String(currentUser.id),
+          'x-mock-username': currentUser.first_name || 'Player',
+        },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMyGroup(null);
+        return { success: true };
+      }
+      return { success: false, error: data.error || 'Ошибка при выходе из клана' };
+    } catch (err) {
+      return { success: false, error: 'Ошибка соединения с сервером' };
+    }
+  }, []);
+
   const activateBooster = useCallback(async () => {
     try {
       const initData = getTelegramInitData();
@@ -1029,6 +1080,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createCustomClan,
         checkClanRename,
         createRenameInvoice,
+        kickGroupMember,
+        leaveClan,
         scoreBoosterUntil,
         isScoreBoosterActive,
         scoreBoosterRemainingSeconds,

@@ -20,6 +20,7 @@ import {
   getGroupById, getGroupByTelegramChatId, getGroupByUsername, createGroup,
   createCustomGroup, renameGroup, validateGroupName,
   joinGroup, getUserGroup, getGroupLeaderboard, updateGroupColor,
+  kickGroupMember, leaveGroup,
   getWorldMapCells, getWorldMapDiff, executeMapAction, activateScoreBooster,
   STARS_PRODUCTS, processStarsPayment, runCycleCalculation,
 } from './db.js';
@@ -252,6 +253,37 @@ app.post('/api/groups/rename-check', authMiddleware, (req, res) => {
   } catch (err) {
     console.error('Rename check error:', err);
     res.status(500).json({ valid: false, error: 'Ошибка проверки названия' });
+  }
+});
+
+app.post('/api/groups/kick', authMiddleware, (req, res) => {
+  try {
+    const { targetUserId } = req.body;
+    if (!targetUserId) {
+      return res.status(400).json({ success: false, error: 'targetUserId обязателен' });
+    }
+    const result = kickGroupMember(req.user.id, Number(targetUserId));
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    const updatedGroup = getUserGroup(req.user.id);
+    res.json({ success: true, group: updatedGroup });
+  } catch (err) {
+    console.error('Kick member error:', err);
+    res.status(500).json({ success: false, error: 'Ошибка при исключении участника' });
+  }
+});
+
+app.post('/api/groups/leave', authMiddleware, (req, res) => {
+  try {
+    const result = leaveGroup(req.user.id);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    res.json({ success: true, group: null });
+  } catch (err) {
+    console.error('Leave group error:', err);
+    res.status(500).json({ success: false, error: 'Ошибка при выходе из клана' });
   }
 });
 
