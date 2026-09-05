@@ -523,6 +523,13 @@ export const KnifeGame: React.FC = () => {
               <p className="text-3xl font-black text-rose-500 mt-0.5">{score}</p>
               <p className="text-xs text-tg-hint mt-1">Достигнут этап {stage}</p>
 
+              {score > 0 && (
+                <div className="mt-2 py-1.5 px-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-between text-xs">
+                  <span className="text-tg-hint font-medium">Очки в рейтинг (x60):</span>
+                  <span className="font-black text-indigo-400">+{Math.round(score * 60).toLocaleString()} pts</span>
+                </div>
+              )}
+
               {isNewRecord && (
                 <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-500 text-xs font-extrabold animate-bounce">
                   <Sparkles className="w-3.5 h-3.5" /> Новый рекорд в Knife Master!

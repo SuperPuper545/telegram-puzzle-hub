@@ -155,7 +155,7 @@ interface GameContextType {
   refreshProfile: () => Promise<void>;
   myGroup: UserGroupData | null;
   fetchMyGroup: () => Promise<void>;
-  joinGroup: (chatId: string) => Promise<{ success: boolean; error?: string; group?: UserGroupData }>;
+  joinGroup: (target: string | number) => Promise<{ success: boolean; error?: string; group?: UserGroupData }>;
   scoreBoosterUntil: string | null;
   isScoreBoosterActive: boolean;
   scoreBoosterRemainingSeconds: number;
@@ -371,6 +371,25 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } else if (startParam && startParam.startsWith('duel_')) {
       // Store duel room ID for DuelLobby to join automatically
       try { localStorage.setItem('hub_pending_duel_room', startParam.slice(5)); } catch { /* ignore */ }
+    } else if (startParam && (startParam.startsWith('clan_') || startParam.startsWith('group_'))) {
+      const target = startParam.replace(/^(clan_|group_)/, '');
+      const payload = /^\d+$/.test(target) ? { groupId: Number(target) } : { telegramChatId: target };
+      fetch('/api/groups/join', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers,
+        },
+        body: JSON.stringify(payload),
+      })
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data?.success && data?.group) {
+            setMyGroup(data.group);
+            setActiveTab('world');
+          }
+        })
+        .catch(err => console.warn('Clan join error from link:', err));
     } else if (startParam && startParam.startsWith('challenge_')) {
       const challenge = parseChallengeParam(startParam);
       if (challenge) {
@@ -476,10 +495,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const joinGroup = useCallback(async (telegramChatId: string) => {
+  const joinGroup = useCallback(async (target: string | number) => {
     try {
       const initData = getTelegramInitData();
       const currentUser = getTelegramUser();
+      const payload = typeof target === 'number' || /^\d+$/.test(String(target))
+        ? { groupId: Number(target) }
+        : { telegramChatId: String(target) };
+
       const res = await fetch('/api/groups/join', {
         method: 'POST',
         headers: {
@@ -488,7 +511,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           'x-mock-user-id': String(currentUser.id),
           'x-mock-username': currentUser.first_name || 'Player',
         },
-        body: JSON.stringify({ telegramChatId }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (res.ok && data.success) {

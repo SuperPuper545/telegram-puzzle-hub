@@ -9,6 +9,7 @@ import {
   getReferralsInfo, 
   getDailyRewardStatus, 
   getUserById,
+  getGroupById,
   processStarsPayment,
   getCycleMetadata,
   runCycleCalculation
@@ -127,6 +128,30 @@ async function handleMessage(msg) {
         reply_markup: {
           inline_keyboard: [
             [{ text: '⚔️ Принять вызов и начать бой!', web_app: { url: duelAppUrl } }],
+            [{ text: '🎮 Открыть TapTap Hub', web_app: { url: WEBAPP_URL } }],
+          ],
+        },
+      });
+      return;
+    }
+
+    if (startArg && (startArg.startsWith('clan_') || startArg.startsWith('group_'))) {
+      const clanTarget = startArg.replace(/^(clan_|group_)/, '');
+      const groupRow = getGroupById(Number(clanTarget));
+      const clanName = groupRow?.name ? `«${groupRow.name}»` : 'клан';
+      const clanAppUrl = `${WEBAPP_URL}?startapp=clan_${clanTarget}`;
+
+      const clanMsg = `🏰 <b>Вас пригласили в ${clanName}!</b>\n\n` +
+        `Объединяйте силы с соклановцами, зарабатывайте очки в любимых играх и побеждайте в битвах за территории на Карте Мира!\n\n` +
+        `Нажмите кнопку ниже, чтобы принять приглашение и войти в игру: 👇`;
+
+      await tgCall('sendMessage', {
+        chat_id: chatId,
+        text: clanMsg,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: `⚔️ Вступить в ${clanName}`, web_app: { url: clanAppUrl } }],
             [{ text: '🎮 Открыть TapTap Hub', web_app: { url: WEBAPP_URL } }],
           ],
         },

@@ -22,7 +22,7 @@ const STARS_CATALOG: StarsProductItem[] = [
   { id: 'coins_m', name: 'Пакет монет M', stars: 75, icon: '💰', description: '+10 000 монет на баланс', badge: 'Выгодно' },
   { id: 'coins_l', name: 'Пакет монет L', stars: 200, icon: '🏦', description: '+30 000 монет на баланс', badge: 'Хит 🔥' },
   { id: 'group_boost', name: 'Групповой буст ×1.5', stars: 100, icon: '🚀', description: '+50% ко всем очкам клана на 24 часа' },
-  { id: 'extra_tokens', name: 'Экстра токены (+3)', stars: 80, icon: '💎', description: '+3 токена в казну группы на 7 дней' },
+  { id: 'extra_tokens', name: 'Токены казны (+3)', stars: 80, icon: '🏛️', description: '+3 токена в казну клана для захвата карты' },
   { id: 'cell_shield', name: 'Щит клетки (7 дней)', stars: 30, icon: '🛡️', description: 'Защита клетки карты от атак и саботажа' },
   { id: 'group_color', name: 'Цвет группы', stars: 50, icon: '🎨', description: 'Уникальный цвет клана на карте мира' },
   { id: 'monument_5x5', name: 'Монумент 5x5', stars: 150, icon: '🏛️', description: 'Строительство мега-монумента 5x5 клеток' },

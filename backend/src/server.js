@@ -70,7 +70,7 @@ app.get('/api/me', authMiddleware, (req, res) => {
   const daily = getDailyRewardStatus(req.user.id);
   const userGroupInfo = getUserGroup(req.user.id);
   const sm = {}; let total = 0;
-  for (const item of scores) { sm[item.game_id] = item.best_score; total += item.games_played; }
+  for (const item of scores) { sm[item.game_id] = item.best_raw_score || item.best_score; total += item.games_played; }
   res.json({
     user: {
       ...req.user,
@@ -124,33 +124,44 @@ app.get('/api/duel/history', authMiddleware, (req, res) => { res.json({ history:
 // ─── GROUPS API ─────────────────────────────────────────────────────────────
 app.post('/api/groups/join', authMiddleware, async (req, res) => {
   try {
-    const { telegramChatId } = req.body;
-    if (!telegramChatId) {
-      return res.status(400).json({ error: 'Укажите @username или ссылку на группу' });
-    }
+    const { telegramChatId, groupId } = req.body;
+    let group = null;
 
-    let input = String(telegramChatId).trim();
-    if (input.includes('t.me/')) {
-      const match = input.match(/t\.me\/(\+?[a-zA-Z0-9_]+)/);
-      if (match) input = match[1];
-    }
-    const cleanUsername = input.replace(/^@/, '');
+    if (groupId) {
+      group = getGroupById(Number(groupId));
+      if (!group) {
+        return res.status(404).json({ error: 'Клан не найден' });
+      }
+    } else if (telegramChatId) {
+      let input = String(telegramChatId).trim();
+      if (input.includes('t.me/')) {
+        const match = input.match(/t\.me\/(\+?[a-zA-Z0-9_]+)/);
+        if (match) input = match[1];
+      }
+      const cleanUsername = input.replace(/^@/, '');
 
-    let group = getGroupByTelegramChatId(input) || getGroupByUsername(cleanUsername);
+      group = getGroupByTelegramChatId(input) || getGroupByUsername(cleanUsername);
 
-    if (!group) {
-      const chatInfo = await fetchTelegramChat(input);
-      if (!chatInfo) {
-        return res.status(404).json({ error: 'Чат не найден в Telegram или бот не имеет к нему доступа' });
+      if (!group && /^\d+$/.test(input)) {
+        group = getGroupById(Number(input));
       }
 
-      group = getGroupByTelegramChatId(chatInfo.id) || createGroup({
-        telegramChatId: chatInfo.id,
-        name: chatInfo.title,
-        username: chatInfo.username,
-        photoUrl: chatInfo.photo_url,
-        creatorUserId: req.user.id,
-      });
+      if (!group) {
+        const chatInfo = await fetchTelegramChat(input);
+        if (!chatInfo) {
+          return res.status(404).json({ error: 'Чат не найден в Telegram или бот не имеет к нему доступа' });
+        }
+
+        group = getGroupByTelegramChatId(chatInfo.id) || createGroup({
+          telegramChatId: chatInfo.id,
+          name: chatInfo.title,
+          username: chatInfo.username,
+          photoUrl: chatInfo.photo_url,
+          creatorUserId: req.user.id,
+        });
+      }
+    } else {
+      return res.status(400).json({ error: 'Укажите ID клана, @username или ссылку на группу' });
     }
 
     const joinResult = joinGroup(req.user.id, group.id);

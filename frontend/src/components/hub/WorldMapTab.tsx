@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useGameBridge } from '../../context/GameContext';
 import { 
   Globe, Trophy, Shield, Crosshair, Compass, Plus, Minus,
-  Flag, Bomb, Crown, Coins, Users,
+  Flag, Bomb, Crown, Coins, Users, UserPlus, Copy, Check,
   Clock, Sparkles, RefreshCw, X, AlertTriangle, Layers, Loader2
 } from 'lucide-react';
-import { haptics } from '../../telegram/telegram';
+import { haptics, createClanInviteShareUrl, getTelegramWebApp } from '../../telegram/telegram';
 import { sound } from '../../utils/sound';
 import landmaskData from './world_landmask.json';
 
@@ -42,9 +42,10 @@ interface GroupLeaderboardItem {
 }
 
 export const WorldMapTab: React.FC = () => {
-  const { user, coins, myGroup, fetchMyGroup, joinGroup } = useGameBridge();
+  const { user, coins, myGroup, fetchMyGroup, joinGroup, referralsData } = useGameBridge();
 
   const [activeSubTab, setActiveSubTab] = useState<'map' | 'leaderboard'>('map');
+  const [inviteCopied, setInviteCopied] = useState(false);
 
   // Map Data State
   const [cells, setCells] = useState<MapCell[]>([]);
@@ -69,6 +70,54 @@ export const WorldMapTab: React.FC = () => {
   const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
   const [cycleNumber, setCycleNumber] = useState<number>(1);
   const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState<boolean>(false);
+
+  // Clan Invite actions
+  const handleShareClanInvite = () => {
+    sound.playUiTap();
+    haptics.medium();
+    if (!myGroup?.group) return;
+
+    const botUsername = referralsData?.botUsername || 'taptaphub_bot';
+    const { shareUrl } = createClanInviteShareUrl(botUsername, myGroup.group.id, myGroup.group.name);
+
+    const tg = getTelegramWebApp();
+    if (tg?.openTelegramLink) {
+      tg.openTelegramLink(shareUrl);
+    } else {
+      window.open(shareUrl, '_blank');
+    }
+  };
+
+  const handleCopyClanInvite = async () => {
+    sound.playUiTap();
+    haptics.selection();
+    if (!myGroup?.group) return;
+
+    const botUsername = referralsData?.botUsername || 'taptaphub_bot';
+    const { inviteLink } = createClanInviteShareUrl(botUsername, myGroup.group.id, myGroup.group.name);
+
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(inviteLink);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = inviteLink;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      setInviteCopied(true);
+      setActionNotice('Ссылка-приглашение в клан скопирована!');
+      setTimeout(() => {
+        setInviteCopied(false);
+        setActionNotice(null);
+      }, 2500);
+    } catch {
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 2000);
+    }
+  };
 
   // Canvas refs & transform
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -497,48 +546,58 @@ export const WorldMapTab: React.FC = () => {
     ctx.restore();
   }, [selectedCell]);
 
+  const handleResize = useCallback(() => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    if (!width || !height) return;
+
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+
+    const fitScale = getFitScale(width, height);
+    if (transformRef.current.scale === 1 && transformRef.current.offsetX === 0) {
+      transformRef.current = clampTransform(
+        fitScale,
+        (width - MAP_COLS * BASE_CELL_SIZE * fitScale) / 2,
+        (height - MAP_ROWS * BASE_CELL_SIZE * fitScale) / 2,
+        width,
+        height
+      );
+    } else {
+      transformRef.current = clampTransform(
+        transformRef.current.scale,
+        transformRef.current.offsetX,
+        transformRef.current.offsetY,
+        width,
+        height
+      );
+    }
+
+    renderCanvas();
+  }, [renderCanvas, getFitScale, clampTransform]);
+
   useEffect(() => {
-    const handleResize = () => {
-      const canvas = canvasRef.current;
-      const container = containerRef.current;
-      if (!canvas || !container) return;
-
-      const dpr = window.devicePixelRatio || 1;
-      const width = container.clientWidth;
-      const height = container.clientHeight;
-      if (!width || !height) return;
-
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-
-      const fitScale = getFitScale(width, height);
-      if (transformRef.current.scale === 1 && transformRef.current.offsetX === 0) {
-        transformRef.current = clampTransform(
-          fitScale,
-          (width - MAP_COLS * BASE_CELL_SIZE * fitScale) / 2,
-          (height - MAP_ROWS * BASE_CELL_SIZE * fitScale) / 2,
-          width,
-          height
-        );
-      } else {
-        transformRef.current = clampTransform(
-          transformRef.current.scale,
-          transformRef.current.offsetX,
-          transformRef.current.offsetY,
-          width,
-          height
-        );
-      }
-
-      renderCanvas();
-    };
-
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [renderCanvas, getFitScale, clampTransform]);
+  }, [handleResize]);
+
+  // Re-measure and redraw when returning to map tab
+  useEffect(() => {
+    if (activeSubTab === 'map') {
+      const raf = requestAnimationFrame(() => {
+        handleResize();
+      });
+      return () => cancelAnimationFrame(raf);
+    }
+  }, [activeSubTab, handleResize]);
 
   const handleCanvasClick = (clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
@@ -727,34 +786,43 @@ export const WorldMapTab: React.FC = () => {
       </div>
 
       {/* SUB-SCREEN 1: WORLD MAP */}
-      {activeSubTab === 'map' && (
-        <div className="flex-1 flex flex-col relative w-full h-full overflow-hidden">
-          {actionNotice && (
-            <div className="absolute top-3 left-4 right-4 z-40 p-2.5 rounded-2xl bg-emerald-500/95 text-white text-xs font-bold text-center shadow-xl animate-pop backdrop-blur-md">
-              {actionNotice}
-            </div>
-          )}
+      <div className={activeSubTab === 'map' ? 'flex-1 flex flex-col relative w-full h-full overflow-hidden' : 'hidden'}>
+        {actionNotice && (
+          <div
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+            className="absolute top-3 left-4 right-4 z-40 p-2.5 rounded-2xl bg-emerald-600 text-white text-xs font-bold text-center shadow-2xl border border-emerald-400/40 animate-pop"
+          >
+            {actionNotice}
+          </div>
+        )}
 
-          {selectedAction && (
-            <div className="absolute top-3 left-4 right-4 z-40 bg-amber-500/90 text-white backdrop-blur-md p-2.5 px-4 rounded-2xl flex items-center justify-between text-xs font-bold shadow-xl animate-pulse">
-              <div className="flex items-center gap-2 truncate">
-                <Crosshair className="w-4 h-4 animate-spin shrink-0" />
-                <span className="truncate">
-                  {selectedAction === 'capture' && 'Выберите клетку для захвата (1 токен)'}
-                  {selectedAction === 'fortify' && 'Выберите свою клетку для укрепления (2 токена)'}
-                  {selectedAction === 'sabotage' && 'Выберите клетку врага для диверсии (1 токен)'}
-                  {selectedAction === 'monument' && 'Выберите угол 3x3 для Монумента (5 токенов)'}
-                  {selectedAction === 'emergency' && 'Экстренный захват: выберите клетку (3000 🪙)'}
-                </span>
-              </div>
-              <button
-                onClick={() => setSelectedAction(null)}
-                className="px-2.5 py-1 rounded-lg bg-black/40 text-white text-[10px] shrink-0 active:scale-95 cursor-pointer"
-              >
-                Отмена
-              </button>
+        {selectedAction && (
+          <div
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+            className="absolute top-3 left-4 right-4 z-40 bg-amber-600 text-white p-2.5 px-4 rounded-2xl flex items-center justify-between text-xs font-bold shadow-2xl border border-amber-400/40 animate-pulse"
+          >
+            <div className="flex items-center gap-2 truncate">
+              <Crosshair className="w-4 h-4 animate-spin shrink-0" />
+              <span className="truncate">
+                {selectedAction === 'capture' && 'Выберите клетку для захвата (1 🏛️ токен)'}
+                {selectedAction === 'fortify' && 'Выберите свою клетку для укрепления (2 🏛️ токена)'}
+                {selectedAction === 'sabotage' && 'Выберите клетку врага для диверсии (1 🏛️ токен)'}
+                {selectedAction === 'monument' && 'Выберите угол 3x3 для Монумента (5 🏛️ токенов)'}
+                {selectedAction === 'emergency' && 'Экстренный захват: выберите клетку (3 000 🪙 монет)'}
+              </span>
             </div>
-          )}
+            <button
+              onClick={() => setSelectedAction(null)}
+              className="px-2.5 py-1 rounded-lg bg-black/60 hover:bg-black/80 text-white text-[10px] shrink-0 active:scale-95 cursor-pointer font-bold"
+            >
+              Отмена
+            </button>
+          </div>
+        )}
 
           <div
             ref={containerRef}
@@ -870,38 +938,48 @@ export const WorldMapTab: React.FC = () => {
             )}
 
             {/* Top-Left Floating Info Pill */}
-            <div className="absolute left-3 top-3 px-2.5 py-1 rounded-xl bg-black/70 backdrop-blur-md border border-white/10 text-[10px] text-white/90 flex items-center gap-2 shadow-lg pointer-events-none z-10">
+            <div
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              onTouchEnd={(e) => e.stopPropagation()}
+              className="absolute left-3 top-3 px-2.5 py-1 rounded-xl bg-slate-900/95 border border-slate-700/80 text-[10px] text-white/90 flex items-center gap-2 shadow-lg pointer-events-none z-10"
+            >
               <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span>Карта 80×60 • 4 800 кл.{cells.length > 0 ? ` • ${cells.filter(c => c.group_id).length} занято` : ''}</span>
             </div>
 
             {/* Top-Right Floating Camera Controls */}
-            <div className="absolute right-3 top-3 flex flex-col gap-2 z-10">
+            <div
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              onTouchEnd={(e) => e.stopPropagation()}
+              className="absolute right-3 top-3 flex flex-col gap-2 z-10"
+            >
               <button
                 onClick={() => handleZoom(0.5)}
-                className="w-9 h-9 rounded-xl bg-black/70 backdrop-blur-md border border-white/15 text-white flex items-center justify-center shadow-lg active:scale-95 cursor-pointer"
+                className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-700 text-white flex items-center justify-center shadow-xl active:scale-95 cursor-pointer hover:bg-slate-800"
                 title="Приблизить"
               >
                 <Plus className="w-4 h-4" />
               </button>
               <button
                 onClick={() => handleZoom(-0.5)}
-                className="w-9 h-9 rounded-xl bg-black/70 backdrop-blur-md border border-white/15 text-white flex items-center justify-center shadow-lg active:scale-95 cursor-pointer"
+                className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-700 text-white flex items-center justify-center shadow-xl active:scale-95 cursor-pointer hover:bg-slate-800"
                 title="Отдалить"
               >
                 <Minus className="w-4 h-4" />
               </button>
               <button
                 onClick={handleResetView}
-                className="w-9 h-9 rounded-xl bg-black/70 backdrop-blur-md border border-white/15 text-white flex items-center justify-center shadow-lg active:scale-95 cursor-pointer"
+                className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-700 text-white flex items-center justify-center shadow-xl active:scale-95 cursor-pointer hover:bg-slate-800"
                 title="Вся карта целиком"
               >
                 <Globe className="w-4 h-4" />
               </button>
               <button
                 onClick={handleFindMyGroup}
-                className="w-9 h-9 rounded-xl bg-indigo-600/90 text-white flex items-center justify-center shadow-lg shadow-indigo-600/30 active:scale-95 cursor-pointer"
-                title="Найти мою группу"
+                className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xl shadow-indigo-600/30 active:scale-95 cursor-pointer hover:bg-indigo-500 border border-indigo-400/50"
+                title="Найти мой клан"
               >
                 <Compass className="w-4 h-4" />
               </button>
@@ -909,27 +987,36 @@ export const WorldMapTab: React.FC = () => {
 
             {/* FLOATING BOTTOM OVERLAY: SELECTED CELL CARD */}
             {selectedCell && (
-              <div className="absolute bottom-3 left-3 right-3 z-30 p-3.5 rounded-2xl bg-tg-secondaryBg/95 backdrop-blur-xl border border-[var(--tg-theme-section-separator-color)] shadow-2xl animate-pop space-y-2.5">
+              <div
+                onMouseDown={(e) => e.stopPropagation()}
+                onMouseMove={(e) => e.stopPropagation()}
+                onMouseUp={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
+                onTouchEnd={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                className="absolute bottom-3 left-3 right-3 z-30 p-3.5 rounded-2xl bg-slate-900 border border-slate-700/90 shadow-2xl space-y-2.5 animate-pop"
+              >
                 <div className="flex items-center justify-between gap-2">
                   {selectedCell.is_land === 0 ? (
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-xl shrink-0">🌊</span>
                       <div className="min-w-0">
-                        <h3 className="text-xs font-black text-tg-text truncate">Нейтральные воды</h3>
+                        <h3 className="text-xs font-black text-white truncate">Нейтральные воды</h3>
                         <p className="text-[10px] text-sky-400 font-medium">Клетка ({selectedCell.x}, {selectedCell.y}) • Не захватывается</p>
                       </div>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 min-w-0">
                       <span
-                        className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm border border-black/10 dark:border-white/20"
+                        className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm border border-white/20"
                         style={{ backgroundColor: selectedCell.group_color || '#154228' }}
                       />
                       <div className="min-w-0">
-                        <h3 className="text-xs font-black text-tg-text truncate">
+                        <h3 className="text-xs font-black text-white truncate">
                           {selectedCell.group_name ? `Клан «${selectedCell.group_name}»` : 'Свободная земля'}
                         </h3>
-                        <p className="text-[10px] text-tg-hint truncate">
+                        <p className="text-[10px] text-slate-400 truncate">
                           Клетка ({selectedCell.x}, {selectedCell.y})
                         </p>
                       </div>
@@ -938,7 +1025,7 @@ export const WorldMapTab: React.FC = () => {
 
                   <div className="flex items-center gap-1.5 shrink-0">
                     {selectedCell.is_land !== 0 && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-lg bg-black/5 dark:bg-white/10 font-bold shrink-0">
+                      <span className="text-[10px] px-2 py-0.5 rounded-lg bg-white/10 font-bold shrink-0">
                         {selectedCell.is_monument ? (
                           <span className="text-amber-400">🏛️ Монумент</span>
                         ) : selectedCell.level >= 2 ? (
@@ -946,13 +1033,13 @@ export const WorldMapTab: React.FC = () => {
                         ) : selectedCell.level === 1 ? (
                           <span className="text-indigo-400">🚩 Lvl 1</span>
                         ) : (
-                          <span className="text-emerald-500">🟢 Свободна</span>
+                          <span className="text-emerald-400">🟢 Свободна</span>
                         )}
                       </span>
                     )}
                     <button
                       onClick={() => setSelectedCell(null)}
-                      className="p-1 rounded-lg text-tg-hint hover:text-tg-text active:scale-95 cursor-pointer"
+                      className="p-1 rounded-lg text-slate-400 hover:text-white active:scale-95 cursor-pointer"
                       title="Закрыть"
                     >
                       <X className="w-4 h-4" />
@@ -968,7 +1055,7 @@ export const WorldMapTab: React.FC = () => {
                 )}
 
                 {actionError && (
-                  <p className="text-[11px] text-rose-500 font-bold">{actionError}</p>
+                  <p className="text-[11px] text-rose-400 font-bold">{actionError}</p>
                 )}
 
                 {/* Action Buttons in Cell Card */}
@@ -979,31 +1066,46 @@ export const WorldMapTab: React.FC = () => {
                         {(!selectedCell.group_id || selectedCell.group_id !== myGroup.group?.id) && (
                           <button
                             disabled={actionLoading}
-                            onClick={() => executeAction('capture', selectedCell.x, selectedCell.y)}
-                            className="flex-1 py-2 px-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50 shadow-md shadow-indigo-600/20"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onTouchEnd={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              executeAction('capture', selectedCell.x, selectedCell.y);
+                            }}
+                            className="flex-1 py-2 px-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-black text-xs flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50 shadow-lg shadow-indigo-600/30 border border-indigo-400/30"
                           >
                             <Flag className="w-3.5 h-3.5" />
-                            <span>Захват (1 🪙)</span>
+                            <span>Захват (1 🏛️)</span>
                           </button>
                         )}
                         {selectedCell.group_id === myGroup.group?.id && selectedCell.level === 1 && (
                           <button
                             disabled={actionLoading}
-                            onClick={() => executeAction('fortify', selectedCell.x, selectedCell.y)}
-                            className="flex-1 py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50 shadow-md shadow-emerald-600/20"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onTouchEnd={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              executeAction('fortify', selectedCell.x, selectedCell.y);
+                            }}
+                            className="flex-1 py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-black text-xs flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50 shadow-lg shadow-emerald-600/30 border border-emerald-400/30"
                           >
                             <Shield className="w-3.5 h-3.5" />
-                            <span>Укрепить (2 🪙)</span>
+                            <span>Укрепить (2 🏛️)</span>
                           </button>
                         )}
                         {selectedCell.group_id && selectedCell.group_id !== myGroup.group?.id && selectedCell.level >= 2 && (
                           <button
                             disabled={actionLoading}
-                            onClick={() => executeAction('sabotage', selectedCell.x, selectedCell.y)}
-                            className="flex-1 py-2 px-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50 shadow-md shadow-rose-600/20"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onTouchEnd={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              executeAction('sabotage', selectedCell.x, selectedCell.y);
+                            }}
+                            className="flex-1 py-2 px-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white font-black text-xs flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-50 shadow-lg shadow-rose-600/30 border border-rose-400/30"
                           >
                             <Bomb className="w-3.5 h-3.5" />
-                            <span>Диверсия (1 🪙)</span>
+                            <span>Диверсия (1 🏛️)</span>
                           </button>
                         )}
                       </>
@@ -1012,8 +1114,13 @@ export const WorldMapTab: React.FC = () => {
                     {myGroup?.group && (!selectedCell.group_id || selectedCell.group_id !== myGroup.group.id) && (
                       <button
                         disabled={actionLoading || coins < 3000}
-                        onClick={() => executeAction('emergency', selectedCell.x, selectedCell.y)}
-                        className="py-2 px-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-black text-xs flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-40 shadow-md shadow-amber-500/20"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onTouchEnd={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          executeAction('emergency', selectedCell.x, selectedCell.y);
+                        }}
+                        className="py-2 px-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 active:from-amber-600 active:to-amber-700 text-white font-black text-xs flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer disabled:opacity-40 shadow-lg shadow-amber-500/30 border border-amber-400/40"
                       >
                         <Coins className="w-3.5 h-3.5" />
                         <span>Экстренный (3 000 🪙)</span>
@@ -1026,19 +1133,40 @@ export const WorldMapTab: React.FC = () => {
 
             {/* FLOATING BOTTOM COMMANDER BAR (When NO cell is selected) */}
             {!selectedCell && myGroup?.isCommander && (
-              <div className="absolute bottom-3 left-3 right-3 z-20 p-2.5 rounded-2xl bg-tg-secondaryBg/95 backdrop-blur-xl border border-indigo-500/30 shadow-2xl space-y-1.5 animate-fade-in">
+              <div
+                onMouseDown={(e) => e.stopPropagation()}
+                onMouseMove={(e) => e.stopPropagation()}
+                onMouseUp={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
+                onTouchEnd={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                className="absolute bottom-3 left-3 right-3 z-20 p-2.5 rounded-2xl bg-slate-900 border border-indigo-500/50 shadow-2xl space-y-1.5 animate-fade-in"
+              >
                 <div className="flex items-center justify-between px-1">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    <span className="text-[11px] font-black text-tg-text truncate">Панель Командора «{myGroup.group?.name}»</span>
+                    <span className="text-[11px] font-black text-white truncate">Панель Командора «{myGroup.group?.name}»</span>
                   </div>
-                  <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-400 border border-amber-400/30 shrink-0">
-                    {myGroup.group?.treasuryTokens || 0} 🪙 токенов
-                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-400 border border-amber-400/30">
+                      {myGroup.group?.treasuryTokens || 0} 🏛️ токенов
+                    </span>
+                    <button
+                      onClick={handleShareClanInvite}
+                      className="p-1 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] flex items-center gap-0.5 font-bold cursor-pointer active:scale-95 shadow-sm"
+                      title="Пригласить в клан"
+                    >
+                      <UserPlus className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-4 gap-1.5">
                   <button
-                    onClick={() => {
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onTouchEnd={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
                       sound.playUiTap();
                       haptics.selection();
                       setSelectedAction(selectedAction === 'capture' ? null : 'capture');
@@ -1046,15 +1174,18 @@ export const WorldMapTab: React.FC = () => {
                     className={`py-1.5 px-1 rounded-xl border text-[10px] font-black flex flex-col items-center gap-0.5 transition-all cursor-pointer ${
                       selectedAction === 'capture'
                         ? 'bg-indigo-600 border-indigo-400 text-white shadow-sm'
-                        : 'bg-tg-bg/70 border-[var(--tg-theme-section-separator-color)] text-tg-text hover:border-indigo-400'
+                        : 'bg-slate-800 border-slate-700 text-slate-200 hover:border-indigo-400'
                     }`}
                   >
                     <Flag className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>Захват</span>
+                    <span>Захват (1 🏛️)</span>
                   </button>
 
                   <button
-                    onClick={() => {
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onTouchEnd={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
                       sound.playUiTap();
                       haptics.selection();
                       setSelectedAction(selectedAction === 'fortify' ? null : 'fortify');
@@ -1062,15 +1193,18 @@ export const WorldMapTab: React.FC = () => {
                     className={`py-1.5 px-1 rounded-xl border text-[10px] font-black flex flex-col items-center gap-0.5 transition-all cursor-pointer ${
                       selectedAction === 'fortify'
                         ? 'bg-emerald-600 border-emerald-400 text-white shadow-sm'
-                        : 'bg-tg-bg/70 border-[var(--tg-theme-section-separator-color)] text-tg-text hover:border-emerald-400'
+                        : 'bg-slate-800 border-slate-700 text-slate-200 hover:border-emerald-400'
                     }`}
                   >
                     <Shield className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Защита</span>
+                    <span>Защита (2 🏛️)</span>
                   </button>
 
                   <button
-                    onClick={() => {
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onTouchEnd={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
                       sound.playUiTap();
                       haptics.selection();
                       setSelectedAction(selectedAction === 'sabotage' ? null : 'sabotage');
@@ -1078,15 +1212,18 @@ export const WorldMapTab: React.FC = () => {
                     className={`py-1.5 px-1 rounded-xl border text-[10px] font-black flex flex-col items-center gap-0.5 transition-all cursor-pointer ${
                       selectedAction === 'sabotage'
                         ? 'bg-rose-600 border-rose-400 text-white shadow-sm'
-                        : 'bg-tg-bg/70 border-[var(--tg-theme-section-separator-color)] text-tg-text hover:border-rose-400'
+                        : 'bg-slate-800 border-slate-700 text-slate-200 hover:border-rose-400'
                     }`}
                   >
                     <Bomb className="w-3.5 h-3.5 text-rose-400" />
-                    <span>Диверсия</span>
+                    <span>Диверсия (1 🏛️)</span>
                   </button>
 
                   <button
-                    onClick={() => {
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onTouchEnd={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
                       sound.playUiTap();
                       haptics.selection();
                       setSelectedAction(selectedAction === 'monument' ? null : 'monument');
@@ -1094,11 +1231,11 @@ export const WorldMapTab: React.FC = () => {
                     className={`py-1.5 px-1 rounded-xl border text-[10px] font-black flex flex-col items-center gap-0.5 transition-all cursor-pointer ${
                       selectedAction === 'monument'
                         ? 'bg-amber-600 border-amber-400 text-white shadow-sm'
-                        : 'bg-tg-bg/70 border-[var(--tg-theme-section-separator-color)] text-tg-text hover:border-amber-400'
+                        : 'bg-slate-800 border-slate-700 text-slate-200 hover:border-amber-400'
                     }`}
                   >
                     <Layers className="w-3.5 h-3.5 text-amber-400" />
-                    <span>3×3</span>
+                    <span>3×3 (5 🏛️)</span>
                   </button>
                 </div>
               </div>
@@ -1106,101 +1243,121 @@ export const WorldMapTab: React.FC = () => {
 
             {/* FLOATING HINT (When NO cell selected & user is not commander) */}
             {!selectedCell && !myGroup?.isCommander && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-3.5 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-[10px] text-white/80 pointer-events-none shadow-lg whitespace-nowrap">
+              <div
+                onMouseDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchEnd={(e) => e.stopPropagation()}
+                className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-3.5 py-1.5 rounded-full bg-slate-900/95 border border-slate-700 text-[10px] text-white/90 pointer-events-none shadow-xl whitespace-nowrap"
+              >
                 Тапните по клетке для разведки
               </div>
             )}
           </div>
         </div>
-      )}
 
       {/* SUB-SCREEN 2: GROUP LEADERBOARD */}
-      {activeSubTab === 'leaderboard' && (
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-20">
-          <div className="p-4 rounded-3xl bg-gradient-to-r from-indigo-900/40 via-purple-900/30 to-slate-900/50 border border-indigo-500/30 shadow-lg flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-2xl bg-indigo-500/20 text-indigo-400">
-                <Clock className="w-6 h-6 animate-pulse" />
-              </div>
-              <div>
-                <span className="text-[10px] text-tg-hint uppercase font-extrabold tracking-wider">
-                  Цикл #{cycleNumber} (72 часа)
-                </span>
-                <p className="text-lg font-black text-indigo-400">
-                  {formatCountdown(remainingSeconds)}
-                </p>
-              </div>
+      <div className={activeSubTab === 'leaderboard' ? 'flex-1 overflow-y-auto p-4 space-y-4 pb-20' : 'hidden'}>
+        <div className="p-4 rounded-3xl bg-gradient-to-r from-indigo-900/40 via-purple-900/30 to-slate-900/50 border border-indigo-500/30 shadow-lg flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-2xl bg-indigo-500/20 text-indigo-400">
+              <Clock className="w-6 h-6 animate-pulse" />
             </div>
-            <button
-              onClick={() => {
-                sound.playUiTap();
-                fetchLeaderboardData();
-              }}
-              className="p-2 rounded-xl bg-black/20 hover:bg-black/40 text-tg-hint active:scale-95 cursor-pointer"
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoadingLeaderboard ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] text-[11px] text-tg-hint">
-            <div className="flex items-center gap-1.5 font-black text-tg-text mb-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Награды в казну группы по итогам 72ч:</span>
-            </div>
-            <div className="flex items-center justify-between text-center font-bold">
-              <div><span className="text-amber-400 font-black">#1</span>: 12 🪙</div>
-              <div><span className="text-slate-300 font-black">#2</span>: 8 🪙</div>
-              <div><span className="text-amber-600 font-black">#3</span>: 5 🪙</div>
-              <div><span className="text-tg-text font-black">4–10</span>: 2 🪙</div>
-              <div><span className="text-tg-hint font-black">11–50</span>: 1 🪙</div>
+            <div>
+              <span className="text-[10px] text-tg-hint uppercase font-extrabold tracking-wider">
+                Цикл #{cycleNumber} (72 часа)
+              </span>
+              <p className="text-lg font-black text-indigo-400">
+                {formatCountdown(remainingSeconds)}
+              </p>
             </div>
           </div>
+          <button
+            onClick={() => {
+              sound.playUiTap();
+              fetchLeaderboardData();
+            }}
+            className="p-2 rounded-xl bg-black/20 hover:bg-black/40 text-tg-hint active:scale-95 cursor-pointer"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoadingLeaderboard ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
 
-          {myGroup?.group ? (
-            <div className="p-4 rounded-3xl bg-tg-secondaryBg border-2 border-indigo-500/40 shadow-lg">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className="w-10 h-10 rounded-2xl flex items-center justify-center font-black text-white text-base shadow-sm"
-                    style={{ backgroundColor: myGroup.group.color }}
-                  >
-                    {myGroup.group.name.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-tg-text flex items-center gap-1.5">
-                      {myGroup.group.name}
-                      {myGroup.isCommander && <Crown className="w-3.5 h-3.5 text-amber-400" />}
-                    </h3>
-                    <p className="text-[11px] text-tg-hint">
-                      {myGroup.group.username ? `@${myGroup.group.username}` : `${myGroup.group.memberCount} участников`}
-                    </p>
-                  </div>
+        <div className="p-3.5 rounded-2xl bg-tg-secondaryBg border border-[var(--tg-theme-section-separator-color)] text-[11px] text-tg-hint">
+          <div className="flex items-center gap-1.5 font-black text-tg-text mb-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            <span>Награды в казну группы по итогам 72ч:</span>
+          </div>
+          <div className="flex items-center justify-between text-center font-bold">
+            <div><span className="text-amber-400 font-black">#1</span>: 12 🏛️</div>
+            <div><span className="text-slate-300 font-black">#2</span>: 8 🏛️</div>
+            <div><span className="text-amber-600 font-black">#3</span>: 5 🏛️</div>
+            <div><span className="text-tg-text font-black">4–10</span>: 2 🏛️</div>
+            <div><span className="text-tg-hint font-black">11–50</span>: 1 🏛️</div>
+          </div>
+        </div>
+
+        {myGroup?.group ? (
+          <div className="p-4 rounded-3xl bg-slate-900 border-2 border-indigo-500/40 shadow-xl">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div
+                  className="w-10 h-10 rounded-2xl flex items-center justify-center font-black text-white text-base shadow-sm shrink-0"
+                  style={{ backgroundColor: myGroup.group.color }}
+                >
+                  {myGroup.group.name.slice(0, 2).toUpperCase()}
                 </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-black text-tg-text flex items-center gap-1.5 truncate">
+                    {myGroup.group.name}
+                    {myGroup.isCommander && <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+                  </h3>
+                  <p className="text-[11px] text-tg-hint truncate">
+                    {myGroup.group.username ? `@${myGroup.group.username}` : `${myGroup.group.memberCount} участников`}
+                  </p>
+                </div>
+              </div>
 
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={handleShareClanInvite}
+                  className="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black flex items-center gap-1 shadow-md shadow-indigo-600/30 active:scale-95 cursor-pointer"
+                  title="Пригласить в клан"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Пригласить</span>
+                </button>
+                <button
+                  onClick={handleCopyClanInvite}
+                  className="p-1.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:text-white active:scale-95 cursor-pointer"
+                  title="Скопировать ссылку"
+                >
+                  {inviteCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
                 <button
                   onClick={() => {
                     sound.playUiTap();
                     haptics.selection();
                     setIsJoinModalOpen(true);
                   }}
-                  className="px-3 py-1.5 rounded-xl bg-black/10 dark:bg-white/10 text-xs font-bold text-tg-text hover:bg-black/20 active:scale-95 cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold text-slate-300 hover:text-white active:scale-95 cursor-pointer"
                 >
                   Сменить
                 </button>
               </div>
+            </div>
 
-              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[var(--tg-theme-section-separator-color)] text-xs">
-                <div>
-                  <span className="text-[10px] text-tg-hint font-medium">Ваш вклад в цикл:</span>
-                  <p className="text-sm font-black text-indigo-400">+{myGroup.userCycleScore.toLocaleString()} pts</p>
-                </div>
-                <div>
-                  <span className="text-[10px] text-tg-hint font-medium">Казна группы:</span>
-                  <p className="text-sm font-black text-amber-400">{myGroup.group.treasuryTokens} 🪙 токенов</p>
-                </div>
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800 text-xs">
+              <div>
+                <span className="text-[10px] text-tg-hint font-medium">Ваш вклад в цикл:</span>
+                <p className="text-sm font-black text-indigo-400">+{myGroup.userCycleScore.toLocaleString()} pts</p>
+              </div>
+              <div>
+                <span className="text-[10px] text-tg-hint font-medium">Казна клана:</span>
+                <p className="text-sm font-black text-amber-400">{myGroup.group.treasuryTokens} 🏛️ токенов</p>
               </div>
             </div>
-          ) : (
+          </div>
+        ) : (
             <div className="p-5 rounded-3xl bg-gradient-to-br from-indigo-600/20 via-purple-600/10 to-transparent border border-indigo-500/30 text-center space-y-3">
               <Users className="w-10 h-10 mx-auto text-indigo-400" />
               <div>
@@ -1286,7 +1443,6 @@ export const WorldMapTab: React.FC = () => {
             )}
           </div>
         </div>
-      )}
 
       {/* MODAL: Join / Create Group */}
       {isJoinModalOpen && (

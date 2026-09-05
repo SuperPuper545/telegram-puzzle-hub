@@ -36,6 +36,7 @@ db.exec(`
     user_id INTEGER NOT NULL,
     game_id TEXT NOT NULL,
     score INTEGER NOT NULL,
+    raw_score INTEGER DEFAULT 0,
     duration_seconds INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id)
@@ -257,6 +258,10 @@ try {
 
 
 
+try {
+  db.exec(`ALTER TABLE scores ADD COLUMN raw_score INTEGER DEFAULT 0`);
+} catch (_) {}
+
 export function upsertUser(tgUser) {
   const telegramId = String(tgUser.id);
   const username = tgUser.username || null;
@@ -287,7 +292,10 @@ export function upsertUser(tgUser) {
 
 export function getUserBestScores(userId) {
   const stmt = db.prepare(`
-    SELECT game_id, MAX(score) as best_score, COUNT(*) as games_played
+    SELECT game_id, 
+           MAX(score) as best_score, 
+           MAX(CASE WHEN raw_score > 0 THEN raw_score ELSE score END) as best_raw_score,
+           COUNT(*) as games_played
     FROM scores
     WHERE user_id = ?
     GROUP BY game_id
@@ -304,9 +312,20 @@ export function parseDbTime(val) {
   return isNaN(t) ? 0 : t;
 }
 
+export const GAME_SCORE_COEFFICIENTS = {
+  blockudoku: 1.0,
+  match3: 0.5,
+  '2048': 1.0,
+  flappy: 75.0,
+  stack: 75.0,
+  knife: 60.0,
+};
+
 export function recordScore(userId, gameId, score, duration = 0) {
-  let safeScore = Math.max(0, parseInt(score, 10) || 0);
+  const rawScore = Math.max(0, parseInt(score, 10) || 0);
   const safeDuration = Math.max(0, parseInt(duration, 10) || 0);
+  const coefficient = GAME_SCORE_COEFFICIENTS[gameId] ?? 1.0;
+  let safeScore = Math.round(rawScore * coefficient);
 
   // Apply Score Booster x2 if active (strictly on server)
   const user = db.prepare('SELECT score_booster_until, group_id FROM users WHERE id = ?').get(userId);
@@ -327,22 +346,27 @@ export function recordScore(userId, gameId, score, duration = 0) {
   }
 
   const prevBestStmt = db.prepare(`
-    SELECT MAX(score) as best_score FROM scores WHERE user_id = ? AND game_id = ?
+    SELECT MAX(CASE WHEN raw_score > 0 THEN raw_score ELSE score END) as best_raw_score,
+           MAX(score) as best_score 
+    FROM scores WHERE user_id = ? AND game_id = ?
   `);
   const prev = prevBestStmt.get(userId, gameId);
-  const prevBest = prev ? (prev.best_score || 0) : 0;
-  const isNewRecord = safeScore > prevBest;
+  const prevRawBest = prev ? (prev.best_raw_score || 0) : 0;
+  const prevScoreBest = prev ? (prev.best_score || 0) : 0;
+  const isNewRecord = rawScore > prevRawBest;
 
   const insertStmt = db.prepare(`
-    INSERT INTO scores (user_id, game_id, score, duration_seconds)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO scores (user_id, game_id, score, raw_score, duration_seconds)
+    VALUES (?, ?, ?, ?, ?)
   `);
-  insertStmt.run(userId, gameId, safeScore, safeDuration);
+  insertStmt.run(userId, gameId, safeScore, rawScore, safeDuration);
 
   return {
     score: safeScore,
+    rawScore,
+    coefficient,
     isNewRecord,
-    bestScore: Math.max(prevBest, safeScore),
+    bestScore: Math.max(prevRawBest, rawScore),
     isBoosterActive,
   };
 }
@@ -1723,7 +1747,7 @@ export const STARS_PRODUCTS = {
   group_boost: { name: 'Групповой буст (x1.5 на 24ч)', stars: 100, type: 'group_boost' },
   monument_5x5: { name: 'Монумент 5x5', stars: 150, type: 'monument_5x5' },
   group_color: { name: 'Уникальный цвет группы', stars: 50, type: 'group_color' },
-  extra_tokens: { name: 'Экстра токен (+3 токена)', stars: 80, type: 'extra_tokens' },
+  extra_tokens: { name: 'Токены казны (+3)', stars: 80, type: 'extra_tokens' },
   cell_shield: { name: 'Щит клетки (7 дней)', stars: 30, type: 'cell_shield' },
 };
 

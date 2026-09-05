@@ -335,3 +335,12 @@ export function createChallengeShareUrl(botUsername: string, gameId: string, gam
   return `https://t.me/share/url?url=${encodeURIComponent(challengeLink)}&text=${encodeURIComponent(shareText)}`;
 }
 
+export function createClanInviteShareUrl(botUsername: string, groupId: number, clanName: string): { inviteLink: string; shareUrl: string } {
+  const startParam = `clan_${groupId}`;
+  const inviteLink = `https://t.me/${botUsername}?startapp=${startParam}`;
+  const shareText = `🛡️ Присоединяйся к нашему клану «${clanName}» в Telegram Puzzle Hub!\n⚔️ Собирай очки в головоломках и захватывай мир на глобальной карте!`;
+  const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent(shareText)}`;
+  return { inviteLink, shareUrl };
+}
+
+
