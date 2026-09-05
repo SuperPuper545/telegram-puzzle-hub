@@ -18,6 +18,7 @@ import {
   getReferralsInfo, spendCoins, awardCoins, getShopCatalog, buyShopItem, equipShopItem,
   freezeCoins, settleDuel, getDuelHistory, createDuelRoom, getDuelStats,
   getGroupById, getGroupByTelegramChatId, getGroupByUsername, createGroup,
+  createCustomGroup, renameGroup, validateGroupName,
   joinGroup, getUserGroup, getGroupLeaderboard, updateGroupColor,
   getWorldMapCells, getWorldMapDiff, executeMapAction, activateScoreBooster,
   STARS_PRODUCTS, processStarsPayment, runCycleCalculation,
@@ -111,7 +112,21 @@ app.get('/api/leaderboard/:gameId', (req, res) => {
   res.json({ gameId, leaderboard:board.map((row,i)=>({rank:i+1,userId:row.user_id,telegramId:row.telegram_id,username:row.username,firstName:row.first_name,lastName:row.last_name,photoUrl:row.photo_url,equippedTitle:row.equipped_title||'title_novice',highScore:row.high_score,achievedAt:row.achieved_at})), userRank });
 });
 app.get('/api/referrals', authMiddleware, (req, res) => { const d = getReferralsInfo(req.user.id); if (!d) return res.status(404).json({error:'not found'}); res.json({...d,botUsername:process.env.BOT_USERNAME||'taptaphub_bot'}); });
-app.post('/api/referrals/claim', authMiddleware, (req, res) => { const {startParam}=req.body; if(!startParam) return res.status(400).json({error:'required'}); const r=processReferral(req.user.id,startParam); if(!r.success) return res.status(400).json(r); const u=getUserById(req.user.id); res.json({...r,newCoins:u?.coins??0}); });
+app.post('/api/referrals/claim', authMiddleware, (req, res) => {
+  const { startParam } = req.body;
+  if (!startParam) return res.status(400).json({ error: 'required' });
+  const r = processReferral(req.user.id, startParam);
+  if (!r.success) {
+    if (r.joinedGroup) {
+      const fullGroup = getUserGroup(req.user.id);
+      return res.json({ ...r, success: true, group: fullGroup, alreadyReferred: true });
+    }
+    return res.status(400).json(r);
+  }
+  const u = getUserById(req.user.id);
+  const fullGroup = r.joinedGroup ? getUserGroup(req.user.id) : null;
+  res.json({ ...r, newCoins: u?.coins ?? 0, group: fullGroup });
+});
 app.get('/api/daily-reward/status', authMiddleware, (req, res) => { const s=getDailyRewardStatus(req.user.id); if(!s) return res.status(404).json({error:'not found'}); res.json(s); });
 app.post('/api/daily-reward/claim', authMiddleware, (req, res) => { const r=claimDailyReward(req.user.id); if(!r.success) return res.status(400).json(r); res.json(r); });
 app.post('/api/coins/spend', authMiddleware, (req, res) => { const {amount,reason}=req.body; const r=spendCoins(req.user.id,amount,reason); if(!r.success) return res.status(400).json(r); res.json(r); });
@@ -206,6 +221,40 @@ app.post('/api/groups/color', authMiddleware, (req, res) => {
   res.json(r);
 });
 
+app.post('/api/groups/create-custom', authMiddleware, (req, res) => {
+  try {
+    const result = createCustomGroup(req.user.id);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    const fullGroupInfo = getUserGroup(req.user.id);
+    res.json({ success: true, group: fullGroupInfo });
+  } catch (err) {
+    console.error('Create custom clan error:', err);
+    res.status(500).json({ error: 'Ошибка при создании клана' });
+  }
+});
+
+app.post('/api/groups/rename-check', authMiddleware, (req, res) => {
+  try {
+    const { newName } = req.body;
+    const user = getUserById(req.user.id);
+    if (!user || !user.group_id) return res.status(400).json({ valid: false, error: 'Вы не состоите в клане' });
+    const grp = getGroupById(user.group_id);
+    if (!grp || grp.commander_user_id !== req.user.id) {
+      return res.status(403).json({ valid: false, error: 'Только Командор может менять название' });
+    }
+    const validation = validateGroupName(newName);
+    if (!validation.valid) {
+      return res.status(400).json(validation);
+    }
+    res.json({ valid: true, name: validation.name });
+  } catch (err) {
+    console.error('Rename check error:', err);
+    res.status(500).json({ valid: false, error: 'Ошибка проверки названия' });
+  }
+});
+
 // ─── WORLD MAP API ──────────────────────────────────────────────────────────
 app.get('/api/world-map', (req, res) => {
   const cells = getCachedWorldMap();
@@ -262,6 +311,19 @@ app.post('/api/stars/create-invoice', authMiddleware, async (req, res) => {
   const product = STARS_PRODUCTS[productId];
   if (!product) return res.status(400).json({ error: 'Неизвестный продукт' });
 
+  if (productId === 'clan_rename') {
+    const user = getUserById(req.user.id);
+    if (!user || !user.group_id) return res.status(400).json({ error: 'Вы не состоите в клане' });
+    const grp = getGroupById(user.group_id);
+    if (!grp || grp.commander_user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Только Командор может менять название клана' });
+    }
+    const validation = validateGroupName(extra?.newName);
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.error });
+    }
+  }
+
   try {
     const invoiceLink = await createStarsInvoiceLink({
       title: product.name,
@@ -297,6 +359,11 @@ app.post('/api/stars/webhook', authMiddleware, (req, res) => {
     chargeId: `sim_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     payload: extra || {},
   });
+
+  if (productId === 'clan_rename') {
+    const fullGroupInfo = getUserGroup(req.user.id);
+    return res.json({ ...result, group: fullGroupInfo });
+  }
 
   res.json(result);
 });

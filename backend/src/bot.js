@@ -158,10 +158,18 @@ async function handleMessage(msg) {
           referralNotice = `🎁 <b>Вам начислен приветственный бонус: +500 🪙!</b>\n` +
             `Вас пригласил игрок <b>${refResult.inviter.firstName || 'друг'}</b>.\n\n`;
 
+          if (refResult.joinedGroup) {
+            referralNotice += `🏰 <b>Вы автоматически вступили в клан «${refResult.joinedGroup.name}»!</b>\n` +
+              `Объединяйте силы с соклановцами и побеждайте в битвах за территории на Карте Мира!\n\n`;
+          }
+
           if (refResult.inviter.telegramId) {
-            const inviterMsg = `🎉 <b>У вас новый реферал!</b>\n\n` +
+            let inviterMsg = `🎉 <b>У вас новый реферал!</b>\n\n` +
               `Игрок <b>${tgUser?.first_name || 'Новый игрок'}</b> (@${tgUser?.username || 'user'}) присоединился по вашей ссылке.\n` +
               `Вам начислено <b>+500 🪙</b>! 💰`;
+            if (refResult.joinedGroup) {
+              inviterMsg += `\n🏰 Игрок также вступил в ваш клан «${refResult.joinedGroup.name}»!`;
+            }
 
             await tgCall('sendMessage', {
               chat_id: refResult.inviter.telegramId,
@@ -169,6 +177,9 @@ async function handleMessage(msg) {
               parse_mode: 'HTML',
             });
           }
+        } else if (refResult.joinedGroup) {
+          referralNotice = `🏰 <b>Вы автоматически вступили в клан «${refResult.joinedGroup.name}»!</b>\n` +
+            `Вас пригласил соклановец <b>${refResult.inviter.firstName || 'друг'}</b>.\n\n`;
         }
       } catch (err) {
         console.warn('Referral processing error in bot:', err);
@@ -558,9 +569,13 @@ export async function startBotPolling() {
                   chargeId: sp.telegram_payment_charge_id,
                   payload: payload.extra || {},
                 });
+                let successMsg = `⭐ <b>Оплата прошла успешно!</b>\nБонусы уже начислены на ваш аккаунт в TapTap Hub! 🚀`;
+                if (payload.productId === 'clan_rename') {
+                  successMsg = `⭐ <b>Название клана успешно изменено!</b>\nНовое имя уже отображается на Карте Мира и в рейтинге! 🏰`;
+                }
                 await tgCall('sendMessage', {
                   chat_id: update.message.chat.id,
-                  text: `⭐ <b>Оплата прошла успешно!</b>\nБонусы уже начислены на ваш аккаунт в TapTap Hub! 🚀`,
+                  text: successMsg,
                   parse_mode: 'HTML',
                 });
               } catch (e) {

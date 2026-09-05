@@ -3,7 +3,7 @@ import { useGameBridge } from '../../context/GameContext';
 import { 
   Globe, Trophy, Shield, Crosshair, Compass, Plus, Minus,
   Flag, Bomb, Crown, Coins, Users, UserPlus, Copy, Check,
-  Clock, Sparkles, RefreshCw, X, AlertTriangle, Layers, Loader2
+  Clock, Sparkles, RefreshCw, X, AlertTriangle, Layers, Loader2, Edit2
 } from 'lucide-react';
 import { haptics, createClanInviteShareUrl, getTelegramWebApp } from '../../telegram/telegram';
 import { sound } from '../../utils/sound';
@@ -42,7 +42,7 @@ interface GroupLeaderboardItem {
 }
 
 export const WorldMapTab: React.FC = () => {
-  const { user, coins, myGroup, fetchMyGroup, joinGroup, referralsData } = useGameBridge();
+  const { user, coins, myGroup, fetchMyGroup, joinGroup, createCustomClan, checkClanRename, createRenameInvoice, referralsData } = useGameBridge();
 
   const [activeSubTab, setActiveSubTab] = useState<'map' | 'leaderboard'>('map');
   const [inviteCopied, setInviteCopied] = useState(false);
@@ -65,20 +65,50 @@ export const WorldMapTab: React.FC = () => {
   const [joinLoading, setJoinLoading] = useState<boolean>(false);
   const [joinError, setJoinError] = useState<string | null>(null);
 
+  // Clan Creation & Rename State
+  const [isCreatingClan, setIsCreatingClan] = useState<boolean>(false);
+  const [createClanError, setCreateClanError] = useState<string | null>(null);
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState<boolean>(false);
+  const [renameInput, setRenameInput] = useState<string>('');
+  const [renameLoading, setRenameLoading] = useState<boolean>(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
+
   // Leaderboard state
   const [leaderboard, setLeaderboard] = useState<GroupLeaderboardItem[]>([]);
   const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
   const [cycleNumber, setCycleNumber] = useState<number>(1);
   const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState<boolean>(false);
 
-  // Clan Invite actions
+  // Heraldic badge helper
+  const getClanBadgeIcon = (badge: string | null | undefined, name: string) => {
+    const badgeMap: Record<string, string> = {
+      badge_lion: '🦁',
+      badge_wolf: '🐺',
+      badge_eagle: '🦅',
+      badge_dragon: '🐉',
+      badge_crown: '👑',
+      badge_sword: '⚔️',
+      badge_shield: '🛡️',
+      badge_falcon: '🦅',
+      badge_bear: '🐻',
+      badge_fire: '🔥',
+      badge_lightning: '⚡',
+      badge_star: '⭐',
+    };
+    if (badge && badgeMap[badge]) {
+      return badgeMap[badge];
+    }
+    return name ? name.slice(0, 2).toUpperCase() : '🏰';
+  };
+
+  // Clan Invite actions (unified with referral link)
   const handleShareClanInvite = () => {
     sound.playUiTap();
     haptics.medium();
     if (!myGroup?.group) return;
 
     const botUsername = referralsData?.botUsername || 'taptaphub_bot';
-    const { shareUrl } = createClanInviteShareUrl(botUsername, myGroup.group.id, myGroup.group.name);
+    const { shareUrl } = createClanInviteShareUrl(botUsername, myGroup.group.id, myGroup.group.name, user.id);
 
     const tg = getTelegramWebApp();
     if (tg?.openTelegramLink) {
@@ -94,7 +124,7 @@ export const WorldMapTab: React.FC = () => {
     if (!myGroup?.group) return;
 
     const botUsername = referralsData?.botUsername || 'taptaphub_bot';
-    const { inviteLink } = createClanInviteShareUrl(botUsername, myGroup.group.id, myGroup.group.name);
+    const { inviteLink } = createClanInviteShareUrl(botUsername, myGroup.group.id, myGroup.group.name, user.id);
 
     try {
       if (navigator.clipboard) {
@@ -747,6 +777,98 @@ export const WorldMapTab: React.FC = () => {
     }
   };
 
+  const handleCreateClanClick = async () => {
+    sound.playUiTap();
+    haptics.medium();
+    setIsCreatingClan(true);
+    setCreateClanError(null);
+    try {
+      const res = await createCustomClan();
+      if (res.success) {
+        sound.playRecord();
+        haptics.success();
+        await fetchLeaderboardData();
+      } else {
+        haptics.error();
+        setCreateClanError(res.error || 'Не удалось создать клан');
+      }
+    } catch {
+      setCreateClanError('Ошибка соединения с сервером');
+    } finally {
+      setIsCreatingClan(false);
+    }
+  };
+
+  const handleRenameSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    sound.playUiTap();
+    haptics.medium();
+    const trimmed = renameInput.trim();
+    if (trimmed.length < 3) {
+      setRenameError('Минимум 3 символа');
+      return;
+    }
+    setRenameLoading(true);
+    setRenameError(null);
+    try {
+      const checkRes = await checkClanRename(trimmed);
+      if (!checkRes.valid) {
+        setRenameError(checkRes.error || 'Недопустимое название');
+        setRenameLoading(false);
+        return;
+      }
+
+      const invRes = await createRenameInvoice(trimmed);
+      if (!invRes.success || !invRes.invoiceLink) {
+        setRenameError(invRes.error || 'Не удалось создать счет Stars');
+        setRenameLoading(false);
+        return;
+      }
+
+      const tg = getTelegramWebApp();
+      if (tg?.openInvoice) {
+        tg.openInvoice(invRes.invoiceLink, async (status: string) => {
+          if (status === 'paid') {
+            sound.playRecord();
+            haptics.success();
+            await fetchMyGroup();
+            await fetchLeaderboardData();
+            setIsRenameModalOpen(false);
+          } else if (status === 'cancelled' || status === 'failed') {
+            setRenameError('Оплата отменена');
+          }
+        });
+      } else {
+        // Fallback / simulation outside Telegram Mini App
+        const res = await fetch('/api/stars/webhook', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-mock-user-id': String(user.id),
+          },
+          body: JSON.stringify({
+            productId: 'clan_rename',
+            extra: { newName: trimmed },
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          sound.playRecord();
+          haptics.success();
+          await fetchMyGroup();
+          await fetchLeaderboardData();
+          setIsRenameModalOpen(false);
+        } else {
+          setRenameError(data.error || 'Ошибка смены названия');
+        }
+      }
+    } catch {
+      setRenameError('Ошибка соединения с сервером');
+    } finally {
+      setRenameLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full w-full select-none animate-fade-in text-tg-text overflow-hidden relative">
       {/* Top Navigation Switcher */}
@@ -1304,12 +1426,31 @@ export const WorldMapTab: React.FC = () => {
                   className="w-10 h-10 rounded-2xl flex items-center justify-center font-black text-white text-base shadow-sm shrink-0"
                   style={{ backgroundColor: myGroup.group.color }}
                 >
-                  {myGroup.group.name.slice(0, 2).toUpperCase()}
+                  {getClanBadgeIcon(myGroup.group.photoUrl, myGroup.group.name)}
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-sm font-black text-tg-text flex items-center gap-1.5 truncate">
-                    {myGroup.group.name}
-                    {myGroup.isCommander && <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+                    <span>{myGroup.group.name}</span>
+                    {myGroup.isCommander && (
+                      <span title="Командор клана">
+                        <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      </span>
+                    )}
+                    {myGroup.isCommander && (
+                      <button
+                        onClick={() => {
+                          sound.playUiTap();
+                          haptics.selection();
+                          setRenameInput(myGroup.group?.name || '');
+                          setRenameError(null);
+                          setIsRenameModalOpen(true);
+                        }}
+                        className="p-1 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-amber-400/10 active:scale-95 transition-all cursor-pointer shrink-0"
+                        title="Сменить название клана (50 ⭐)"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </h3>
                   <p className="text-[11px] text-tg-hint truncate">
                     {myGroup.group.username ? `@${myGroup.group.username}` : `${myGroup.group.memberCount} участников`}
@@ -1358,26 +1499,93 @@ export const WorldMapTab: React.FC = () => {
             </div>
           </div>
         ) : (
-            <div className="p-5 rounded-3xl bg-gradient-to-br from-indigo-600/20 via-purple-600/10 to-transparent border border-indigo-500/30 text-center space-y-3">
-              <Users className="w-10 h-10 mx-auto text-indigo-400" />
-              <div>
-                <h3 className="text-sm font-black text-tg-text">Вы пока не состоите в группе</h3>
-                <p className="text-xs text-tg-hint mt-1">
-                  Привяжите свой Telegram-чат, суммируйте очки с друзьями и боритесь за господство на Карте Мира!
+          <div className="p-5 rounded-3xl bg-gradient-to-br from-indigo-950/40 via-slate-900 to-slate-900 border-2 border-indigo-500/30 shadow-xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center shrink-0">
+                <Users className="w-6 h-6 text-indigo-400" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-sm font-black text-tg-text">Вы пока не состоите в клане</h3>
+                <p className="text-xs text-tg-hint mt-0.5">
+                  Вступите по ссылке друга или создайте собственный клан!
                 </p>
               </div>
-              <button
-                onClick={() => {
-                  sound.playUiTap();
-                  haptics.selection();
-                  setIsJoinModalOpen(true);
-                }}
-                className="w-full py-3 px-4 rounded-xl tg-btn-primary font-bold text-xs shadow-md cursor-pointer"
-              >
-                Привязать Telegram-группу
-              </button>
             </div>
-          )}
+
+            {/* Referrals requirement to create clan */}
+            <div className="p-3.5 rounded-2xl bg-black/30 border border-white/5 space-y-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-300 flex items-center gap-1.5">
+                  <Crown className="w-3.5 h-3.5 text-amber-400" />
+                  Условие создания клана:
+                </span>
+                <span className={`font-black px-2 py-0.5 rounded-full text-[11px] ${
+                  (referralsData?.invitedCount ?? referralsData?.referrals?.length ?? 0) >= 2
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                }`}>
+                  {Math.min(referralsData?.invitedCount ?? referralsData?.referrals?.length ?? 0, 2)} / 2 друзей
+                </span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-amber-500 to-indigo-500 transition-all duration-500 rounded-full"
+                  style={{
+                    width: `${Math.min(((referralsData?.invitedCount ?? referralsData?.referrals?.length ?? 0) / 2) * 100, 100)}%`
+                  }}
+                />
+              </div>
+
+              {createClanError && (
+                <div className="p-2 rounded-xl bg-rose-500/15 border border-rose-400/30 text-rose-400 text-xs font-bold flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{createClanError}</span>
+                </div>
+              )}
+
+              {(referralsData?.invitedCount ?? referralsData?.referrals?.length ?? 0) >= 2 ? (
+                <div className="space-y-2 pt-1">
+                  <p className="text-[11px] text-emerald-400 font-medium">
+                    🎉 Вы пригласили {referralsData?.invitedCount ?? referralsData?.referrals?.length ?? 0} друзей! Вы можете стать Командором и основать клан прямо сейчас.
+                  </p>
+                  <button
+                    onClick={handleCreateClanClick}
+                    disabled={isCreatingClan}
+                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-amber-600 to-indigo-600 hover:brightness-110 text-white font-black text-xs shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 cursor-pointer"
+                  >
+                    <Crown className="w-4 h-4 text-amber-200" />
+                    <span>{isCreatingClan ? 'Основание клана...' : 'Основать свой клан!'}</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2 pt-1">
+                  <p className="text-[11px] text-tg-hint">
+                    Пригласите еще {2 - (referralsData?.invitedCount ?? referralsData?.referrals?.length ?? 0)} друзей, чтобы разблокировать создание клана и получить звание Командора.
+                  </p>
+                  <button
+                    onClick={() => {
+                      sound.playUiTap();
+                      haptics.medium();
+                      const botUsername = referralsData?.botUsername || 'taptaphub_bot';
+                      const inviteLink = `https://t.me/${botUsername}?start=ref_${user.id}`;
+                      const shareText = `🎮 Залетай в TapTap Hub! Играй в любимые головоломки прямо в Telegram и забирай +500 🪙 стартового бонуса! 🔥`;
+                      const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent(shareText)}`;
+                      const tg = getTelegramWebApp();
+                      if (tg?.openTelegramLink) tg.openTelegramLink(shareUrl);
+                      else window.open(shareUrl, '_blank');
+                    }}
+                    className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/30 flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>Пригласить друга (+500 🪙)</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
           <div className="space-y-2">
             <h4 className="text-xs font-black text-tg-hint uppercase tracking-wider px-1">
@@ -1413,7 +1621,7 @@ export const WorldMapTab: React.FC = () => {
                         className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-white text-xs shrink-0 shadow-sm"
                         style={{ backgroundColor: item.color }}
                       >
-                        {item.name.slice(0, 2).toUpperCase()}
+                        {getClanBadgeIcon(item.photoUrl, item.name)}
                       </div>
 
                       <div className="min-w-0">
@@ -1443,6 +1651,75 @@ export const WorldMapTab: React.FC = () => {
             )}
           </div>
         </div>
+
+      {/* MODAL: Rename Clan for Stars */}
+      {isRenameModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-sm rounded-3xl bg-slate-900 border border-slate-700 p-5 shadow-2xl text-white">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <h3 className="text-sm font-black text-white">Смена названия клана</h3>
+              </div>
+              <button
+                onClick={() => setIsRenameModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400 mb-3">
+              Введите новое имя для вашего клана. Стоимость смены — <strong>50 ⭐ Telegram Stars</strong>.
+            </p>
+
+            <form onSubmit={handleRenameSubmit} className="space-y-3">
+              <div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={renameInput}
+                    onChange={(e) => {
+                      setRenameInput(e.target.value);
+                      if (renameError) setRenameError(null);
+                    }}
+                    maxLength={20}
+                    placeholder="Новое название (3-20 симв.)"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-sm font-bold text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
+                  />
+                  <span className="absolute right-3 top-3 text-[11px] font-mono text-slate-500">
+                    {renameInput.length}/20
+                  </span>
+                </div>
+              </div>
+
+              {renameError && (
+                <div className="p-2.5 rounded-xl bg-rose-500/15 border border-rose-400/30 text-rose-400 text-xs font-bold flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{renameError}</span>
+                </div>
+              )}
+
+              <div className="p-3 rounded-2xl bg-slate-800/80 border border-slate-700/60 text-[11px] text-slate-400 space-y-1">
+                <p className="font-bold text-slate-300">Требования к названию:</p>
+                <p>• От 3 до 20 символов (буквы, цифры, дефис, пробел).</p>
+                <p>• Запрещены ссылки на сторонние ресурсы и нецензурная лексика.</p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={renameLoading || renameInput.trim().length < 3}
+                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-amber-600 to-indigo-600 hover:brightness-110 font-black text-xs text-white shadow-lg shadow-amber-500/20 disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>⭐</span>
+                <span>{renameLoading ? 'Обработка...' : 'Сменить за 50 Stars'}</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: Join / Create Group */}
       {isJoinModalOpen && (

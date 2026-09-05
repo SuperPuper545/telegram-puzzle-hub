@@ -511,14 +511,14 @@ export function processReferral(invitedUserId, referrerTelegramId) {
     return { success: false, reason: 'invalid_referrer_id' };
   }
 
-  const invitedUser = db.prepare('SELECT id, telegram_id, referrer_id, coins FROM users WHERE id = ?').get(invitedUserId);
+  const invitedUser = db.prepare('SELECT id, telegram_id, referrer_id, coins, group_id FROM users WHERE id = ?').get(invitedUserId);
   if (!invitedUser) {
     return { success: false, reason: 'invited_not_found' };
   }
 
-  let inviter = db.prepare('SELECT id, telegram_id, first_name, username, coins FROM users WHERE telegram_id = ?').get(cleanRefTgId);
+  let inviter = db.prepare('SELECT id, telegram_id, first_name, username, coins, group_id FROM users WHERE telegram_id = ?').get(cleanRefTgId);
   if (!inviter) {
-    inviter = db.prepare('SELECT id, telegram_id, first_name, username, coins FROM users WHERE id = ?').get(cleanRefTgId);
+    inviter = db.prepare('SELECT id, telegram_id, first_name, username, coins, group_id FROM users WHERE id = ?').get(cleanRefTgId);
   }
 
   if (!inviter) {
@@ -530,7 +530,27 @@ export function processReferral(invitedUserId, referrerTelegramId) {
   }
 
   if (invitedUser.referrer_id) {
-    return { success: false, reason: 'already_referred' };
+    // Already referred previously. Do not give coins again.
+    // Variant A: If user has NO clan yet, auto-join to inviter's clan!
+    let joinedGroup = null;
+    if (!invitedUser.group_id && inviter.group_id) {
+      const joinRes = joinGroup(invitedUser.id, inviter.group_id);
+      if (joinRes.success) {
+        joinedGroup = joinRes.group;
+      }
+    }
+    return {
+      success: false,
+      reason: 'already_referred',
+      joinedGroup,
+      inviter: {
+        id: inviter.id,
+        telegramId: inviter.telegram_id,
+        firstName: inviter.first_name,
+        username: inviter.username,
+        groupId: inviter.group_id,
+      },
+    };
   }
 
   const BONUS = 500;
@@ -556,14 +576,26 @@ export function processReferral(invitedUserId, referrerTelegramId) {
 
   try {
     runTx();
+
+    // Auto-join to inviter's clan if user has no clan and inviter has a clan
+    let joinedGroup = null;
+    if (!invitedUser.group_id && inviter.group_id) {
+      const joinRes = joinGroup(invitedUser.id, inviter.group_id);
+      if (joinRes.success) {
+        joinedGroup = joinRes.group;
+      }
+    }
+
     return {
       success: true,
       bonus: BONUS,
+      joinedGroup,
       inviter: {
         id: inviter.id,
         telegramId: inviter.telegram_id,
         firstName: inviter.first_name,
         username: inviter.username,
+        groupId: inviter.group_id,
       },
     };
   } catch (err) {
@@ -1079,6 +1111,105 @@ export function createGroup({ telegramChatId, name, username = null, photoUrl = 
   }
 
   return getGroupById(newGroupId);
+}
+
+export const CLAN_BADGES = [
+  'badge_lion',
+  'badge_wolf',
+  'badge_eagle',
+  'badge_dragon',
+  'badge_crown',
+  'badge_sword',
+  'badge_shield',
+  'badge_falcon',
+  'badge_bear',
+  'badge_fire',
+  'badge_lightning',
+  'badge_star',
+];
+
+export function validateGroupName(name) {
+  if (!name || typeof name !== 'string') {
+    return { valid: false, error: 'Название клана не может быть пустым' };
+  }
+  const trimmed = name.trim();
+  if (trimmed.length < 3) {
+    return { valid: false, error: 'Название должно содержать минимум 3 символа' };
+  }
+  if (trimmed.length > 20) {
+    return { valid: false, error: 'Название не должно превышать 20 символов' };
+  }
+  // Allow letters (RU/EN), digits, spaces, hyphens and underscores
+  if (!/^[a-zA-Z0-9а-яА-ЯёЁ _-]+$/.test(trimmed)) {
+    return { valid: false, error: 'Разрешены только буквы, цифры, дефис и пробелы' };
+  }
+  // Check for URL patterns & spam domains
+  const urlPattern = /(t\.me|https?:\/\/|www\.|\.ru|\.com|\.org|\.net|\.io|\.gg|\.xyz|\.app)/i;
+  if (urlPattern.test(trimmed)) {
+    return { valid: false, error: 'Ссылки и адреса сайтов запрещены в названии' };
+  }
+  // Filter obscenities & toxic words
+  const profanityRegex = /(ху[йиеяю]|пизд|еба[тнл]|ебл|бля[дт]|сук[аио]|муда[кч]|говн|чмо|гандон|залуп|дроч|fuck|shit|bitch|cunt|dick|asshole|nigger|nigga)/i;
+  if (profanityRegex.test(trimmed)) {
+    return { valid: false, error: 'Название содержит недопустимые слова' };
+  }
+  return { valid: true, name: trimmed };
+}
+
+export function createCustomGroup(userId) {
+  const user = getUserById(userId);
+  if (!user) return { success: false, error: 'Пользователь не найден' };
+
+  if (user.group_id) {
+    return { success: false, error: 'Вы уже состоите в клане' };
+  }
+
+  // Check referral condition: at least 2 referrals
+  const refCount = db.prepare('SELECT COUNT(*) as count FROM referrals WHERE inviter_id = ?').get(userId)?.count || 0;
+  if (refCount < 2) {
+    return { success: false, error: `Для создания клана необходимо пригласить минимум 2 друзей (приглашено: ${refCount}/2)` };
+  }
+
+  const randomBadge = CLAN_BADGES[Math.floor(Math.random() * CLAN_BADGES.length)];
+  const randomColor = GROUP_COLORS[Math.floor(Math.random() * GROUP_COLORS.length)];
+  const customChatId = `clan_custom_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
+  const stmt = db.prepare(`
+    INSERT INTO groups (telegram_chat_id, name, photo_url, color, commander_user_id)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  const info = stmt.run(customChatId, 'Временное имя', randomBadge, randomColor, userId);
+  const newGroupId = info.lastInsertRowid;
+  const defaultName = `Клан #${newGroupId}`;
+
+  db.prepare('UPDATE groups SET name = ? WHERE id = ?').run(defaultName, newGroupId);
+
+  db.prepare('UPDATE users SET group_id = ?, group_joined_at = CURRENT_TIMESTAMP WHERE id = ?')
+    .run(newGroupId, userId);
+
+  return { success: true, group: getGroupById(newGroupId) };
+}
+
+export function renameGroup(userId, groupId, newName) {
+  const group = getGroupById(groupId);
+  if (!group) return { success: false, error: 'Клан не найден' };
+
+  if (group.commander_user_id !== userId) {
+    return { success: false, error: 'Только Командор клана может менять название' };
+  }
+
+  const validation = validateGroupName(newName);
+  if (!validation.valid) {
+    return { success: false, error: validation.error };
+  }
+
+  const existing = db.prepare('SELECT id FROM groups WHERE LOWER(name) = LOWER(?) AND id != ?').get(validation.name, groupId);
+  if (existing) {
+    return { success: false, error: 'Клан с таким названием уже существует' };
+  }
+
+  db.prepare('UPDATE groups SET name = ? WHERE id = ?').run(validation.name, groupId);
+  return { success: true, group: getGroupById(groupId) };
 }
 
 export function joinGroup(userId, groupId) {
@@ -1749,6 +1880,7 @@ export const STARS_PRODUCTS = {
   group_color: { name: 'Уникальный цвет группы', stars: 50, type: 'group_color' },
   extra_tokens: { name: 'Токены казны (+3)', stars: 80, type: 'extra_tokens' },
   cell_shield: { name: 'Щит клетки (7 дней)', stars: 30, type: 'cell_shield' },
+  clan_rename: { name: 'Смена названия клана', stars: 50, type: 'clan_rename' },
 };
 
 export function processStarsPayment({ userId, productId, starsAmount, chargeId, payload = {} }) {
@@ -1805,6 +1937,8 @@ export function processStarsPayment({ userId, productId, starsAmount, chargeId, 
         size: 5,
         isEmergency: false,
       });
+    } else if (productId === 'clan_rename' && user.group_id && payload?.newName) {
+      renameGroup(userId, user.group_id, payload.newName);
     }
   });
   tx();

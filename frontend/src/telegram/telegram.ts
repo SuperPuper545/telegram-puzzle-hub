@@ -29,6 +29,7 @@ declare global {
         enableClosingConfirmation?: () => void;
         disableVerticalSwipe?: () => void;
         openTelegramLink?: (url: string) => void;
+        openInvoice?: (url: string, callback?: (status: string) => void) => void;
         onEvent?: (eventType: string, eventHandler: () => void) => void;
         offEvent?: (eventType: string, eventHandler: () => void) => void;
         BackButton: {
@@ -285,11 +286,12 @@ export function removeBackButton() {
   tg.BackButton.hide();
 }
 
-export function createClanInviteShareUrl(botUsername: string, groupId: number, clanName: string): { inviteLink: string; shareUrl: string } {
-  const cleanBot = botUsername.replace(/^@/, '');
-  // Using start=clan_${groupId} ensures 100% compatibility with all Telegram clients, web & mobile
-  const inviteLink = `https://t.me/${cleanBot}?start=clan_${groupId}`;
-  const shareText = `Присоединяйся к нашему клану «${clanName}» на Карте Мира в TapTap Hub! 🌍⚔️`;
+export function createClanInviteShareUrl(botUsername: string, groupId: number, clanName: string, userId?: number | string): { inviteLink: string; shareUrl: string } {
+  const cleanBot = (botUsername || 'taptaphub_bot').replace(/^@/, '');
+  // Unified link: If userId is provided, use ref_${userId} which awards 500 coins AND joins the clan!
+  const param = userId ? `ref_${userId}` : `clan_${groupId}`;
+  const inviteLink = `https://t.me/${cleanBot}?start=${param}`;
+  const shareText = `Присоединяйся к нашему клану «${clanName}» на Карте Мира в TapTap Hub! 🌍⚔️ Заходи по ссылке, получи +500 🪙 и играй вместе с нами!`;
   const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent(shareText)}`;
   return { inviteLink, shareUrl };
 }

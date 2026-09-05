@@ -156,6 +156,9 @@ interface GameContextType {
   myGroup: UserGroupData | null;
   fetchMyGroup: () => Promise<void>;
   joinGroup: (target: string | number) => Promise<{ success: boolean; error?: string; group?: UserGroupData }>;
+  createCustomClan: () => Promise<{ success: boolean; error?: string; group?: UserGroupData }>;
+  checkClanRename: (newName: string) => Promise<{ valid: boolean; error?: string; name?: string }>;
+  createRenameInvoice: (newName: string) => Promise<{ success: boolean; error?: string; invoiceLink?: string }>;
   scoreBoosterUntil: string | null;
   isScoreBoosterActive: boolean;
   scoreBoosterRemainingSeconds: number;
@@ -368,6 +371,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setCoins(resData.newCoins);
               localStorage.setItem(LOCAL_COINS_KEY, String(resData.newCoins));
             }
+            if (resData.group) {
+              setMyGroup(resData.group);
+              setActiveTab('world');
+            }
           }
         })
         .catch(err => console.warn('Referral claim error:', err));
@@ -530,6 +537,81 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: true, group: data.group };
       }
       return { success: false, error: data.error || 'Ошибка при вступлении в группу' };
+    } catch (err) {
+      return { success: false, error: 'Ошибка соединения с сервером' };
+    }
+  }, []);
+
+  const createCustomClan = useCallback(async () => {
+    try {
+      const initData = getTelegramInitData();
+      const currentUser = getTelegramUser();
+      const res = await fetch('/api/groups/create-custom', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `tma ${initData}`,
+          'x-mock-user-id': String(currentUser.id),
+          'x-mock-username': currentUser.first_name || 'Player',
+        },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMyGroup(data.group);
+        return { success: true, group: data.group };
+      }
+      return { success: false, error: data.error || 'Ошибка создания клана' };
+    } catch (err) {
+      return { success: false, error: 'Ошибка соединения с сервером' };
+    }
+  }, []);
+
+  const checkClanRename = useCallback(async (newName: string) => {
+    try {
+      const initData = getTelegramInitData();
+      const currentUser = getTelegramUser();
+      const res = await fetch('/api/groups/rename-check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `tma ${initData}`,
+          'x-mock-user-id': String(currentUser.id),
+          'x-mock-username': currentUser.first_name || 'Player',
+        },
+        body: JSON.stringify({ newName }),
+      });
+      const data = await res.json();
+      if (res.ok && data.valid) {
+        return { valid: true, name: data.name };
+      }
+      return { valid: false, error: data.error || 'Недопустимое название' };
+    } catch (err) {
+      return { valid: false, error: 'Ошибка проверки названия' };
+    }
+  }, []);
+
+  const createRenameInvoice = useCallback(async (newName: string) => {
+    try {
+      const initData = getTelegramInitData();
+      const currentUser = getTelegramUser();
+      const res = await fetch('/api/stars/create-invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `tma ${initData}`,
+          'x-mock-user-id': String(currentUser.id),
+          'x-mock-username': currentUser.first_name || 'Player',
+        },
+        body: JSON.stringify({
+          productId: 'clan_rename',
+          extra: { newName },
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        return { success: true, invoiceLink: data.invoiceLink };
+      }
+      return { success: false, error: data.error || 'Не удалось создать счет Stars' };
     } catch (err) {
       return { success: false, error: 'Ошибка соединения с сервером' };
     }
@@ -944,6 +1026,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         myGroup,
         fetchMyGroup,
         joinGroup,
+        createCustomClan,
+        checkClanRename,
+        createRenameInvoice,
         scoreBoosterUntil,
         isScoreBoosterActive,
         scoreBoosterRemainingSeconds,

@@ -5,7 +5,7 @@ import { sound } from '../../utils/sound';
 import { haptics, getTelegramWebApp } from '../../telegram/telegram';
 
 export const FriendsTab: React.FC = () => {
-  const { user, referralsData, fetchReferrals } = useGameBridge();
+  const { user, referralsData, fetchReferrals, myGroup } = useGameBridge();
   const [copied, setCopied] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -42,7 +42,8 @@ export const FriendsTab: React.FC = () => {
   const handleShare = () => {
     sound.playUiTap();
     haptics.medium();
-    const shareText = `🎮 Залетай в TapTap Hub! Играй в любимые головоломки прямо в Telegram и забирай +500 🪙 стартового бонуса! 🔥`;
+    const clanNotice = myGroup?.group?.name ? ` и вступай в наш клан «${myGroup.group.name}»` : '';
+    const shareText = `🎮 Залетай в TapTap Hub! Играй в любимые головоломки${clanNotice} и забирай +500 🪙 стартового бонуса! 🔥🏰`;
     const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent(shareText)}`;
 
     const tg = getTelegramWebApp();
